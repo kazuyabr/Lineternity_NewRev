@@ -3,6 +3,7 @@
 *.rej
 *.class.encrypted
 *.md
+!docker/README.md
 *.encrypted
 *.pyc
 *.py
