@@ -169,6 +169,54 @@ GAME_CATEGORIES = {
             PropertyConfig("TRADE_CHAT", "Trade Chat", "ON", "Trade chat mode", False, "chat"),
         ]
     ),
+    "events": CategoryConfig(
+        name="events",
+        label="Events",
+        properties=[
+            PropertyConfig("OlympiadEnabled", "Olympiad Enabled", "True", "Enable Olympiad", False, "events"),
+            PropertyConfig("OlyStartTime", "Oly Start Time", "18", "Olympiad start hour", False, "events"),
+            PropertyConfig("OlyCPeriod", "Oly Competition Period", "21600000", "Olympiad competition period (ms)", False, "events"),
+            PropertyConfig("OlyBattle", "Oly Battle Time", "360000", "Olympiad battle time (ms)", False, "events"),
+            PropertyConfig("CTFEventEnabled", "CTF Enabled", "False", "Enable CTF event", False, "events"),
+            PropertyConfig("DMEventEnabled", "DM Enabled", "False", "Enable Deathmatch event", False, "events"),
+            PropertyConfig("TvTEventEnabled", "TvT Enabled", "False", "Enable Team vs Team event", False, "events"),
+            PropertyConfig("LMEventEnabled", "LM Enabled", "False", "Enable Last Man event", False, "events"),
+        ]
+    ),
+    "clans": CategoryConfig(
+        name="clans",
+        label="Clans",
+        properties=[
+            PropertyConfig("DaysBeforeJoinAClan", "Days Before Join Clan", "1", "Days before joining another clan", False, "clans"),
+            PropertyConfig("DaysBeforeCreateAClan", "Days Before Create Clan", "10", "Days before creating a new clan", False, "clans"),
+            PropertyConfig("DaysToPassToDissolveAClan", "Days to Dissolve Clan", "7", "Days to dissolve a clan", False, "clans"),
+            PropertyConfig("MaxNumOfClansInAlly", "Max Clans in Ally", "3", "Maximum clans in ally", False, "clans"),
+            PropertyConfig("ClanMembersForWar", "Clan Members for War", "15", "Members needed for clan war", False, "clans"),
+        ]
+    ),
+    "raidboss": CategoryConfig(
+        name="raidboss",
+        label="RaidBoss",
+        properties=[
+            PropertyConfig("RBSleepTime", "RB Sleep Time", "60", "RaidBoss sleep time (min)", False, "raidboss"),
+            PropertyConfig("RBAgroTime", "RB Aggro Time", "60", "RaidBoss aggro time (min)", False, "raidboss"),
+        ]
+    ),
+    "cancel": CategoryConfig(
+        name="cancel",
+        label="CancelManager",
+        properties=[
+            PropertyConfig("CANCEL_SKILL_ON_ATTACK", "Cancel on Attack", "True", "Cancel skills when attacked", False, "cancel"),
+        ]
+    ),
+    "auction": CategoryConfig(
+        name="auction",
+        label="Auction",
+        properties=[
+            PropertyConfig("AUCTION_ENABLED", "Auction Enabled", "True", "Enable auction house", False, "auction"),
+            PropertyConfig("AUCTION_TAX", "Auction Tax", "5", "Auction house tax (%)", False, "auction"),
+        ]
+    ),
 }
 
 # Mandatory configs for basic mode
@@ -258,6 +306,39 @@ def collect_mandatory_config(server_type: str) -> dict[str, str]:
     
     return config
 
+def collect_category_by_name(server_type: str, category_name: str) -> dict[str, str]:
+    categories = LOGIN_CATEGORIES if server_type == "login" else GAME_CATEGORIES
+    if category_name in categories:
+        return collect_category_config(categories[category_name])
+    return {}
+
+def collect_advanced_config_with_selection(server_type: str) -> dict[str, str]:
+    categories = LOGIN_CATEGORIES if server_type == "login" else GAME_CATEGORIES
+    
+    print(f"\n  Configuracao Avancada - {server_type.upper()}")
+    print("  Selecione as categorias para configurar.\n")
+    
+    cat_names = list(categories.keys())
+    options = [categories[name].label for name in cat_names]
+    options.append("Todas as categorias")
+    options.append("Voltar")
+    
+    while True:
+        idx = choose_from_menu("Selecione a categoria", options)
+        
+        if idx == len(options) - 1:  # Voltar
+            break
+        elif idx == len(options) - 2:  # Todas
+            config = {}
+            for name in cat_names:
+                config.update(collect_category_config(categories[name]))
+            return config
+        elif 0 <= idx < len(cat_names):
+            config = collect_category_config(categories[cat_names[idx]])
+            return config
+    
+    return {}
+
 def collect_full_config(server_type: str) -> dict[str, str]:
     config = {}
     categories = LOGIN_CATEGORIES if server_type == "login" else GAME_CATEGORIES
@@ -274,12 +355,15 @@ def select_config_mode() -> str:
     options = [
         "Modo Basico (campos obrigatorios apenas)",
         "Modo Avancado (todas as configuracoes)",
+        "Modo Avancado com Selecao (escolher categorias)",
     ]
     idx = choose_from_menu("Modo de Configuracao", options)
     if idx == 0:
         return "basic"
     elif idx == 1:
         return "advanced"
+    elif idx == 2:
+        return "advanced_select"
     return "basic"
 
 # ============================================================
@@ -343,6 +427,8 @@ def create_login_server():
     
     if config_mode == "basic":
         config = collect_mandatory_config("login")
+    elif config_mode == "advanced_select":
+        config = collect_advanced_config_with_selection("login")
     else:
         config = collect_full_config("login")
     
@@ -399,6 +485,8 @@ def create_game_server():
     
     if config_mode == "basic":
         config = collect_mandatory_config("game")
+    elif config_mode == "advanced_select":
+        config = collect_advanced_config_with_selection("game")
     else:
         config = collect_full_config("game")
     
@@ -670,6 +758,136 @@ def bulk_edit_env():
         if compose_file.exists():
             run_compose(compose_file, "restart", env_file=env_file)
 
+def manage_config_profiles():
+    print_header("Gerenciar Perfis de Configuracao")
+    
+    profiles_dir = DOCKER_DIR / "profiles"
+    profiles_dir.mkdir(exist_ok=True)
+    
+    options = [
+        "Listar perfis existentes",
+        "Criar novo perfil",
+        "Carregar perfil",
+        "Salvar perfil atual",
+        "Deletar perfil",
+        "Voltar",
+    ]
+    
+    while True:
+        idx = choose_from_menu("Gerenciar Perfis", options)
+        
+        if idx == 0:
+            list_profiles(profiles_dir)
+        elif idx == 1:
+            create_profile(profiles_dir)
+        elif idx == 2:
+            load_profile(profiles_dir)
+        elif idx == 3:
+            save_profile(profiles_dir)
+        elif idx == 4:
+            delete_profile(profiles_dir)
+        elif idx == 5:
+            break
+        
+        input("\n  Pressione Enter para continuar...")
+
+def list_profiles(profiles_dir: Path):
+    print("\n  Perfis existentes:")
+    profiles = list(profiles_dir.glob("*.env"))
+    if not profiles:
+        print("    Nenhum perfil encontrado.")
+    else:
+        for i, profile in enumerate(profiles, 1):
+            print(f"    [{i}] {profile.stem}")
+
+def create_profile(profiles_dir: Path):
+    print("\n  Criar novo perfil de configuracao")
+    profile_name = input("  Nome do perfil: ").strip()
+    
+    if not profile_name:
+        print("  Nome invalido.")
+        return
+    
+    profile_file = profiles_dir / f"{profile_name}.env"
+    if profile_file.exists():
+        print(f"  Perfil '{profile_name}' ja existe.")
+        if not confirm("  Sobrescrever?"):
+            return
+    
+    print("\n  Configuracao do perfil:")
+    config = collect_full_config("game")
+    
+    env_content = "\n".join(f"{key}={value}" for key, value in config.items())
+    profile_file.write_text(env_content, encoding='utf-8')
+    
+    print(f"\n  Perfil '{profile_name}' criado com sucesso!")
+
+def load_profile(profiles_dir: Path):
+    profiles = list(profiles_dir.glob("*.env"))
+    if not profiles:
+        print("  Nenhum perfil encontrado.")
+        return
+    
+    options = [p.stem for p in profiles]
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o perfil para carregar", options)
+    if idx == len(profiles):
+        return
+    
+    profile = profiles[idx]
+    print(f"\n  Perfil '{profile.stem}' selecionado.")
+    print("  Este perfil sera usado na criacao do proximo GameServer.")
+
+def save_profile(profiles_dir: Path):
+    servers = list_existing_game_servers()
+    if not servers:
+        print("  Nenhum GameServer encontrado.")
+        return
+    
+    options = [f"GameServer #{s.server_id}" for s in servers]
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o GameServer para salvar como perfil", options)
+    if idx == len(servers):
+        return
+    
+    server = servers[idx]
+    
+    profile_name = input("  Nome do perfil: ").strip()
+    if not profile_name:
+        print("  Nome invalido.")
+        return
+    
+    profile_file = profiles_dir / f"{profile_name}.env"
+    
+    if server.env_path.exists():
+        shutil.copy2(server.env_path, profile_file)
+        print(f"\n  Perfil '{profile_name}' salvo com sucesso!")
+    else:
+        print("  Arquivo .env do GameServer nao encontrado.")
+
+def delete_profile(profiles_dir: Path):
+    profiles = list(profiles_dir.glob("*.env"))
+    if not profiles:
+        print("  Nenhum perfil encontrado.")
+        return
+    
+    options = [p.stem for p in profiles]
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o perfil para deletar", options)
+    if idx == len(profiles):
+        return
+    
+    profile = profiles[idx]
+    
+    if not confirm(f"  Deletar perfil '{profile.stem}'?"):
+        return
+    
+    profile.unlink()
+    print(f"\n  Perfil '{profile.stem}' deletado com sucesso!")
+
 # ============================================================
 # Main Menu
 # ============================================================
@@ -678,12 +896,13 @@ def main_menu():
     while True:
         options = [
             "Reset completo + rebuild sem cache",
-            "Criar LoginServer (modo basico)",
-            "Criar GameServer (modo basico)",
+            "Criar LoginServer",
+            "Criar GameServer",
             "Remover servidor",
             "Listar servidores ativos",
             "Logs",
             "Edicao em massa de environment",
+            "Gerenciar perfis de configuracao",
             "Exit",
         ]
         
@@ -704,6 +923,8 @@ def main_menu():
         elif idx == 6:
             bulk_edit_env()
         elif idx == 7:
+            manage_config_profiles()
+        elif idx == 8:
             print("\n  Saindo...")
             break
         else:
