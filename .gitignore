@@ -6,6 +6,7 @@
 *.encrypted
 *.pyc
 *.py
+!docker/stack.py
 *.lock
 *.probe
 
