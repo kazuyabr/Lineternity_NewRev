@@ -421,7 +421,7 @@ def create_game_server():
     config_dir.mkdir(parents=True, exist_ok=True)
     
     # Copy docker-compose template
-    compose_template = TEMPLATES_DIR / "gameservers" / "template" / "docker-compose.yml"
+    compose_template = GAMESERVERS_DIR / "template" / "docker-compose.yml"
     compose_file = server_dir / "docker-compose.yml"
     shutil.copy2(compose_template, compose_file)
     
