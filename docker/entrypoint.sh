@@ -1,0 +1,230 @@
+#!/bin/sh
+# ============================================================
+# Lineternity Entry Point
+# Suporta: login, gameserver
+# ============================================================
+
+set +e
+
+# --- Configurações do Banco de Dados ---
+echo "=========================================="
+echo "  Configurando banco de dados"
+echo "=========================================="
+
+DB_HOST_VAL="${DB_HOST:-mariadb}"
+DB_PORT_VAL="${DB_PORT:-3306}"
+DB_USER_VAL="${DB_USER:-root}"
+DB_PASSWORD_VAL="${DB_PASSWORD:-root}"
+LOGIN_DB="${LOGIN_DB:-l2jdb_login}"
+GAME_DB="${GAME_DB:-l2jdb_gs1}"
+
+echo "DB Host: $DB_HOST_VAL:$DB_PORT_VAL"
+echo "Login DB: $LOGIN_DB"
+echo "Game DB: $GAME_DB"
+echo ""
+
+# --- Função para aguardar MySQL ---
+wait_for_mysql() {
+    echo "Aguardando MySQL estar pronto..."
+    local retries=30
+    while ! mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl -e "SELECT 1" &>/dev/null; do
+        retries=$((retries - 1))
+        if [ $retries -le 0 ]; then
+            echo "ERRO: MySQL não ficou pronto após 30 tentativas"
+            exit 1
+        fi
+        echo "  Tentativa $((30 - retries))/30..."
+        sleep 2
+    done
+    echo "MySQL pronto!"
+    echo ""
+}
+
+# --- Função para criar game database ---
+create_game_db() {
+    local db_name=$1
+    echo "=========================================="
+    echo "  Criando Game Database: $db_name"
+    echo "=========================================="
+    mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl -e \
+        "CREATE DATABASE IF NOT EXISTS \`$db_name\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+    
+    # Verificar se já tem tabelas
+    local table_count=$(mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$db_name" -N -e \
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$db_name';" 2>/dev/null)
+    
+    if [ "$table_count" = "0" ] 2>/dev/null; then
+        echo "Database vazio, importando schema..."
+        mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$db_name" < "$(dirname "$0")/sql/gameserver.sql"
+        echo "Schema importado com sucesso!"
+    else
+        echo "Database já contém $table_count tabelas, pulando importação."
+    fi
+    echo ""
+}
+
+# --- Função para registrar gameserver ---
+register_gameserver() {
+    local server_id=$1
+    local hostname=$2
+    local hexid_file="game/config/hexid.txt"
+    
+    echo "=========================================="
+    echo "  Registrando GameServer #$server_id"
+    echo "=========================================="
+    
+    # Verificar se hexid.txt já existe e é válido
+    if [ -f "$hexid_file" ]; then
+        local existing_hexid=$(grep -o "HexID=.*" "$hexid_file" 2>/dev/null | cut -d'=' -f2)
+        local existing_server_id=$(grep -o "ServerID=.*" "$hexid_file" 2>/dev/null | cut -d'=' -f2)
+        if [ -n "$existing_hexid" ] && [ ${#existing_hexid} -ge 32 ] && [ -n "$existing_server_id" ] && [ "$existing_server_id" = "$server_id" ]; then
+            echo "HexID já existe: $existing_hexid"
+            echo "Verificando registro no banco..."
+            
+            # Verificar se já está registrado
+            local db_hexid=$(mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$LOGIN_DB" -N -e \
+                "SELECT hexid FROM gameservers WHERE server_id = $server_id;" 2>/dev/null)
+            
+            if [ -n "$db_hexid" ] && [ "$db_hexid" = "$existing_hexid" ]; then
+                echo "GameServer #$server_id já está registrado corretamente!"
+                return 0
+            else
+                echo "HexID não corresponde ao registro no banco. Atualizando..."
+                mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$LOGIN_DB" -e \
+                    "INSERT INTO gameservers (server_id, hexid, host) VALUES ($server_id, '$existing_hexid', '$hostname') 
+                     ON DUPLICATE KEY UPDATE hexid='$existing_hexid', host='$hostname';"
+                echo "Registro atualizado no banco!"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Gerar novo hexid
+    echo "Gerando novo HexID..."
+    local hexid=$(openssl rand -hex 16 | tr '[:lower:]' '[:upper:]')
+    echo "HexID gerado: $hexid"
+    
+    # Inserir no banco de dados
+    echo "Inserindo no banco de dados..."
+    mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$LOGIN_DB" -e \
+        "INSERT INTO gameservers (server_id, hexid, host) VALUES ($server_id, '$hexid', '$hostname') 
+         ON DUPLICATE KEY UPDATE hexid='$hexid', host='$hostname';"
+    echo "Registro inserido com sucesso!"
+    
+    # Criar diretório se não existir
+    mkdir -p "$(dirname "$hexid_file")"
+    
+    # Salvar hexid.txt
+    cat > "$hexid_file" << EOF
+#HexID Auto-generated by Lineternity
+ServerID=$server_id
+HexID=$hexid
+EOF
+    
+    echo "HexID salvo em: $hexid_file"
+    echo ""
+}
+
+# --- Função para configurar properties ---
+configure_properties() {
+    local mode=$1
+    local server_id=$2
+    
+    echo "Configurando arquivos de propriedades..."
+    
+    # Configurar game/config/server.properties
+    if [ -f "game/config/server.properties" ]; then
+        echo "  Atualizando game/config/server.properties"
+        
+        # Configurar banco de dados do game (usar padrão mais específico para evitar substituições encadeadas)
+        sed -i "s|^sql.url = jdbc:mariadb://.*|sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${GAME_DB}?useUnicode=true\&characterEncoding=UTF-8|g" game/config/server.properties
+        sed -i "s|sql.login = .*|sql.login = ${DB_USER_VAL}|g" game/config/server.properties
+        sed -i "s|sql.password = .*|sql.password = ${DB_PASSWORD_VAL}|g" game/config/server.properties
+        
+        # Configurar hostname
+        if [ -n "$server_id" ]; then
+            sed -i "s|^Hostname = .*|Hostname = gameserver-${server_id}|g" game/config/server.properties
+        fi
+    fi
+    
+    # Configurar login/config/loginserver.properties
+    if [ -f "login/config/loginserver.properties" ]; then
+        echo "  Atualizando login/config/loginserver.properties"
+        
+        # Configurar banco de dados do login (usar padrão mais específico)
+        sed -i "s|^sql.url = jdbc:mariadb://.*|sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${LOGIN_DB}?useUnicode=true\&characterEncoding=UTF-8|g" login/config/loginserver.properties
+        sed -i "s|sql.login = .*|sql.login = ${DB_USER_VAL}|g" login/config/loginserver.properties
+        sed -i "s|sql.password = .*|sql.password = ${DB_PASSWORD_VAL}|g" login/config/loginserver.properties
+    fi
+    
+    echo "Propriedades configuradas!"
+    echo ""
+}
+
+# --- Configurações de variáveis ---
+L2_EMAIL=${L2_EMAIL:-"brprojeto@l2jbrasil.com"}
+PASSWORD=${PASSWORD:-"12345678"}
+KEY=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | head -c 32 || openssl rand -hex 16)
+SERVER_ID=${SERVER_ID:-1}
+SERVER_HOSTNAME=${SERVER_HOSTNAME:-"gameserver-${SERVER_ID}"}
+
+# --- Classpath (baseado no Brproject_Distribution) ---
+BASE_DIR=$(cd "$(dirname "$0")/.." && pwd)
+LIBS_DIR="$BASE_DIR/libs"
+CLASSPATH="$LIBS_DIR/server.jar"
+for jar in $(ls "$LIBS_DIR"/*.jar 2>/dev/null | sort); do
+  base=$(basename "$jar")
+  case "$base" in
+    server.jar|*.encrypted|kotlin-stdlib-2.0.0.jar|kotlin-reflect-2.0.0.jar|kotlinx-coroutines-core-jvm-1.8.1.jar) ;;
+    *) CLASSPATH="$CLASSPATH:$jar" ;;
+  esac
+done
+echo "Classpath: $(echo $CLASSPATH | tr ':' '\n' | wc -l) jars"
+
+# --- Flags JVM ---
+JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | sed 's/^1\.//' | cut -d'.' -f1)
+BASE_JVM_FLAGS="-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=16m -XX:+G1UseAdaptiveIHOP -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=45 -XX:+UseStringDeduplication -XX:+UseCompressedOops -XX:+UseCompressedClassPointers -XX:+TieredCompilation -XX:TieredStopAtLevel=4 -XX:G1PeriodicGCInterval=30000 -XX:+G1PeriodicGCInvokesConcurrent -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=30"
+
+if [ "$JAVA_VERSION" -ge 25 ] 2>/dev/null; then
+  BASE_JVM_FLAGS="$BASE_JVM_FLAGS -XX:+UseCompactObjectHeaders"
+fi
+
+LOGIN_JAVA_OPTS="$BASE_JVM_FLAGS"
+GAME_JAVA_OPTS="-Xms1g -Xmx2g -Djava.awt.headless=true $BASE_JVM_FLAGS"
+
+# --- Iniciar Servidor ---
+START_TYPE=${1:-both}
+
+if [ "$START_TYPE" = "login" ]; then
+    echo "=== Iniciando LoginServer ==="
+    
+    # Configurar properties para login
+    configure_properties "login"
+    
+    cd login || exit 1
+    exec java $LOGIN_JAVA_OPTS -cp "$CLASSPATH" ext.mods.loginserver.LoginServer
+
+elif [ "$START_TYPE" = "gameserver" ]; then
+    SERVER_NUM=${2:-$SERVER_ID}
+    echo "=== Iniciando GameServer #$SERVER_NUM ==="
+    
+    # Aguardar MySQL
+    wait_for_mysql
+    
+    # Criar game database se não existir
+    create_game_db "$GAME_DB"
+    
+    # Registrar gameserver automaticamente
+    register_gameserver "$SERVER_NUM" "$SERVER_HOSTNAME"
+    
+    # Configurar properties para game
+    configure_properties "game" "$SERVER_NUM"
+    
+    cd game || exit 1
+    echo "DEBUG: CLASSPATH jars = $(echo $CLASSPATH | tr ':' '\n' | wc -l)"
+    exec java $GAME_JAVA_OPTS -cp "$CLASSPATH" ext.mods.gameserver.GameServer "$KEY" "$L2_EMAIL"
+
+else
+    echo "Modo '$START_TYPE' não suportado. Use: login ou gameserver"
+    exit 1
+fi

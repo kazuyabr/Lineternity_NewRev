@@ -3,9 +3,11 @@
 *.rej
 *.class.encrypted
 *.md
+!docker/README.md
 *.encrypted
 *.pyc
 *.py
+!docker/stack.py
 *.lock
 *.probe
 
@@ -62,3 +64,10 @@ Brproject_7z/
 build/
 *.7z
 *.zip
+.cortex/
+
+# Docker
+docker/logs/
+docker/gameservers/*/logs/
+docker/gameservers/*/.env
+docker/gameservers/*/config/

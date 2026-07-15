@@ -1,0 +1,38 @@
+services:
+  gameserver:
+    container_name: lineternity-gameserver-${SERVER_ID}
+    hostname: gameserver-${SERVER_ID}
+    image: lineternity-newrev:latest
+    build:
+      context: ../../
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ./.env
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "${PUBLIC_PORT}:7777"
+    environment:
+      L2_EMAIL: ${L2_EMAIL:-brprojeto@l2jbrasil.com}
+      DB_HOST: ${DB_HOST:-mariadb}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      LOGIN_DB: ${LOGIN_DB:-l2jdb_login}
+      GAME_DB: ${GAME_DB:-l2jdb_gs1}
+      SERVER_ID: ${SERVER_ID:-1}
+      SERVER_HOSTNAME: gameserver-${SERVER_ID}
+    volumes:
+      - ../../logs:/l2Brproject/logs
+    command: ["gameserver", "${SERVER_ID}"]
+    restart: unless-stopped
+    networks:
+      lineternity:
+        aliases:
+          - gameserver-${SERVER_ID}
+
+networks:
+  lineternity:
+    external: true
+    name: lineternity-network

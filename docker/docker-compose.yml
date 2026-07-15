@@ -1,0 +1,82 @@
+name: lineternity-base
+
+services:
+  # ============================================================
+  # MariaDB - Banco de dados central
+  # ============================================================
+  mariadb:
+    container_name: lineternity-mariadb
+    hostname: mariadb
+    image: mariadb:10.11
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lineternity
+
+  # ============================================================
+  # Init Database - Cria database de Login
+  # ============================================================
+  init-db:
+    container_name: lineternity-init-db
+    image: lineternity-newrev:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      LOGIN_DB: l2jdb_login
+    volumes:
+      - ./sql:/l2Brproject/docker/sql
+    entrypoint: ["/bin/bash", "/l2Brproject/docker/init-db.sh"]
+    command: []
+    restart: "no"
+    networks:
+      - lineternity
+
+  # ============================================================
+  # LoginServer - Único
+  # ============================================================
+  loginserver:
+    container_name: lineternity-loginserver
+    hostname: loginserver
+    image: lineternity-newrev:latest
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    ports:
+      - "2106:2106"
+    environment:
+      L2_EMAIL: ${L2_EMAIL:-brprojeto@l2jbrasil.com}
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      LOGIN_DB: l2jdb_login
+    volumes:
+      - ../logs:/l2Brproject/logs
+    command: ["login"]
+    restart: unless-stopped
+    networks:
+      - lineternity
+
+volumes:
+  mariadb_data:
+
+networks:
+  lineternity:
+    name: lineternity-network
