@@ -162,7 +162,7 @@ configure_properties() {
 }
 
 # --- Configurações de variáveis ---
-L2_EMAIL=${L2_EMAIL:-"brprojeto@l2jbrasil.com"}
+L2_EMAIL=${L2_EMAIL:-"contato@jogatinando.com.br"}
 PASSWORD=${PASSWORD:-"12345678"}
 KEY=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '-' | head -c 32 || openssl rand -hex 16)
 SERVER_ID=${SERVER_ID:-1}
