@@ -287,6 +287,55 @@ GAME_CATEGORIES = {
             PropertyConfig("RewardItemCount", "Reward Count", "15", "Kamaloka reward count", False, "kamaloka"),
         ]
     ),
+    "levelupmaker": CategoryConfig(
+        name="levelupmaker",
+        label="Level Up Maker",
+        properties=[
+            PropertyConfig("LevelUpMakerEnabled", "LevelUp Maker Enabled", "True", "Enable level-up teleport system", False, "levelupmaker"),
+            PropertyConfig("LevelUpMakerLevelOffset", "Level Offset", "5", "Level offset for teleport areas", False, "levelupmaker"),
+            PropertyConfig("LevelUpMakerRefreshIntervalSec", "Refresh Interval", "500", "Refresh interval in seconds", False, "levelupmaker"),
+        ]
+    ),
+    "geoengine": CategoryConfig(
+        name="geoengine",
+        label="GeoEngine & Pathfinding",
+        properties=[
+            PropertyConfig("EnableRealisticMovement", "Realistic Movement", "False", "Enable realistic movement (anti-slide)", False, "geoengine"),
+            PropertyConfig("EnablePathfinderCache", "Pathfinder Cache", "False", "Enable pathfinder caching", False, "geoengine"),
+            PropertyConfig("AttackUsePathfinder", "Attack Use Pathfinder", "True", "Use pathfinding for attacks", False, "geoengine"),
+        ]
+    ),
+    "translator": CategoryConfig(
+        name="translator",
+        label="Auto Translator (DeepL)",
+        properties=[
+            PropertyConfig("DeeplAuthKey", "DeepL Auth Key", "", "DeepL API key for auto-translation", False, "translator"),
+        ]
+    ),
+    "language": CategoryConfig(
+        name="language",
+        label="Language & Locale",
+        properties=[
+            PropertyConfig("defaultLocale", "Default Locale", "en-US", "Default server locale", False, "language"),
+            PropertyConfig("locales", "Available Locales", "en-US,ru-RU", "Available locales (comma-separated)", False, "language"),
+        ]
+    ),
+    "items": CategoryConfig(
+        name="items",
+        label="Items",
+        properties=[
+            PropertyConfig("ItemsGcCleanupEnabled", "Item GC Enabled", "True", "Enable item garbage collection", False, "items"),
+            PropertyConfig("ItemsGcCleanupTime", "Item GC Time", "120", "Item GC cleanup interval (min)", False, "items"),
+        ]
+    ),
+    "bossHeal": CategoryConfig(
+        name="bossHeal",
+        label="Boss Heal Block",
+        properties=[
+            PropertyConfig("BlockHealOnRaidBoss", "Block Heal Raid Boss", "True", "Block healing on RaidBosses", False, "bossHeal"),
+            PropertyConfig("BlockHealOnGrandBoss", "Block Heal Grand Boss", "True", "Block healing on GrandBosses", False, "bossHeal"),
+        ]
+    ),
 }
 
 # Mandatory configs for basic mode
