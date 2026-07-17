@@ -246,6 +246,47 @@ GAME_CATEGORIES = {
             PropertyConfig("DisableRaidCurse", "Disable Raid Curse", "True", "Disable RaidBoss curse drops", False, "raidboss"),
         ]
     ),
+    "safedisconnect": CategoryConfig(
+        name="safedisconnect",
+        label="Safe Disconnect",
+        properties=[
+            PropertyConfig("SafeDisconnectEnabled", "Safe Disconnect Enabled", "True", "Enable safe disconnect system", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectTimeoutMs", "Timeout (ms)", "300000", "Safe disconnect timeout in ms", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectTitle", "Title", "Disconnect...", "Title shown during safe disconnect", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectImmobilize", "Immobilize", "True", "Immobilize player during disconnect", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectInvulnerable", "Invulnerable", "True", "Make player invulnerable during disconnect", False, "safedisconnect"),
+        ]
+    ),
+    "bosszerg": CategoryConfig(
+        name="bosszerg",
+        label="Boss Zerg (Anti-Zerg)",
+        properties=[
+            PropertyConfig("BossZergEnabled", "Boss Zerg Enabled", "True", "Enable anti-zerg system", False, "bosszerg"),
+            PropertyConfig("BossZergRange", "Zerg Range", "1200", "Range to detect zerg", False, "bosszerg"),
+            PropertyConfig("BossZergMinPartySize", "Min Party Size", "3", "Min party size to trigger", False, "bosszerg"),
+            PropertyConfig("BossZergMaxAllyMembers", "Max Ally Members", "18", "Max ally members allowed", False, "bosszerg"),
+            PropertyConfig("BossZergHealPenaltyMultiplier", "Heal Penalty", "0.75", "Heal penalty multiplier during zerg", False, "bosszerg"),
+        ]
+    ),
+    "siege": CategoryConfig(
+        name="siege",
+        label="Siege",
+        properties=[
+            PropertyConfig("SiegeLength", "Siege Length", "120", "Siege duration in minutes", False, "siege"),
+            PropertyConfig("SiegeClanMinLevel", "Clan Min Level", "4", "Minimum clan level for siege", False, "siege"),
+            PropertyConfig("AttackerMaxClans", "Max Attacker Clans", "10", "Max attacking clans", False, "siege"),
+            PropertyConfig("DefenderMaxClans", "Max Defender Clans", "10", "Max defending clans", False, "siege"),
+        ]
+    ),
+    "kamaloka": CategoryConfig(
+        name="kamaloka",
+        label="Kamaloka",
+        properties=[
+            PropertyConfig("MaxDailyEntries", "Max Daily Entries", "4", "Max daily Kamaloka entries", False, "kamaloka"),
+            PropertyConfig("RewardItemId", "Reward Item ID", "4037", "Kamaloka reward item", False, "kamaloka"),
+            PropertyConfig("RewardItemCount", "Reward Count", "15", "Kamaloka reward count", False, "kamaloka"),
+        ]
+    ),
 }
 
 # Mandatory configs for basic mode
