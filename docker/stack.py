@@ -911,25 +911,29 @@ def detect_mariadb_containers():
     return containers
 
 def test_mariadb_connection(host, port, user, password):
-    """Testa conexão MySQL/MariaDB"""
+    """Testa conexão MySQL/MariaDB usando docker run (não depende de mysql no host)"""
     try:
         result = subprocess.run(
-            ["mysql", "-h", host, "-P", port, "-u", user, f"-p{password}",
+            ["docker", "run", "--rm", "--network", "host",
+             "mariadb:10.11", "mysql",
+             "-h", host, "-P", port, "-u", user, f"-p{password}",
              "--skip-ssl", "-e", "SELECT 1"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=30
         )
         return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
 
 def check_database_exists(host, port, user, password, db_name):
-    """Verifica se database existe"""
+    """Verifica se database existe usando docker run"""
     try:
         result = subprocess.run(
-            ["mysql", "-h", host, "-P", port, "-u", user, f"-p{password}",
+            ["docker", "run", "--rm", "--network", "host",
+             "mariadb:10.11", "mysql",
+             "-h", host, "-P", port, "-u", user, f"-p{password}",
              "--skip-ssl", "-N", "-e",
              f"SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='{db_name}'"],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=30
         )
         return result.stdout.strip() == db_name
     except (subprocess.TimeoutExpired, FileNotFoundError):
