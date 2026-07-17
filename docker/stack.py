@@ -81,7 +81,7 @@ LOGIN_CATEGORIES = {
         name="security",
         label="Security",
         properties=[
-            PropertyConfig("L2_EMAIL", "License Email", "brprojeto@l2jbrasil.com", "License email", False, "security"),
+            PropertyConfig("L2_EMAIL", "License Email", "contato@jogatinando.com.br", "License email", False, "security"),
         ]
     ),
 }
@@ -91,16 +91,26 @@ LOGIN_CATEGORIES = {
 # ============================================================
 
 GAME_CATEGORIES = {
-    "database": CategoryConfig(
-        name="database",
-        label="Database",
+    "database_local": CategoryConfig(
+        name="database_local",
+        label="Database Local (GameServer)",
         properties=[
-            PropertyConfig("DB_HOST", "Database Host", "mariadb", "MariaDB hostname", True, "database"),
-            PropertyConfig("DB_PORT", "Database Port", "3306", "MariaDB port", True, "database"),
-            PropertyConfig("DB_USER", "Database User", "root", "MariaDB username", True, "database"),
-            PropertyConfig("DB_PASSWORD", "Database Password", "root", "MariaDB password", True, "database"),
-            PropertyConfig("LOGIN_DB", "Login Database", "l2jdb_login", "Login database name", True, "database"),
-            PropertyConfig("GAME_DB", "Game Database", "l2jdb_gs1", "Game database name", True, "database"),
+            PropertyConfig("DB_HOST", "DB Host Local", "mariadb-gs1", "MariaDB hostname local", True, "database_local"),
+            PropertyConfig("DB_PORT", "DB Port Local", "3306", "MariaDB port local", True, "database_local"),
+            PropertyConfig("DB_USER", "DB User Local", "root", "MariaDB username local", True, "database_local"),
+            PropertyConfig("DB_PASSWORD", "DB Password Local", "root", "MariaDB password local", True, "database_local"),
+            PropertyConfig("GAME_DB", "Game Database", "l2jdb_gs1", "Game database name", True, "database_local"),
+        ]
+    ),
+    "database_remote": CategoryConfig(
+        name="database_remote",
+        label="Database Remoto (LoginServer)",
+        properties=[
+            PropertyConfig("LOGIN_DB_HOST", "DB Host Login", "mariadb-login", "MariaDB hostname do Login (remoto)", True, "database_remote"),
+            PropertyConfig("LOGIN_DB_PORT", "DB Port Login", "3306", "MariaDB port do Login", True, "database_remote"),
+            PropertyConfig("LOGIN_DB_USER", "DB User Login", "root", "MariaDB username do Login", True, "database_remote"),
+            PropertyConfig("LOGIN_DB_PASSWORD", "DB Password Login", "root", "MariaDB password do Login", True, "database_remote"),
+            PropertyConfig("LOGIN_DB", "Login Database", "l2jdb_login", "Login database name", True, "database_remote"),
         ]
     ),
     "network": CategoryConfig(
@@ -111,6 +121,7 @@ GAME_CATEGORIES = {
             PropertyConfig("SERVER_HOSTNAME", "Server Hostname", "gameserver-1", "Hostname for clients", True, "network"),
             PropertyConfig("PUBLIC_PORT", "Public Port", "7777", "Public port for clients", True, "network"),
             PropertyConfig("LOGIN_HOSTNAME", "Login Hostname", "loginserver", "LoginServer hostname", True, "network"),
+            PropertyConfig("LOGIN_PORT", "Login Port", "9014", "LoginServer Java port", True, "network"),
         ]
     ),
     "identity": CategoryConfig(
@@ -118,7 +129,7 @@ GAME_CATEGORIES = {
         label="Identity",
         properties=[
             PropertyConfig("MAX_ONLINE", "Max Online Users", "3000", "Max simultaneous players", False, "identity"),
-            PropertyConfig("L2_EMAIL", "License Email", "brprojeto@l2jbrasil.com", "License email", False, "identity"),
+            PropertyConfig("L2_EMAIL", "License Email", "contato@jogatinando.com.br", "License email", False, "identity"),
         ]
     ),
     "rates": CategoryConfig(
@@ -145,6 +156,14 @@ GAME_CATEGORIES = {
             PropertyConfig("MAX_DUALBOX", "Max Dualbox", "2", "Max clients per IP", False, "protection"),
         ]
     ),
+    "chat": CategoryConfig(
+        name="chat",
+        label="Chat",
+        properties=[
+            PropertyConfig("GLOBAL_CHAT", "Global Chat", "ON", "Global chat mode", False, "chat"),
+            PropertyConfig("TRADE_CHAT", "Trade Chat", "ON", "Trade chat mode", False, "chat"),
+        ]
+    ),
     "autofarm": CategoryConfig(
         name="autofarm",
         label="AutoFarm",
@@ -161,20 +180,13 @@ GAME_CATEGORIES = {
             PropertyConfig("MAX_MATK", "Max M.Atk", "32000", "Maximum magic attack", False, "limits"),
         ]
     ),
-    "chat": CategoryConfig(
-        name="chat",
-        label="Chat",
-        properties=[
-            PropertyConfig("GLOBAL_CHAT", "Global Chat", "ON", "Global chat mode", False, "chat"),
-            PropertyConfig("TRADE_CHAT", "Trade Chat", "ON", "Trade chat mode", False, "chat"),
-        ]
-    ),
     "events": CategoryConfig(
         name="events",
         label="Events",
         properties=[
             PropertyConfig("OlympiadEnabled", "Olympiad Enabled", "True", "Enable Olympiad", False, "events"),
             PropertyConfig("OlyStartTime", "Oly Start Time", "18", "Olympiad start hour", False, "events"),
+            PropertyConfig("OlyStartPoints", "Oly Start Points", "18", "Olympiad start points", False, "events"),
             PropertyConfig("OlyCPeriod", "Oly Competition Period", "21600000", "Olympiad competition period (ms)", False, "events"),
             PropertyConfig("OlyBattle", "Oly Battle Time", "360000", "Olympiad battle time (ms)", False, "events"),
             PropertyConfig("CTFEventEnabled", "CTF Enabled", "False", "Enable CTF event", False, "events"),
@@ -194,27 +206,134 @@ GAME_CATEGORIES = {
             PropertyConfig("ClanMembersForWar", "Clan Members for War", "15", "Members needed for clan war", False, "clans"),
         ]
     ),
+    "npcs": CategoryConfig(
+        name="npcs",
+        label="NPCs & Bosses",
+        properties=[
+            PropertyConfig("SpawnMultiplier", "Spawn Multiplier", "1.5", "Monster spawn rate multiplier", False, "npcs"),
+            PropertyConfig("ChampionFrequency", "Champion Frequency", "0", "Champion mob frequency (0=disabled)", False, "npcs"),
+            PropertyConfig("ChampionHp", "Champion HP Multiplier", "2", "Champion HP multiplier", False, "npcs"),
+            PropertyConfig("MonsterHP", "Monster HP Multiplier", "1.0", "Monster HP multiplier", False, "npcs"),
+            PropertyConfig("MonsterPAtk", "Monster P.Atk Multiplier", "1.0", "Monster physical attack multiplier", False, "npcs"),
+            PropertyConfig("RaidbossHP", "RaidBoss HP Multiplier", "1.0", "RaidBoss HP multiplier", False, "npcs"),
+            PropertyConfig("GrandbossHP", "GrandBoss HP Multiplier", "1.0", "GrandBoss HP multiplier", False, "npcs"),
+            PropertyConfig("NobleItemId", "Noble Item ID", "4037", "Item ID for Noblesse", False, "npcs"),
+            PropertyConfig("NobleItemCount", "Noble Item Count", "50", "Count of Noble item", False, "npcs"),
+            PropertyConfig("WeddingPrice", "Wedding Price", "1000000", "Wedding system price", False, "npcs"),
+            PropertyConfig("FreeTeleport", "Free Teleport", "False", "Enable free teleport", False, "npcs"),
+            PropertyConfig("ShowNpcLevel", "Show NPC Level", "True", "Show NPC level in game", False, "npcs"),
+            PropertyConfig("MobAggroInPeaceZone", "Mob Aggro Peace Zone", "False", "Monsters aggro in peace zones", False, "npcs"),
+        ]
+    ),
+    "offlineshop": CategoryConfig(
+        name="offlineshop",
+        label="Offline Shop",
+        properties=[
+            PropertyConfig("OfflineTradeEnable", "Offline Trade", "True", "Enable offline trade shops", False, "offlineshop"),
+            PropertyConfig("OfflineCraftEnable", "Offline Craft", "True", "Enable offline craft shops", False, "offlineshop"),
+            PropertyConfig("OfflineModeInPeaceZone", "Peace Zone Only", "True", "Offline shop in peace zone only", False, "offlineshop"),
+            PropertyConfig("OfflineModeNoDamage", "No Damage", "False", "Offline shop immune to damage", False, "offlineshop"),
+            PropertyConfig("OfflineMaxDays", "Max Offline Days", "7", "Max days to stay offline", False, "offlineshop"),
+            PropertyConfig("OfflineDisconnectFinished", "Disconnect Finished", "True", "Auto-disconnect when shop done", False, "offlineshop"),
+        ]
+    ),
     "raidboss": CategoryConfig(
         name="raidboss",
         label="RaidBoss",
         properties=[
             PropertyConfig("RBSleepTime", "RB Sleep Time", "60", "RaidBoss sleep time (min)", False, "raidboss"),
             PropertyConfig("RBAgroTime", "RB Aggro Time", "60", "RaidBoss aggro time (min)", False, "raidboss"),
+            PropertyConfig("DisableRaidCurse", "Disable Raid Curse", "True", "Disable RaidBoss curse drops", False, "raidboss"),
         ]
     ),
-    "cancel": CategoryConfig(
-        name="cancel",
-        label="CancelManager",
+    "safedisconnect": CategoryConfig(
+        name="safedisconnect",
+        label="Safe Disconnect",
         properties=[
-            PropertyConfig("CANCEL_SKILL_ON_ATTACK", "Cancel on Attack", "True", "Cancel skills when attacked", False, "cancel"),
+            PropertyConfig("SafeDisconnectEnabled", "Safe Disconnect Enabled", "True", "Enable safe disconnect system", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectTimeoutMs", "Timeout (ms)", "300000", "Safe disconnect timeout in ms", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectTitle", "Title", "Disconnect...", "Title shown during safe disconnect", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectImmobilize", "Immobilize", "True", "Immobilize player during disconnect", False, "safedisconnect"),
+            PropertyConfig("SafeDisconnectInvulnerable", "Invulnerable", "True", "Make player invulnerable during disconnect", False, "safedisconnect"),
         ]
     ),
-    "auction": CategoryConfig(
-        name="auction",
-        label="Auction",
+    "bosszerg": CategoryConfig(
+        name="bosszerg",
+        label="Boss Zerg (Anti-Zerg)",
         properties=[
-            PropertyConfig("AUCTION_ENABLED", "Auction Enabled", "True", "Enable auction house", False, "auction"),
-            PropertyConfig("AUCTION_TAX", "Auction Tax", "5", "Auction house tax (%)", False, "auction"),
+            PropertyConfig("BossZergEnabled", "Boss Zerg Enabled", "True", "Enable anti-zerg system", False, "bosszerg"),
+            PropertyConfig("BossZergRange", "Zerg Range", "1200", "Range to detect zerg", False, "bosszerg"),
+            PropertyConfig("BossZergMinPartySize", "Min Party Size", "3", "Min party size to trigger", False, "bosszerg"),
+            PropertyConfig("BossZergMaxAllyMembers", "Max Ally Members", "18", "Max ally members allowed", False, "bosszerg"),
+            PropertyConfig("BossZergHealPenaltyMultiplier", "Heal Penalty", "0.75", "Heal penalty multiplier during zerg", False, "bosszerg"),
+        ]
+    ),
+    "siege": CategoryConfig(
+        name="siege",
+        label="Siege",
+        properties=[
+            PropertyConfig("SiegeLength", "Siege Length", "120", "Siege duration in minutes", False, "siege"),
+            PropertyConfig("SiegeClanMinLevel", "Clan Min Level", "4", "Minimum clan level for siege", False, "siege"),
+            PropertyConfig("AttackerMaxClans", "Max Attacker Clans", "10", "Max attacking clans", False, "siege"),
+            PropertyConfig("DefenderMaxClans", "Max Defender Clans", "10", "Max defending clans", False, "siege"),
+        ]
+    ),
+    "kamaloka": CategoryConfig(
+        name="kamaloka",
+        label="Kamaloka",
+        properties=[
+            PropertyConfig("MaxDailyEntries", "Max Daily Entries", "4", "Max daily Kamaloka entries", False, "kamaloka"),
+            PropertyConfig("RewardItemId", "Reward Item ID", "4037", "Kamaloka reward item", False, "kamaloka"),
+            PropertyConfig("RewardItemCount", "Reward Count", "15", "Kamaloka reward count", False, "kamaloka"),
+        ]
+    ),
+    "levelupmaker": CategoryConfig(
+        name="levelupmaker",
+        label="Level Up Maker",
+        properties=[
+            PropertyConfig("LevelUpMakerEnabled", "LevelUp Maker Enabled", "True", "Enable level-up teleport system", False, "levelupmaker"),
+            PropertyConfig("LevelUpMakerLevelOffset", "Level Offset", "5", "Level offset for teleport areas", False, "levelupmaker"),
+            PropertyConfig("LevelUpMakerRefreshIntervalSec", "Refresh Interval", "500", "Refresh interval in seconds", False, "levelupmaker"),
+        ]
+    ),
+    "geoengine": CategoryConfig(
+        name="geoengine",
+        label="GeoEngine & Pathfinding",
+        properties=[
+            PropertyConfig("EnableRealisticMovement", "Realistic Movement", "False", "Enable realistic movement (anti-slide)", False, "geoengine"),
+            PropertyConfig("EnablePathfinderCache", "Pathfinder Cache", "False", "Enable pathfinder caching", False, "geoengine"),
+            PropertyConfig("AttackUsePathfinder", "Attack Use Pathfinder", "True", "Use pathfinding for attacks", False, "geoengine"),
+        ]
+    ),
+    "translator": CategoryConfig(
+        name="translator",
+        label="Auto Translator (DeepL)",
+        properties=[
+            PropertyConfig("DeeplAuthKey", "DeepL Auth Key", "", "DeepL API key for auto-translation", False, "translator"),
+        ]
+    ),
+    "language": CategoryConfig(
+        name="language",
+        label="Language & Locale",
+        properties=[
+            PropertyConfig("defaultLocale", "Default Locale", "en-US", "Default server locale", False, "language"),
+            PropertyConfig("locales", "Available Locales", "en-US,ru-RU", "Available locales (comma-separated)", False, "language"),
+        ]
+    ),
+    "items": CategoryConfig(
+        name="items",
+        label="Items",
+        properties=[
+            PropertyConfig("ItemsGcCleanupEnabled", "Item GC Enabled", "True", "Enable item garbage collection", False, "items"),
+            PropertyConfig("ItemsGcCleanupTime", "Item GC Time", "120", "Item GC cleanup interval (min)", False, "items"),
+        ]
+    ),
+    "bossHeal": CategoryConfig(
+        name="bossHeal",
+        label="Boss Heal Block",
+        properties=[
+            PropertyConfig("BlockHealOnRaidBoss", "Block Heal Raid Boss", "True", "Block healing on RaidBosses", False, "bossHeal"),
+            PropertyConfig("BlockHealOnGrandBoss", "Block Heal Grand Boss", "True", "Block healing on GrandBosses", False, "bossHeal"),
         ]
     ),
 }
@@ -222,7 +341,12 @@ GAME_CATEGORIES = {
 # Mandatory configs for basic mode
 MANDATORY_CONFIGS = {
     "login": ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "LOGIN_DB", "HOSTNAME", "LOGIN_PORT"],
-    "game": ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "LOGIN_DB", "GAME_DB", "SERVER_ID", "SERVER_HOSTNAME", "PUBLIC_PORT", "LOGIN_HOSTNAME"],
+    "game": [
+        "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "GAME_DB",
+        "LOGIN_DB_HOST", "LOGIN_DB_PORT", "LOGIN_DB_USER", "LOGIN_DB_PASSWORD", "LOGIN_DB",
+        "SERVER_ID", "SERVER_HOSTNAME", "PUBLIC_PORT",
+        "LOGIN_HOSTNAME", "LOGIN_PORT",
+    ],
 }
 
 # ============================================================
@@ -599,10 +723,10 @@ def list_existing_game_servers() -> list[ServerInfo]:
 def list_servers():
     print_header("Servidores Ativos")
     
-    # Check base infrastructure
-    print("  --- Infraestrutura Base ---")
+    # Check LoginServer MariaDB
+    print("  --- LoginServer Infrastructure ---")
     result = subprocess.run(
-        ["docker", "ps", "-a", "--filter", "name=lineternity-", "--format", "{{.Names}}\t{{.Status}}"],
+        ["docker", "ps", "-a", "--filter", "name=lineternity-mariadb-login", "--format", "{{.Names}}\t{{.Status}}"],
         capture_output=True, text=True
     )
     if result.stdout.strip():
@@ -611,22 +735,53 @@ def list_servers():
             if len(parts) == 2:
                 print(f"    {parts[0]}: {parts[1]}")
     else:
-        print("    Nenhum container base encontrado.")
+        print("    MariaDB LoginServer: nao iniciado")
+    
+    # Check LoginServer
+    result = subprocess.run(
+        ["docker", "ps", "-a", "--filter", "name=lineternity-loginserver", "--format", "{{.Names}}\t{{.Status}}"],
+        capture_output=True, text=True
+    )
+    if result.stdout.strip():
+        for line in result.stdout.strip().splitlines():
+            parts = line.split("\t")
+            if len(parts) == 2:
+                print(f"    {parts[0]}: {parts[1]}")
+    else:
+        print("    LoginServer: nao iniciado")
     
     # Check gameservers
     print("\n  --- GameServers ---")
     servers = list_existing_game_servers()
     if servers:
         for server in servers:
-            status = "configurado"
-            # Check if container is running
+            # Check MariaDB for this server
+            mariadb_name = f"lineternity-mariadb-gs{server.server_id}"
             result = subprocess.run(
-                ["docker", "ps", "-a", "--filter", f"name=lineternity-gameserver-{server.server_id}", "--format", "{{.Status}}"],
+                ["docker", "ps", "-a", "--filter", f"name={mariadb_name}", "--format", "{{.Names}}\t{{.Status}}"],
                 capture_output=True, text=True
             )
+            mariadb_status = "nao iniciado"
             if result.stdout.strip():
-                status = result.stdout.strip()
-            print(f"    GameServer #{server.server_id}: {server.hostname} (port {server.public_port}) - {status}")
+                parts = result.stdout.strip().split("\t")
+                if len(parts) == 2:
+                    mariadb_status = parts[1]
+            
+            # Check GameServer
+            gs_name = f"lineternity-gameserver-{server.server_id}"
+            result = subprocess.run(
+                ["docker", "ps", "-a", "--filter", f"name={gs_name}", "--format", "{{.Names}}\t{{.Status}}"],
+                capture_output=True, text=True
+            )
+            gs_status = "nao iniciado"
+            if result.stdout.strip():
+                parts = result.stdout.strip().split("\t")
+                if len(parts) == 2:
+                    gs_status = parts[1]
+            
+            print(f"    GameServer #{server.server_id}: {server.hostname} (port {server.public_port})")
+            print(f"      MariaDB: {mariadb_status}")
+            print(f"      GameServer: {gs_status}")
     else:
         print("    Nenhum GameServer configurado.")
     
@@ -636,6 +791,7 @@ def show_logs_menu():
     print_header("Logs")
     
     options = [
+        "Logs do MariaDB LoginServer",
         "Logs do LoginServer",
         "Logs do GameServer (selecionar)",
         "Logs de todos os containers",
@@ -645,9 +801,12 @@ def show_logs_menu():
     idx = choose_from_menu("Selecione o tipo de log", options)
     
     if idx == 0:
+        print("\n  Logs do MariaDB LoginServer (Ctrl+C para sair):")
+        subprocess.run(["docker", "logs", "-f", "lineternity-mariadb-login"])
+    elif idx == 1:
         print("\n  Logs do LoginServer (Ctrl+C para sair):")
         subprocess.run(["docker", "logs", "-f", "lineternity-loginserver"])
-    elif idx == 1:
+    elif idx == 2:
         servers = list_existing_game_servers()
         if not servers:
             print("  Nenhum GameServer encontrado.")
@@ -658,45 +817,62 @@ def show_logs_menu():
                 server = servers[idx]
                 print(f"\n  Logs do GameServer #{server.server_id} (Ctrl+C para sair):")
                 subprocess.run(["docker", "logs", "-f", f"lineternity-gameserver-{server.server_id}"])
-    elif idx == 2:
-        print("\n  Logs de todos os containers (Ctrl+C para sair):")
-        subprocess.run(["docker", "logs", "-f", "lineternity-mariadb", "lineternity-loginserver"])
     elif idx == 3:
+        print("\n  Logs de todos os containers (Ctrl+C para sair):")
+        subprocess.run(["docker", "logs", "-f", "lineternity-mariadb-login", "lineternity-loginserver"])
+    elif idx == 4:
         return
 
-def start_base_infra():
-    print_header("Iniciando Infraestrutura Base")
+# ============================================================
+# Service Management
+# ============================================================
+
+def start_mariadb_login():
+    print_header("Iniciar MariaDB LoginServer")
     
     compose_file = DOCKER_DIR / "docker-compose.yml"
     if not compose_file.exists():
         print(f"  ERRO: docker-compose.yml nao encontrado em {compose_file}")
         return False
     
-    print("  Construindo imagem...")
-    if not run_compose(compose_file, "build"):
-        print("  ERRO ao buildar imagem!")
-        return False
-    
-    print("\n  Iniciando containers...")
+    print("  Iniciando MariaDB LoginServer...")
     if not run_compose(compose_file, "up", "-d"):
-        print("  ERRO ao iniciar containers!")
+        print("  ERRO ao iniciar MariaDB LoginServer!")
         return False
     
-    print("\n  Infraestrutura base iniciada com sucesso!")
+    print("\n  MariaDB LoginServer iniciado com sucesso!")
     return True
 
-def rebuild_all():
-    print_header("Reset Completo + Rebuild")
+def start_loginserver():
+    print_header("Iniciar LoginServer")
     
-    if not confirm("  Isso ira parar e remover todos os containers, e reconstruir a imagem. Continuar?"):
+    compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
+    if not compose_file.exists():
+        print(f"  ERRO: docker-compose.loginserver.yml nao encontrado em {compose_file}")
+        return False
+    
+    env_file = DOCKER_DIR / "login" / ".env"
+    if not env_file.exists():
+        print(f"  ERRO: .env nao encontrado em {env_file}")
+        print("  Execute 'Criar LoginServer' primeiro.")
+        return False
+    
+    print("  Iniciando LoginServer...")
+    if not run_compose(compose_file, "up", "-d", env_file=env_file):
+        print("  ERRO ao iniciar LoginServer!")
+        return False
+    
+    print("\n  LoginServer iniciado com sucesso!")
+    return True
+
+def stop_all_services():
+    print_header("Parar Todos os Serviços")
+    
+    if not confirm("  Parar todos os containers Lineternity?"):
         print("  Operacao cancelada.")
         return
     
-    compose_file = DOCKER_DIR / "docker-compose.yml"
-    
-    print("\n  Parando containers base...")
-    run_compose(compose_file, "down", "-v")
-    
+    # Stop all game servers
     print("\n  Parando GameServers...")
     for server_dir in GAMESERVERS_DIR.iterdir():
         if server_dir.is_dir():
@@ -705,13 +881,88 @@ def rebuild_all():
             if compose.exists():
                 run_compose(compose, "down", env_file=env if env.exists() else None)
     
-    print("\n  Reconstruindo imagem...")
-    run_compose(compose_file, "build", "--no-cache")
+    # Stop login server
+    print("\n  Parando LoginServer...")
+    compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
+    if compose_file.exists():
+        run_compose(compose_file, "down")
     
-    print("\n  Iniciando infraestrutura base...")
-    run_compose(compose_file, "up", "-d")
+    # Stop MariaDB
+    print("\n  Parando MariaDB LoginServer...")
+    compose_file = DOCKER_DIR / "docker-compose.yml"
+    if compose_file.exists():
+        run_compose(compose_file, "down")
     
-    print("\n  Reset completo finalizado!")
+    print("\n  Todos os servicos parados com sucesso!")
+
+def start_game_server():
+    print_header("Iniciar GameServer")
+    
+    servers = list_existing_game_servers()
+    if not servers:
+        print("  Nenhum GameServer configurado.")
+        print("  Execute 'Criar GameServer' primeiro.")
+        return
+    
+    options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+    options.append("Todos os GameServers")
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o GameServer para iniciar", options)
+    
+    if idx == len(servers):
+        # Start all
+        print("\n  Iniciando todos os GameServers...")
+        for server in servers:
+            compose_file = server.compose_path
+            env_file = server.env_path
+            if compose_file.exists():
+                run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
+        print("\n  Todos os GameServers iniciados!")
+    elif idx == len(servers) + 1:
+        print("  Operacao cancelada.")
+    elif 0 <= idx < len(servers):
+        server = servers[idx]
+        compose_file = server.compose_path
+        env_file = server.env_path
+        if compose_file.exists():
+            print(f"\n  Iniciando GameServer #{server.server_id}...")
+            run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
+            print(f"\n  GameServer #{server.server_id} iniciado!")
+
+def stop_game_server():
+    print_header("Parar GameServer")
+    
+    servers = list_existing_game_servers()
+    if not servers:
+        print("  Nenhum GameServer configurado.")
+        return
+    
+    options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+    options.append("Todos os GameServers")
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o GameServer para parar", options)
+    
+    if idx == len(servers):
+        # Stop all
+        print("\n  Parando todos os GameServers...")
+        for server in servers:
+            compose_file = server.compose_path
+            env_file = server.env_path
+            if compose_file.exists():
+                run_compose(compose_file, "down", env_file=env_file if env_file.exists() else None)
+        print("\n  Todos os GameServers parados!")
+    elif idx == len(servers) + 1:
+        print("  Operacao cancelada.")
+    elif 0 <= idx < len(servers):
+        server = servers[idx]
+        compose_file = server.compose_path
+        env_file = server.env_path
+        if compose_file.exists():
+            print(f"\n  Parando GameServer #{server.server_id}...")
+            run_compose(compose_file, "down", env_file=env_file if env_file.exists() else None)
+            print(f"\n  GameServer #{server.server_id} parado!")
 
 def bulk_edit_env():
     print_header("Edicao em Massa de Environment")
@@ -895,36 +1146,42 @@ def delete_profile(profiles_dir: Path):
 def main_menu():
     while True:
         options = [
-            "Reset completo + rebuild sem cache",
-            "Criar LoginServer",
-            "Criar GameServer",
-            "Remover servidor",
-            "Listar servidores ativos",
-            "Logs",
-            "Edicao em massa de environment",
-            "Gerenciar perfis de configuracao",
-            "Exit",
+            "1. Iniciar MariaDB LoginServer",
+            "2. Iniciar LoginServer",
+            "3. Criar GameServer",
+            "4. Iniciar GameServer",
+            "5. Parar GameServer",
+            "6. Parar Todos os Serviços",
+            "7. Listar servidores ativos",
+            "8. Logs",
+            "9. Edicao em massa de environment",
+            "10. Gerenciar perfis de configuracao",
+            "11. Sair",
         ]
         
-        idx = choose_from_menu("Lineternity Stack Manager", options)
+        idx = choose_from_menu("Lineternity Stack Manager v2.0", options)
         
         if idx == 0:
-            rebuild_all()
+            start_mariadb_login()
         elif idx == 1:
-            create_login_server()
+            start_loginserver()
         elif idx == 2:
             create_game_server()
         elif idx == 3:
-            remove_game_server()
+            start_game_server()
         elif idx == 4:
-            list_servers()
+            stop_game_server()
         elif idx == 5:
-            show_logs_menu()
+            stop_all_services()
         elif idx == 6:
-            bulk_edit_env()
+            list_servers()
         elif idx == 7:
-            manage_config_profiles()
+            show_logs_menu()
         elif idx == 8:
+            bulk_edit_env()
+        elif idx == 9:
+            manage_config_profiles()
+        elif idx == 10:
             print("\n  Saindo...")
             break
         else:

@@ -1,4 +1,34 @@
+name: lineternity-gs${SERVER_ID}
+
 services:
+  # ============================================================
+  # MariaDB GameServer - Banco de dados LOCAL deste GameServer
+  # Contém: l2jdb_gsN (characters, items, clans, etc.)
+  # ============================================================
+  mariadb:
+    container_name: lineternity-mariadb-gs${SERVER_ID}
+    hostname: mariadb-gs${SERVER_ID}
+    image: mariadb:10.11
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lineternity
+
+  # ============================================================
+  # GameServer - Independente
+  # Conecta em: mariadb-gsN local (l2jdb_gsN)
+  # Conecta em: mariadb-login remoto (l2jdb_login) para registro
+  # Porta: 7777
+  # ============================================================
   gameserver:
     container_name: lineternity-gameserver-${SERVER_ID}
     hostname: gameserver-${SERVER_ID}
@@ -12,18 +42,29 @@ services:
       mariadb:
         condition: service_healthy
     ports:
-      - "${PUBLIC_PORT}:7777"
+      - "${PUBLIC_PORT:-7777}:7777"
     environment:
-      L2_EMAIL: ${L2_EMAIL:-brprojeto@l2jbrasil.com}
-      DB_HOST: ${DB_HOST:-mariadb}
+      L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
+      # MariaDB LOCAL deste GameServer
+      DB_HOST: ${DB_HOST:-mariadb-gs${SERVER_ID}}
       DB_PORT: ${DB_PORT:-3306}
       DB_USER: ${DB_USER:-root}
       DB_PASSWORD: ${DB_PASSWORD:-root}
+      GAME_DB: ${GAME_DB:-l2jdb_gs${SERVER_ID}}
+      # MariaDB do LOGIN (remoto - para registro)
+      LOGIN_DB_HOST: ${LOGIN_DB_HOST:-mariadb-login}
+      LOGIN_DB_PORT: ${LOGIN_DB_PORT:-3306}
+      LOGIN_DB_USER: ${LOGIN_DB_USER:-root}
+      LOGIN_DB_PASSWORD: ${LOGIN_DB_PASSWORD:-root}
       LOGIN_DB: ${LOGIN_DB:-l2jdb_login}
-      GAME_DB: ${GAME_DB:-l2jdb_gs1}
+      # Identidade
       SERVER_ID: ${SERVER_ID:-1}
-      SERVER_HOSTNAME: gameserver-${SERVER_ID}
+      SERVER_HOSTNAME: ${SERVER_HOSTNAME:-gameserver-${SERVER_ID}}
+      # LoginServer Java (para conexão na porta 9014)
+      LOGIN_HOSTNAME: ${LOGIN_HOSTNAME:-loginserver}
+      LOGIN_PORT: ${LOGIN_PORT:-9014}
     volumes:
+      - ./config:/l2Brproject/game/config
       - ../../logs:/l2Brproject/logs
     command: ["gameserver", "${SERVER_ID}"]
     restart: unless-stopped
@@ -31,6 +72,9 @@ services:
       lineternity:
         aliases:
           - gameserver-${SERVER_ID}
+
+volumes:
+  mariadb_data:
 
 networks:
   lineternity:
