@@ -6,6 +6,7 @@ Adapted from acacia-2d stack.py pattern.
 """
 
 import os
+import re
 import sys
 import subprocess
 import shutil
@@ -547,6 +548,27 @@ def run_compose_with_project(compose_path: Path, project_name: str, *args, env_f
 def create_login_server():
     print_header("Criar LoginServer")
     
+    # Detectar MariaDB existente
+    print("  Verificando MariaDB disponivel...")
+    detection = detect_or_configure_mariadb()
+    
+    if detection["found"]:
+        print(f"\n  MariaDB detectado: {detection.get('container_name', 'manual')} ({detection['host']}:{detection['port']})")
+        
+        if detection["database_exists"]:
+            print(f"  Database l2jdb_login: EXISTE")
+        else:
+            print(f"  Database l2jdb_login: NAO EXISTE (sera criado pelo entrypoint)")
+        
+        if confirm("\n  Usar este MariaDB para o LoginServer?"):
+            # Usar MariaDB externo
+            update_login_env(detection["host"], detection["port"], external=True)
+            use_external = True
+        else:
+            use_external = False
+    else:
+        use_external = False
+    
     config_mode = select_config_mode()
     
     if config_mode == "basic":
@@ -555,6 +577,11 @@ def create_login_server():
         config = collect_advanced_config_with_selection("login")
     else:
         config = collect_full_config("login")
+    
+    # Se usando MariaDB externo, atualizar config
+    if use_external:
+        config["DB_HOST"] = detection["host"]
+        config["DB_PORT"] = detection["port"]
     
     print("\n  Configuracao coletada:")
     for key, value in config.items():
@@ -574,8 +601,9 @@ def create_login_server():
     print("\n  LoginServer criado com sucesso!")
     print(f"  Config dir: {config_dir}")
     
-    if confirm("\n  Iniciar LoginServer agora?"):
-        start_base_infra()
+    if confirm("\n  Iniciar MariaDB e LoginServer agora?"):
+        start_mariadb_login()
+        start_loginserver()
 
 def create_game_server():
     print_header("Criar GameServer")
@@ -824,16 +852,236 @@ def show_logs_menu():
         return
 
 # ============================================================
+# MariaDB Detection
+# ============================================================
+
+def detect_mariadb_containers():
+    """Lista containers MariaDB ativos via docker ps (exclui containers Lineternity)"""
+    result = subprocess.run(
+        ["docker", "ps", "--format", "{{.Names}}\t{{.Ports}}\t{{.Status}}"],
+        capture_output=True, text=True
+    )
+    
+    containers = []
+    if not result.stdout.strip():
+        return containers
+    
+    for line in result.stdout.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        
+        name = parts[0]
+        ports = parts[1]
+        status = parts[2]
+        
+        # Excluir containers Lineternity
+        if name.startswith("lineternity-"):
+            continue
+        
+        # Verificar se é MariaDB (verificar porta 3306 mapeada)
+        if "3306" in ports or "mariadb" in name.lower() or "mysql" in name.lower():
+            # Extrair porta externa do formato "0.0.0.0:3308->3306/tcp"
+            external_port = "3306"
+            if "->" in ports:
+                port_part = ports.split("->")[0]
+                if ":" in port_part:
+                    external_port = port_part.split(":")[-1]
+            
+            containers.append({
+                "name": name,
+                "ports": ports,
+                "external_port": external_port,
+                "status": status,
+            })
+    
+    return containers
+
+def test_mariadb_connection(host, port, user, password):
+    """Testa conexão MySQL/MariaDB"""
+    try:
+        result = subprocess.run(
+            ["mysql", "-h", host, "-P", port, "-u", user, f"-p{password}",
+             "--skip-ssl", "-e", "SELECT 1"],
+            capture_output=True, text=True, timeout=10
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+def check_database_exists(host, port, user, password, db_name):
+    """Verifica se database existe"""
+    try:
+        result = subprocess.run(
+            ["mysql", "-h", host, "-P", port, "-u", user, f"-p{password}",
+             "--skip-ssl", "-N", "-e",
+             f"SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='{db_name}'"],
+            capture_output=True, text=True, timeout=10
+        )
+        return result.stdout.strip() == db_name
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+def detect_or_configure_mariadb():
+    """
+    Detecta MariaDB existente ou pede configuração manual.
+    Retorna: {found: bool, host: str, port: str, database_exists: bool}
+    """
+    print("\n  Procurando MariaDB existente...\n")
+    
+    # 1. Auto-detectar via Docker
+    containers = detect_mariadb_containers()
+    
+    if containers:
+        print("  Containers MariaDB encontrados:")
+        for i, c in enumerate(containers, 1):
+            print(f"    [{i}] {c['name']} ({c['external_port']}) - {c['status']}")
+        print()
+        
+        # Para cada container, testar conexão
+        for c in containers:
+            host = "localhost"
+            port = c["external_port"]
+            
+            print(f"  Testando conexao com {c['name']} ({host}:{port})...")
+            if test_mariadb_connection(host, port, "root", "root"):
+                print(f"  Conexao OK com {c['name']}!")
+                
+                # Verificar se database l2jdb_login existe
+                db_exists = check_database_exists(host, port, "root", "root", "l2jdb_login")
+                
+                return {
+                    "found": True,
+                    "host": host,
+                    "port": port,
+                    "container_name": c["name"],
+                    "database_exists": db_exists,
+                }
+            else:
+                print(f"  Falha na conexao com {c['name']} (credenciais root/root)")
+        
+        print()
+    
+    # 2. Nenhum MariaDB encontrado via Docker - pedir configuração manual
+    print("  Nenhum MariaDB acessivel encontrado via Docker.")
+    print()
+    
+    if not confirm("  Deseja informar host:port de um MariaDB existente?"):
+        return {"found": False, "host": "", "port": "", "database_exists": False}
+    
+    # Pedir host e porta
+    host = input("  Host do MariaDB [localhost]: ").strip() or "localhost"
+    port = input("  Porta do MariaDB [3306]: ").strip() or "3306"
+    
+    print(f"\n  Testando conexao com {host}:{port}...")
+    if test_mariadb_connection(host, port, "root", "root"):
+        print("  Conexao OK!")
+        
+        db_exists = check_database_exists(host, port, "root", "root", "l2jdb_login")
+        
+        return {
+            "found": True,
+            "host": host,
+            "port": port,
+            "container_name": "",
+            "database_exists": db_exists,
+        }
+    else:
+        print("  Falha na conexao. Verifique host, porta e credenciais.")
+        return {"found": False, "host": "", "port": "", "database_exists": False}
+
+def update_login_env(host, port, external=True):
+    """Atualiza login/.env com configuração do MariaDB"""
+    env_file = DOCKER_DIR / "login" / ".env"
+    
+    if not env_file.exists():
+        # Criar .env com valores padrão
+        env_content = f"""# ============================================================
+# Lineternity LoginServer Environment Configuration
+# ============================================================
+
+# MariaDB Login (local ou remoto)
+DB_HOST={host}
+DB_PORT={port}
+DB_USER=root
+DB_PASSWORD=root
+LOGIN_DB=l2jdb_login
+
+# Hostname público do LoginServer (IP para clientes)
+HOSTNAME=localhost
+
+# Porta do LoginServer
+LOGIN_PORT=2106
+
+# Licença
+L2_EMAIL=contato@jogatinando.com.br
+
+# MariaDB externo (se true, não cria container mariadb-login)
+EXTERNAL_MARIADB={'true' if external else 'false'}
+"""
+    else:
+        # Atualizar .env existente
+        content = env_file.read_text(encoding='utf-8')
+        
+        # Atualizar DB_HOST
+        if "DB_HOST=" in content:
+            content = re.sub(r"DB_HOST=.*", f"DB_HOST={host}", content)
+        else:
+            content += f"\nDB_HOST={host}"
+        
+        # Atualizar DB_PORT
+        if "DB_PORT=" in content:
+            content = re.sub(r"DB_PORT=.*", f"DB_PORT={port}", content)
+        else:
+            content += f"\nDB_PORT={port}"
+        
+        # Atualizar ou adicionar EXTERNAL_MARIADB
+        if "EXTERNAL_MARIADB=" in content:
+            content = re.sub(r"EXTERNAL_MARIADB=.*", f"EXTERNAL_MARIADB={'true' if external else 'false'}", content)
+        else:
+            content += f"\nEXTERNAL_MARIADB={'true' if external else 'false'}"
+        
+        env_content = content
+    
+    env_file.write_text(env_content, encoding='utf-8')
+    print(f"  login/.env atualizado: DB_HOST={host}, DB_PORT={port}")
+
+# ============================================================
 # Service Management
 # ============================================================
 
 def start_mariadb_login():
     print_header("Iniciar MariaDB LoginServer")
     
+    # Detectar MariaDB existente
+    detection = detect_or_configure_mariadb()
+    
+    if detection["found"]:
+        # MariaDB externo encontrado
+        print(f"\n  MariaDB detectado: {detection.get('container_name', 'manual')} ({detection['host']}:{detection['port']})")
+        
+        if detection["database_exists"]:
+            print(f"  Database l2jdb_login: EXISTE")
+        else:
+            print(f"  Database l2jdb_login: NAO EXISTE (sera criado pelo entrypoint)")
+        
+        if confirm("\n  Usar este MariaDB para o LoginServer?"):
+            # Usar MariaDB externo
+            update_login_env(detection["host"], detection["port"], external=True)
+            print("\n  Configuracao atualizada para usar MariaDB externo.")
+            print("  LoginServer ira conectar em:", detection["host"] + ":" + detection["port"])
+            return True
+        else:
+            print("\n  Criando container mariadb-login...")
+    
+    # Criar container mariadb-login (comportamento original)
     compose_file = DOCKER_DIR / "docker-compose.yml"
     if not compose_file.exists():
         print(f"  ERRO: docker-compose.yml nao encontrado em {compose_file}")
         return False
+    
+    # Atualizar .env para usar container local
+    update_login_env("mariadb-login", "3306", external=False)
     
     print("  Iniciando MariaDB LoginServer...")
     if not run_compose(compose_file, "up", "-d"):
@@ -846,15 +1094,30 @@ def start_mariadb_login():
 def start_loginserver():
     print_header("Iniciar LoginServer")
     
-    compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
-    if not compose_file.exists():
-        print(f"  ERRO: docker-compose.loginserver.yml nao encontrado em {compose_file}")
-        return False
-    
     env_file = DOCKER_DIR / "login" / ".env"
     if not env_file.exists():
         print(f"  ERRO: .env nao encontrado em {env_file}")
         print("  Execute 'Criar LoginServer' primeiro.")
+        return False
+    
+    # Verificar se usa MariaDB externo
+    use_external = False
+    if env_file.exists():
+        content = env_file.read_text(encoding='utf-8')
+        for line in content.splitlines():
+            if line.startswith("EXTERNAL_MARIADB=") and line.split("=", 1)[1].strip().lower() == "true":
+                use_external = True
+                break
+    
+    # Escolher compose file correto
+    if use_external:
+        compose_file = DOCKER_DIR / "docker-compose.loginserver-external.yml"
+        print("  Usando MariaDB externo (sem depends_on mariadb-login)")
+    else:
+        compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
+    
+    if not compose_file.exists():
+        print(f"  ERRO: {compose_file.name} nao encontrado em {compose_file}")
         return False
     
     print("  Iniciando LoginServer...")
