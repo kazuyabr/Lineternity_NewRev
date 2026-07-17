@@ -2,14 +2,15 @@ name: lineternity-base
 
 services:
   # ============================================================
-  # MariaDB - Banco de dados central
+  # MariaDB Login - Banco de dados do LoginServer
+  # Contém: l2jdb_login (accounts, gameservers, hwid)
   # ============================================================
-  mariadb:
-    container_name: lineternity-mariadb
-    hostname: mariadb
+  mariadb-login:
+    container_name: lineternity-mariadb-login
+    hostname: mariadb-login
     image: mariadb:10.11
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mariadb_login_data:/var/lib/mysql
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
@@ -22,60 +23,8 @@ services:
     networks:
       - lineternity
 
-  # ============================================================
-  # Init Database - Cria database de Login
-  # ============================================================
-  init-db:
-    container_name: lineternity-init-db
-    image: lineternity-newrev:latest
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    environment:
-      DB_HOST: mariadb
-      DB_PORT: "3306"
-      DB_USER: root
-      DB_PASSWORD: ${DB_PASSWORD:-root}
-      LOGIN_DB: l2jdb_login
-    volumes:
-      - ./sql:/l2Brproject/docker/sql
-    entrypoint: ["/bin/bash", "/l2Brproject/docker/init-db.sh"]
-    command: []
-    restart: "no"
-    networks:
-      - lineternity
-
-  # ============================================================
-  # LoginServer - Único
-  # ============================================================
-  loginserver:
-    container_name: lineternity-loginserver
-    hostname: loginserver
-    image: lineternity-newrev:latest
-    depends_on:
-      init-db:
-        condition: service_completed_successfully
-    ports:
-      - "2106:2106"
-    environment:
-      L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
-      DB_HOST: mariadb
-      DB_PORT: "3306"
-      DB_USER: root
-      DB_PASSWORD: ${DB_PASSWORD:-root}
-      LOGIN_DB: l2jdb_login
-    volumes:
-      - ../logs:/l2Brproject/logs
-    command: ["login"]
-    restart: unless-stopped
-    networks:
-      - lineternity
-
 volumes:
-  mariadb_data:
+  mariadb_login_data:
 
 networks:
   lineternity:

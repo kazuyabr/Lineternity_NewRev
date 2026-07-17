@@ -71,3 +71,4 @@ docker/logs/
 docker/gameservers/*/logs/
 docker/gameservers/*/.env
 docker/gameservers/*/config/
+docker/login/.env

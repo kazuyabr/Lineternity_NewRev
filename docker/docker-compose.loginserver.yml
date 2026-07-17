@@ -1,0 +1,45 @@
+name: lineternity-loginserver
+
+services:
+  # ============================================================
+  # LoginServer - Independente
+  # Conecta em: mariadb-login (l2jdb_login)
+  # Porta: 2106
+  # ============================================================
+  loginserver:
+    container_name: lineternity-loginserver
+    hostname: loginserver
+    image: lineternity-newrev:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ./.env
+    depends_on:
+      mariadb-login:
+        condition: service_healthy
+    ports:
+      - "${LOGIN_PORT:-2106}:2106"
+    environment:
+      L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
+      DB_HOST: ${DB_HOST:-mariadb-login}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      LOGIN_DB: ${LOGIN_DB:-l2jdb_login}
+      HOSTNAME: ${HOSTNAME:-localhost}
+      LOGIN_PORT: ${LOGIN_PORT:-2106}
+    volumes:
+      - ./config:/l2Brproject/login/config
+      - ../../logs:/l2Brproject/logs
+    command: ["login"]
+    restart: unless-stopped
+    networks:
+      lineternity:
+        aliases:
+          - loginserver
+
+networks:
+  lineternity:
+    external: true
+    name: lineternity-network
