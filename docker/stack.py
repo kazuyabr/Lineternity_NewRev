@@ -554,6 +554,7 @@ def create_login_server():
     
     if detection["found"]:
         print(f"\n  MariaDB detectado: {detection.get('container_name', 'manual')} ({detection['host']}:{detection['port']})")
+        print(f"  Usuario: {detection.get('user', 'root')}")
         
         if detection["database_exists"]:
             print(f"  Database l2jdb_login: EXISTE")
@@ -562,7 +563,13 @@ def create_login_server():
         
         if confirm("\n  Usar este MariaDB para o LoginServer?"):
             # Usar MariaDB externo
-            update_login_env(detection["host"], detection["port"], external=True)
+            update_login_env(
+                detection["host"], 
+                detection["port"],
+                detection.get("user", "root"),
+                detection.get("password", "root"),
+                external=True
+            )
             use_external = True
         else:
             use_external = False
@@ -578,14 +585,20 @@ def create_login_server():
     else:
         config = collect_full_config("login")
     
-    # Se usando MariaDB externo, atualizar config
+    # Se usando MariaDB externo, atualizar config com credenciais detectadas
     if use_external:
         config["DB_HOST"] = detection["host"]
         config["DB_PORT"] = detection["port"]
+        config["DB_USER"] = detection.get("user", "root")
+        config["DB_PASSWORD"] = detection.get("password", "root")
     
     print("\n  Configuracao coletada:")
     for key, value in config.items():
-        print(f"    {key}: {value}")
+        # Mascarar senha
+        if "PASSWORD" in key:
+            print(f"    {key}: ***")
+        else:
+            print(f"    {key}: {value}")
     
     if not confirm("\n  Confirmar criacao do LoginServer?"):
         print("  Operacao cancelada.")
@@ -925,7 +938,7 @@ def check_database_exists(host, port, user, password, db_name):
 def detect_or_configure_mariadb():
     """
     Detecta MariaDB existente ou pede configuração manual.
-    Retorna: {found: bool, host: str, port: str, database_exists: bool}
+    Retorna: {found: bool, host: str, port: str, user: str, password: str, database_exists: bool}
     """
     print("\n  Procurando MariaDB existente...\n")
     
@@ -938,27 +951,48 @@ def detect_or_configure_mariadb():
             print(f"    [{i}] {c['name']} ({c['external_port']}) - {c['status']}")
         print()
         
-        # Para cada container, testar conexão
+        # Para cada container, testar conexão primeiro com root/root
         for c in containers:
             host = "localhost"
             port = c["external_port"]
             
             print(f"  Testando conexao com {c['name']} ({host}:{port})...")
             if test_mariadb_connection(host, port, "root", "root"):
-                print(f"  Conexao OK com {c['name']}!")
+                print(f"  Conexao OK com {c['name']} (root/root)!")
                 
-                # Verificar se database l2jdb_login existe
                 db_exists = check_database_exists(host, port, "root", "root", "l2jdb_login")
                 
                 return {
                     "found": True,
                     "host": host,
                     "port": port,
+                    "user": "root",
+                    "password": "root",
                     "container_name": c["name"],
                     "database_exists": db_exists,
                 }
             else:
-                print(f"  Falha na conexao com {c['name']} (credenciais root/root)")
+                print(f"  Falha com root/root. Pedindo credenciais...")
+                # Pedir credenciais para este container
+                user = input(f"  Usuario para {c['name']} [root]: ").strip() or "root"
+                password = input(f"  Senha para {c['name']} [root]: ").strip() or "root"
+                
+                if test_mariadb_connection(host, port, user, password):
+                    print(f"  Conexao OK com {c['name']} ({user})!")
+                    
+                    db_exists = check_database_exists(host, port, user, password, "l2jdb_login")
+                    
+                    return {
+                        "found": True,
+                        "host": host,
+                        "port": port,
+                        "user": user,
+                        "password": password,
+                        "container_name": c["name"],
+                        "database_exists": db_exists,
+                    }
+                else:
+                    print(f"  Falha na conexao com {c['name']}.")
         
         print()
     
@@ -967,30 +1001,61 @@ def detect_or_configure_mariadb():
     print()
     
     if not confirm("  Deseja informar host:port de um MariaDB existente?"):
-        return {"found": False, "host": "", "port": "", "database_exists": False}
+        return {"found": False, "host": "", "port": "", "user": "", "password": "", "database_exists": False}
     
-    # Pedir host e porta
-    host = input("  Host do MariaDB [localhost]: ").strip() or "localhost"
-    port = input("  Porta do MariaDB [3306]: ").strip() or "3306"
-    
-    print(f"\n  Testando conexao com {host}:{port}...")
-    if test_mariadb_connection(host, port, "root", "root"):
-        print("  Conexao OK!")
+    # Pedir host, porta, usuario e senha
+    while True:
+        host = input("  Host do MariaDB [localhost]: ").strip() or "localhost"
+        port = input("  Porta do MariaDB [3306]: ").strip() or "3306"
+        user = input("  Usuario do MariaDB [root]: ").strip() or "root"
+        password = input("  Senha do MariaDB [root]: ").strip() or "root"
         
-        db_exists = check_database_exists(host, port, "root", "root", "l2jdb_login")
-        
-        return {
-            "found": True,
-            "host": host,
-            "port": port,
-            "container_name": "",
-            "database_exists": db_exists,
-        }
-    else:
-        print("  Falha na conexao. Verifique host, porta e credenciais.")
-        return {"found": False, "host": "", "port": "", "database_exists": False}
+        print(f"\n  Testando conexao com {user}@{host}:{port}...")
+        if test_mariadb_connection(host, port, user, password):
+            print("  Conexao OK!")
+            
+            db_exists = check_database_exists(host, port, user, password, "l2jdb_login")
+            
+            return {
+                "found": True,
+                "host": host,
+                "port": port,
+                "user": user,
+                "password": password,
+                "container_name": "",
+                "database_exists": db_exists,
+            }
+        else:
+            print("\n  Falha na conexao.")
+            print()
+            print("  Opcoes:")
+            print("    [1] Tentar outras credenciais")
+            print("    [2] Criar novo container MariaDB com credenciais customizadas")
+            print("    [3] Cancelar")
+            
+            choice = input("\n  Selecione: ").strip()
+            
+            if choice == "2":
+                # Criar container com credenciais customizadas
+                print("\n  Credenciais para o novo container MariaDB:")
+                new_user = input("  Usuario [root]: ").strip() or "root"
+                new_password = input("  Senha [root]: ").strip() or "root"
+                
+                return {
+                    "found": False,
+                    "host": "mariadb-login",
+                    "port": "3306",
+                    "user": new_user,
+                    "password": new_password,
+                    "container_name": "",
+                    "database_exists": False,
+                    "create_container": True,
+                }
+            elif choice == "3":
+                return {"found": False, "host": "", "port": "", "user": "", "password": "", "database_exists": False}
+            # Senão, loop continua para tentar outras credenciais
 
-def update_login_env(host, port, external=True):
+def update_login_env(host, port, user="root", password="root", external=True):
     """Atualiza login/.env com configuração do MariaDB"""
     env_file = DOCKER_DIR / "login" / ".env"
     
@@ -1003,8 +1068,8 @@ def update_login_env(host, port, external=True):
 # MariaDB Login (local ou remoto)
 DB_HOST={host}
 DB_PORT={port}
-DB_USER=root
-DB_PASSWORD=root
+DB_USER={user}
+DB_PASSWORD={password}
 LOGIN_DB=l2jdb_login
 
 # Hostname público do LoginServer (IP para clientes)
@@ -1035,6 +1100,18 @@ EXTERNAL_MARIADB={'true' if external else 'false'}
         else:
             content += f"\nDB_PORT={port}"
         
+        # Atualizar DB_USER
+        if "DB_USER=" in content:
+            content = re.sub(r"DB_USER=.*", f"DB_USER={user}", content)
+        else:
+            content += f"\nDB_USER={user}"
+        
+        # Atualizar DB_PASSWORD
+        if "DB_PASSWORD=" in content:
+            content = re.sub(r"DB_PASSWORD=.*", f"DB_PASSWORD={password}", content)
+        else:
+            content += f"\nDB_PASSWORD={password}"
+        
         # Atualizar ou adicionar EXTERNAL_MARIADB
         if "EXTERNAL_MARIADB=" in content:
             content = re.sub(r"EXTERNAL_MARIADB=.*", f"EXTERNAL_MARIADB={'true' if external else 'false'}", content)
@@ -1044,7 +1121,7 @@ EXTERNAL_MARIADB={'true' if external else 'false'}
         env_content = content
     
     env_file.write_text(env_content, encoding='utf-8')
-    print(f"  login/.env atualizado: DB_HOST={host}, DB_PORT={port}")
+    print(f"  login/.env atualizado: DB_HOST={host}, DB_PORT={port}, DB_USER={user}")
 
 # ============================================================
 # Service Management
@@ -1059,6 +1136,7 @@ def start_mariadb_login():
     if detection["found"]:
         # MariaDB externo encontrado
         print(f"\n  MariaDB detectado: {detection.get('container_name', 'manual')} ({detection['host']}:{detection['port']})")
+        print(f"  Usuario: {detection.get('user', 'root')}")
         
         if detection["database_exists"]:
             print(f"  Database l2jdb_login: EXISTE")
@@ -1067,28 +1145,56 @@ def start_mariadb_login():
         
         if confirm("\n  Usar este MariaDB para o LoginServer?"):
             # Usar MariaDB externo
-            update_login_env(detection["host"], detection["port"], external=True)
+            update_login_env(
+                detection["host"], 
+                detection["port"],
+                detection.get("user", "root"),
+                detection.get("password", "root"),
+                external=True
+            )
             print("\n  Configuracao atualizada para usar MariaDB externo.")
             print("  LoginServer ira conectar em:", detection["host"] + ":" + detection["port"])
             return True
         else:
             print("\n  Criando container mariadb-login...")
     
-    # Criar container mariadb-login (comportamento original)
+    # Se detect_or_configure_mariadb retornou create_container=True,
+    # usar credenciais customizadas
+    if detection.get("create_container"):
+        custom_user = detection.get("user", "root")
+        custom_password = detection.get("password", "root")
+    else:
+        custom_user = "root"
+        custom_password = "root"
+    
+    # Criar container mariadb-login
     compose_file = DOCKER_DIR / "docker-compose.yml"
     if not compose_file.exists():
         print(f"  ERRO: docker-compose.yml nao encontrado em {compose_file}")
         return False
     
-    # Atualizar .env para usar container local
-    update_login_env("mariadb-login", "3306", external=False)
+    # Atualizar .env para usar container local com credenciais
+    update_login_env("mariadb-login", "3306", custom_user, custom_password, external=False)
+    
+    # Se credenciais customizadas, passar via environment
+    if custom_user != "root" or custom_password != "root":
+        os.environ["MYSQL_ROOT_PASSWORD"] = custom_password
+        print(f"  Criando MariaDB com senha customizada...")
     
     print("  Iniciando MariaDB LoginServer...")
     if not run_compose(compose_file, "up", "-d"):
         print("  ERRO ao iniciar MariaDB LoginServer!")
+        # Limpar environment
+        if "MYSQL_ROOT_PASSWORD" in os.environ:
+            del os.environ["MYSQL_ROOT_PASSWORD"]
         return False
     
+    # Limpar environment
+    if "MYSQL_ROOT_PASSWORD" in os.environ:
+        del os.environ["MYSQL_ROOT_PASSWORD"]
+    
     print("\n  MariaDB LoginServer iniciado com sucesso!")
+    print(f"  Credenciais: {custom_user}/***@mariadb-login:3306")
     return True
 
 def start_loginserver():
