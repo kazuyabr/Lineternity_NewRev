@@ -723,10 +723,10 @@ def list_existing_game_servers() -> list[ServerInfo]:
 def list_servers():
     print_header("Servidores Ativos")
     
-    # Check base infrastructure
-    print("  --- Infraestrutura Base ---")
+    # Check LoginServer MariaDB
+    print("  --- LoginServer Infrastructure ---")
     result = subprocess.run(
-        ["docker", "ps", "-a", "--filter", "name=lineternity-", "--format", "{{.Names}}\t{{.Status}}"],
+        ["docker", "ps", "-a", "--filter", "name=lineternity-mariadb-login", "--format", "{{.Names}}\t{{.Status}}"],
         capture_output=True, text=True
     )
     if result.stdout.strip():
@@ -735,22 +735,53 @@ def list_servers():
             if len(parts) == 2:
                 print(f"    {parts[0]}: {parts[1]}")
     else:
-        print("    Nenhum container base encontrado.")
+        print("    MariaDB LoginServer: nao iniciado")
+    
+    # Check LoginServer
+    result = subprocess.run(
+        ["docker", "ps", "-a", "--filter", "name=lineternity-loginserver", "--format", "{{.Names}}\t{{.Status}}"],
+        capture_output=True, text=True
+    )
+    if result.stdout.strip():
+        for line in result.stdout.strip().splitlines():
+            parts = line.split("\t")
+            if len(parts) == 2:
+                print(f"    {parts[0]}: {parts[1]}")
+    else:
+        print("    LoginServer: nao iniciado")
     
     # Check gameservers
     print("\n  --- GameServers ---")
     servers = list_existing_game_servers()
     if servers:
         for server in servers:
-            status = "configurado"
-            # Check if container is running
+            # Check MariaDB for this server
+            mariadb_name = f"lineternity-mariadb-gs{server.server_id}"
             result = subprocess.run(
-                ["docker", "ps", "-a", "--filter", f"name=lineternity-gameserver-{server.server_id}", "--format", "{{.Status}}"],
+                ["docker", "ps", "-a", "--filter", f"name={mariadb_name}", "--format", "{{.Names}}\t{{.Status}}"],
                 capture_output=True, text=True
             )
+            mariadb_status = "nao iniciado"
             if result.stdout.strip():
-                status = result.stdout.strip()
-            print(f"    GameServer #{server.server_id}: {server.hostname} (port {server.public_port}) - {status}")
+                parts = result.stdout.strip().split("\t")
+                if len(parts) == 2:
+                    mariadb_status = parts[1]
+            
+            # Check GameServer
+            gs_name = f"lineternity-gameserver-{server.server_id}"
+            result = subprocess.run(
+                ["docker", "ps", "-a", "--filter", f"name={gs_name}", "--format", "{{.Names}}\t{{.Status}}"],
+                capture_output=True, text=True
+            )
+            gs_status = "nao iniciado"
+            if result.stdout.strip():
+                parts = result.stdout.strip().split("\t")
+                if len(parts) == 2:
+                    gs_status = parts[1]
+            
+            print(f"    GameServer #{server.server_id}: {server.hostname} (port {server.public_port})")
+            print(f"      MariaDB: {mariadb_status}")
+            print(f"      GameServer: {gs_status}")
     else:
         print("    Nenhum GameServer configurado.")
     
@@ -760,6 +791,7 @@ def show_logs_menu():
     print_header("Logs")
     
     options = [
+        "Logs do MariaDB LoginServer",
         "Logs do LoginServer",
         "Logs do GameServer (selecionar)",
         "Logs de todos os containers",
@@ -769,9 +801,12 @@ def show_logs_menu():
     idx = choose_from_menu("Selecione o tipo de log", options)
     
     if idx == 0:
+        print("\n  Logs do MariaDB LoginServer (Ctrl+C para sair):")
+        subprocess.run(["docker", "logs", "-f", "lineternity-mariadb-login"])
+    elif idx == 1:
         print("\n  Logs do LoginServer (Ctrl+C para sair):")
         subprocess.run(["docker", "logs", "-f", "lineternity-loginserver"])
-    elif idx == 1:
+    elif idx == 2:
         servers = list_existing_game_servers()
         if not servers:
             print("  Nenhum GameServer encontrado.")
@@ -782,45 +817,62 @@ def show_logs_menu():
                 server = servers[idx]
                 print(f"\n  Logs do GameServer #{server.server_id} (Ctrl+C para sair):")
                 subprocess.run(["docker", "logs", "-f", f"lineternity-gameserver-{server.server_id}"])
-    elif idx == 2:
-        print("\n  Logs de todos os containers (Ctrl+C para sair):")
-        subprocess.run(["docker", "logs", "-f", "lineternity-mariadb", "lineternity-loginserver"])
     elif idx == 3:
+        print("\n  Logs de todos os containers (Ctrl+C para sair):")
+        subprocess.run(["docker", "logs", "-f", "lineternity-mariadb-login", "lineternity-loginserver"])
+    elif idx == 4:
         return
 
-def start_base_infra():
-    print_header("Iniciando Infraestrutura Base")
+# ============================================================
+# Service Management
+# ============================================================
+
+def start_mariadb_login():
+    print_header("Iniciar MariaDB LoginServer")
     
     compose_file = DOCKER_DIR / "docker-compose.yml"
     if not compose_file.exists():
         print(f"  ERRO: docker-compose.yml nao encontrado em {compose_file}")
         return False
     
-    print("  Construindo imagem...")
-    if not run_compose(compose_file, "build"):
-        print("  ERRO ao buildar imagem!")
-        return False
-    
-    print("\n  Iniciando containers...")
+    print("  Iniciando MariaDB LoginServer...")
     if not run_compose(compose_file, "up", "-d"):
-        print("  ERRO ao iniciar containers!")
+        print("  ERRO ao iniciar MariaDB LoginServer!")
         return False
     
-    print("\n  Infraestrutura base iniciada com sucesso!")
+    print("\n  MariaDB LoginServer iniciado com sucesso!")
     return True
 
-def rebuild_all():
-    print_header("Reset Completo + Rebuild")
+def start_loginserver():
+    print_header("Iniciar LoginServer")
     
-    if not confirm("  Isso ira parar e remover todos os containers, e reconstruir a imagem. Continuar?"):
+    compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
+    if not compose_file.exists():
+        print(f"  ERRO: docker-compose.loginserver.yml nao encontrado em {compose_file}")
+        return False
+    
+    env_file = DOCKER_DIR / "login" / ".env"
+    if not env_file.exists():
+        print(f"  ERRO: .env nao encontrado em {env_file}")
+        print("  Execute 'Criar LoginServer' primeiro.")
+        return False
+    
+    print("  Iniciando LoginServer...")
+    if not run_compose(compose_file, "up", "-d", env_file=env_file):
+        print("  ERRO ao iniciar LoginServer!")
+        return False
+    
+    print("\n  LoginServer iniciado com sucesso!")
+    return True
+
+def stop_all_services():
+    print_header("Parar Todos os Serviços")
+    
+    if not confirm("  Parar todos os containers Lineternity?"):
         print("  Operacao cancelada.")
         return
     
-    compose_file = DOCKER_DIR / "docker-compose.yml"
-    
-    print("\n  Parando containers base...")
-    run_compose(compose_file, "down", "-v")
-    
+    # Stop all game servers
     print("\n  Parando GameServers...")
     for server_dir in GAMESERVERS_DIR.iterdir():
         if server_dir.is_dir():
@@ -829,13 +881,88 @@ def rebuild_all():
             if compose.exists():
                 run_compose(compose, "down", env_file=env if env.exists() else None)
     
-    print("\n  Reconstruindo imagem...")
-    run_compose(compose_file, "build", "--no-cache")
+    # Stop login server
+    print("\n  Parando LoginServer...")
+    compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
+    if compose_file.exists():
+        run_compose(compose_file, "down")
     
-    print("\n  Iniciando infraestrutura base...")
-    run_compose(compose_file, "up", "-d")
+    # Stop MariaDB
+    print("\n  Parando MariaDB LoginServer...")
+    compose_file = DOCKER_DIR / "docker-compose.yml"
+    if compose_file.exists():
+        run_compose(compose_file, "down")
     
-    print("\n  Reset completo finalizado!")
+    print("\n  Todos os servicos parados com sucesso!")
+
+def start_game_server():
+    print_header("Iniciar GameServer")
+    
+    servers = list_existing_game_servers()
+    if not servers:
+        print("  Nenhum GameServer configurado.")
+        print("  Execute 'Criar GameServer' primeiro.")
+        return
+    
+    options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+    options.append("Todos os GameServers")
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o GameServer para iniciar", options)
+    
+    if idx == len(servers):
+        # Start all
+        print("\n  Iniciando todos os GameServers...")
+        for server in servers:
+            compose_file = server.compose_path
+            env_file = server.env_path
+            if compose_file.exists():
+                run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
+        print("\n  Todos os GameServers iniciados!")
+    elif idx == len(servers) + 1:
+        print("  Operacao cancelada.")
+    elif 0 <= idx < len(servers):
+        server = servers[idx]
+        compose_file = server.compose_path
+        env_file = server.env_path
+        if compose_file.exists():
+            print(f"\n  Iniciando GameServer #{server.server_id}...")
+            run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
+            print(f"\n  GameServer #{server.server_id} iniciado!")
+
+def stop_game_server():
+    print_header("Parar GameServer")
+    
+    servers = list_existing_game_servers()
+    if not servers:
+        print("  Nenhum GameServer configurado.")
+        return
+    
+    options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+    options.append("Todos os GameServers")
+    options.append("Cancelar")
+    
+    idx = choose_from_menu("Selecione o GameServer para parar", options)
+    
+    if idx == len(servers):
+        # Stop all
+        print("\n  Parando todos os GameServers...")
+        for server in servers:
+            compose_file = server.compose_path
+            env_file = server.env_path
+            if compose_file.exists():
+                run_compose(compose_file, "down", env_file=env_file if env_file.exists() else None)
+        print("\n  Todos os GameServers parados!")
+    elif idx == len(servers) + 1:
+        print("  Operacao cancelada.")
+    elif 0 <= idx < len(servers):
+        server = servers[idx]
+        compose_file = server.compose_path
+        env_file = server.env_path
+        if compose_file.exists():
+            print(f"\n  Parando GameServer #{server.server_id}...")
+            run_compose(compose_file, "down", env_file=env_file if env_file.exists() else None)
+            print(f"\n  GameServer #{server.server_id} parado!")
 
 def bulk_edit_env():
     print_header("Edicao em Massa de Environment")
@@ -1019,36 +1146,42 @@ def delete_profile(profiles_dir: Path):
 def main_menu():
     while True:
         options = [
-            "Reset completo + rebuild sem cache",
-            "Criar LoginServer",
-            "Criar GameServer",
-            "Remover servidor",
-            "Listar servidores ativos",
-            "Logs",
-            "Edicao em massa de environment",
-            "Gerenciar perfis de configuracao",
-            "Exit",
+            "1. Iniciar MariaDB LoginServer",
+            "2. Iniciar LoginServer",
+            "3. Criar GameServer",
+            "4. Iniciar GameServer",
+            "5. Parar GameServer",
+            "6. Parar Todos os Serviços",
+            "7. Listar servidores ativos",
+            "8. Logs",
+            "9. Edicao em massa de environment",
+            "10. Gerenciar perfis de configuracao",
+            "11. Sair",
         ]
         
-        idx = choose_from_menu("Lineternity Stack Manager", options)
+        idx = choose_from_menu("Lineternity Stack Manager v2.0", options)
         
         if idx == 0:
-            rebuild_all()
+            start_mariadb_login()
         elif idx == 1:
-            create_login_server()
+            start_loginserver()
         elif idx == 2:
             create_game_server()
         elif idx == 3:
-            remove_game_server()
+            start_game_server()
         elif idx == 4:
-            list_servers()
+            stop_game_server()
         elif idx == 5:
-            show_logs_menu()
+            stop_all_services()
         elif idx == 6:
-            bulk_edit_env()
+            list_servers()
         elif idx == 7:
-            manage_config_profiles()
+            show_logs_menu()
         elif idx == 8:
+            bulk_edit_env()
+        elif idx == 9:
+            manage_config_profiles()
+        elif idx == 10:
             print("\n  Saindo...")
             break
         else:
