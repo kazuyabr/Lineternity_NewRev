@@ -81,7 +81,7 @@ LOGIN_CATEGORIES = {
         name="security",
         label="Security",
         properties=[
-            PropertyConfig("L2_EMAIL", "License Email", "brprojeto@l2jbrasil.com", "License email", False, "security"),
+            PropertyConfig("L2_EMAIL", "License Email", "contato@jogatinando.com.br", "License email", False, "security"),
         ]
     ),
 }
@@ -118,7 +118,7 @@ GAME_CATEGORIES = {
         label="Identity",
         properties=[
             PropertyConfig("MAX_ONLINE", "Max Online Users", "3000", "Max simultaneous players", False, "identity"),
-            PropertyConfig("L2_EMAIL", "License Email", "brprojeto@l2jbrasil.com", "License email", False, "identity"),
+            PropertyConfig("L2_EMAIL", "License Email", "contato@jogatinando.com.br", "License email", False, "identity"),
         ]
     ),
     "rates": CategoryConfig(
