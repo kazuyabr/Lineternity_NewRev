@@ -91,16 +91,26 @@ LOGIN_CATEGORIES = {
 # ============================================================
 
 GAME_CATEGORIES = {
-    "database": CategoryConfig(
-        name="database",
-        label="Database",
+    "database_local": CategoryConfig(
+        name="database_local",
+        label="Database Local (GameServer)",
         properties=[
-            PropertyConfig("DB_HOST", "Database Host", "mariadb", "MariaDB hostname", True, "database"),
-            PropertyConfig("DB_PORT", "Database Port", "3306", "MariaDB port", True, "database"),
-            PropertyConfig("DB_USER", "Database User", "root", "MariaDB username", True, "database"),
-            PropertyConfig("DB_PASSWORD", "Database Password", "root", "MariaDB password", True, "database"),
-            PropertyConfig("LOGIN_DB", "Login Database", "l2jdb_login", "Login database name", True, "database"),
-            PropertyConfig("GAME_DB", "Game Database", "l2jdb_gs1", "Game database name", True, "database"),
+            PropertyConfig("DB_HOST", "DB Host Local", "mariadb-gs1", "MariaDB hostname local", True, "database_local"),
+            PropertyConfig("DB_PORT", "DB Port Local", "3306", "MariaDB port local", True, "database_local"),
+            PropertyConfig("DB_USER", "DB User Local", "root", "MariaDB username local", True, "database_local"),
+            PropertyConfig("DB_PASSWORD", "DB Password Local", "root", "MariaDB password local", True, "database_local"),
+            PropertyConfig("GAME_DB", "Game Database", "l2jdb_gs1", "Game database name", True, "database_local"),
+        ]
+    ),
+    "database_remote": CategoryConfig(
+        name="database_remote",
+        label="Database Remoto (LoginServer)",
+        properties=[
+            PropertyConfig("LOGIN_DB_HOST", "DB Host Login", "mariadb-login", "MariaDB hostname do Login (remoto)", True, "database_remote"),
+            PropertyConfig("LOGIN_DB_PORT", "DB Port Login", "3306", "MariaDB port do Login", True, "database_remote"),
+            PropertyConfig("LOGIN_DB_USER", "DB User Login", "root", "MariaDB username do Login", True, "database_remote"),
+            PropertyConfig("LOGIN_DB_PASSWORD", "DB Password Login", "root", "MariaDB password do Login", True, "database_remote"),
+            PropertyConfig("LOGIN_DB", "Login Database", "l2jdb_login", "Login database name", True, "database_remote"),
         ]
     ),
     "network": CategoryConfig(
@@ -111,6 +121,7 @@ GAME_CATEGORIES = {
             PropertyConfig("SERVER_HOSTNAME", "Server Hostname", "gameserver-1", "Hostname for clients", True, "network"),
             PropertyConfig("PUBLIC_PORT", "Public Port", "7777", "Public port for clients", True, "network"),
             PropertyConfig("LOGIN_HOSTNAME", "Login Hostname", "loginserver", "LoginServer hostname", True, "network"),
+            PropertyConfig("LOGIN_PORT", "Login Port", "9014", "LoginServer Java port", True, "network"),
         ]
     ),
     "identity": CategoryConfig(
@@ -145,6 +156,14 @@ GAME_CATEGORIES = {
             PropertyConfig("MAX_DUALBOX", "Max Dualbox", "2", "Max clients per IP", False, "protection"),
         ]
     ),
+    "chat": CategoryConfig(
+        name="chat",
+        label="Chat",
+        properties=[
+            PropertyConfig("GLOBAL_CHAT", "Global Chat", "ON", "Global chat mode", False, "chat"),
+            PropertyConfig("TRADE_CHAT", "Trade Chat", "ON", "Trade chat mode", False, "chat"),
+        ]
+    ),
     "autofarm": CategoryConfig(
         name="autofarm",
         label="AutoFarm",
@@ -161,20 +180,13 @@ GAME_CATEGORIES = {
             PropertyConfig("MAX_MATK", "Max M.Atk", "32000", "Maximum magic attack", False, "limits"),
         ]
     ),
-    "chat": CategoryConfig(
-        name="chat",
-        label="Chat",
-        properties=[
-            PropertyConfig("GLOBAL_CHAT", "Global Chat", "ON", "Global chat mode", False, "chat"),
-            PropertyConfig("TRADE_CHAT", "Trade Chat", "ON", "Trade chat mode", False, "chat"),
-        ]
-    ),
     "events": CategoryConfig(
         name="events",
         label="Events",
         properties=[
             PropertyConfig("OlympiadEnabled", "Olympiad Enabled", "True", "Enable Olympiad", False, "events"),
             PropertyConfig("OlyStartTime", "Oly Start Time", "18", "Olympiad start hour", False, "events"),
+            PropertyConfig("OlyStartPoints", "Oly Start Points", "18", "Olympiad start points", False, "events"),
             PropertyConfig("OlyCPeriod", "Oly Competition Period", "21600000", "Olympiad competition period (ms)", False, "events"),
             PropertyConfig("OlyBattle", "Oly Battle Time", "360000", "Olympiad battle time (ms)", False, "events"),
             PropertyConfig("CTFEventEnabled", "CTF Enabled", "False", "Enable CTF event", False, "events"),
@@ -194,27 +206,44 @@ GAME_CATEGORIES = {
             PropertyConfig("ClanMembersForWar", "Clan Members for War", "15", "Members needed for clan war", False, "clans"),
         ]
     ),
+    "npcs": CategoryConfig(
+        name="npcs",
+        label="NPCs & Bosses",
+        properties=[
+            PropertyConfig("SpawnMultiplier", "Spawn Multiplier", "1.5", "Monster spawn rate multiplier", False, "npcs"),
+            PropertyConfig("ChampionFrequency", "Champion Frequency", "0", "Champion mob frequency (0=disabled)", False, "npcs"),
+            PropertyConfig("ChampionHp", "Champion HP Multiplier", "2", "Champion HP multiplier", False, "npcs"),
+            PropertyConfig("MonsterHP", "Monster HP Multiplier", "1.0", "Monster HP multiplier", False, "npcs"),
+            PropertyConfig("MonsterPAtk", "Monster P.Atk Multiplier", "1.0", "Monster physical attack multiplier", False, "npcs"),
+            PropertyConfig("RaidbossHP", "RaidBoss HP Multiplier", "1.0", "RaidBoss HP multiplier", False, "npcs"),
+            PropertyConfig("GrandbossHP", "GrandBoss HP Multiplier", "1.0", "GrandBoss HP multiplier", False, "npcs"),
+            PropertyConfig("NobleItemId", "Noble Item ID", "4037", "Item ID for Noblesse", False, "npcs"),
+            PropertyConfig("NobleItemCount", "Noble Item Count", "50", "Count of Noble item", False, "npcs"),
+            PropertyConfig("WeddingPrice", "Wedding Price", "1000000", "Wedding system price", False, "npcs"),
+            PropertyConfig("FreeTeleport", "Free Teleport", "False", "Enable free teleport", False, "npcs"),
+            PropertyConfig("ShowNpcLevel", "Show NPC Level", "True", "Show NPC level in game", False, "npcs"),
+            PropertyConfig("MobAggroInPeaceZone", "Mob Aggro Peace Zone", "False", "Monsters aggro in peace zones", False, "npcs"),
+        ]
+    ),
+    "offlineshop": CategoryConfig(
+        name="offlineshop",
+        label="Offline Shop",
+        properties=[
+            PropertyConfig("OfflineTradeEnable", "Offline Trade", "True", "Enable offline trade shops", False, "offlineshop"),
+            PropertyConfig("OfflineCraftEnable", "Offline Craft", "True", "Enable offline craft shops", False, "offlineshop"),
+            PropertyConfig("OfflineModeInPeaceZone", "Peace Zone Only", "True", "Offline shop in peace zone only", False, "offlineshop"),
+            PropertyConfig("OfflineModeNoDamage", "No Damage", "False", "Offline shop immune to damage", False, "offlineshop"),
+            PropertyConfig("OfflineMaxDays", "Max Offline Days", "7", "Max days to stay offline", False, "offlineshop"),
+            PropertyConfig("OfflineDisconnectFinished", "Disconnect Finished", "True", "Auto-disconnect when shop done", False, "offlineshop"),
+        ]
+    ),
     "raidboss": CategoryConfig(
         name="raidboss",
         label="RaidBoss",
         properties=[
             PropertyConfig("RBSleepTime", "RB Sleep Time", "60", "RaidBoss sleep time (min)", False, "raidboss"),
             PropertyConfig("RBAgroTime", "RB Aggro Time", "60", "RaidBoss aggro time (min)", False, "raidboss"),
-        ]
-    ),
-    "cancel": CategoryConfig(
-        name="cancel",
-        label="CancelManager",
-        properties=[
-            PropertyConfig("CANCEL_SKILL_ON_ATTACK", "Cancel on Attack", "True", "Cancel skills when attacked", False, "cancel"),
-        ]
-    ),
-    "auction": CategoryConfig(
-        name="auction",
-        label="Auction",
-        properties=[
-            PropertyConfig("AUCTION_ENABLED", "Auction Enabled", "True", "Enable auction house", False, "auction"),
-            PropertyConfig("AUCTION_TAX", "Auction Tax", "5", "Auction house tax (%)", False, "auction"),
+            PropertyConfig("DisableRaidCurse", "Disable Raid Curse", "True", "Disable RaidBoss curse drops", False, "raidboss"),
         ]
     ),
 }
@@ -222,7 +251,12 @@ GAME_CATEGORIES = {
 # Mandatory configs for basic mode
 MANDATORY_CONFIGS = {
     "login": ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "LOGIN_DB", "HOSTNAME", "LOGIN_PORT"],
-    "game": ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "LOGIN_DB", "GAME_DB", "SERVER_ID", "SERVER_HOSTNAME", "PUBLIC_PORT", "LOGIN_HOSTNAME"],
+    "game": [
+        "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "GAME_DB",
+        "LOGIN_DB_HOST", "LOGIN_DB_PORT", "LOGIN_DB_USER", "LOGIN_DB_PASSWORD", "LOGIN_DB",
+        "SERVER_ID", "SERVER_HOSTNAME", "PUBLIC_PORT",
+        "LOGIN_HOSTNAME", "LOGIN_PORT",
+    ],
 }
 
 # ============================================================
