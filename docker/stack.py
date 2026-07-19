@@ -1513,48 +1513,299 @@ def delete_profile(profiles_dir: Path):
     print(f"\n  Perfil '{profile.stem}' deletado com sucesso!")
 
 # ============================================================
+# Create Base (Full Setup)
+# ============================================================
+
+def create_base():
+    """Wizard de setup completo para máquina nova - MariaDB + LoginServer + GameServer #1"""
+    print_header("Criar Base (Setup Completo)")
+    
+    print("  Este wizard ira configurar:")
+    print("    1. MariaDB (detectar ou criar)")
+    print("    2. LoginServer (configuracao padrao)")
+    print("    3. GameServer #1 (configuracao padrao)")
+    print()
+    print("  Resultado: servidor pronto para teste do cliente!")
+    print()
+    
+    if not confirm("  Iniciar setup completo?"):
+        return
+    
+    # ============================================================
+    # 1. Detectar/configurar MariaDB
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  PASSO 1/5: Configurar MariaDB")
+    print("=" * 60)
+    
+    detection = detect_or_configure_mariadb()
+    
+    use_external = detection["found"]
+    
+    if use_external:
+        # MariaDB detectado
+        mariadb_host = detection["host"]
+        mariadb_port = detection["port"]
+        mariadb_user = detection.get("user", "root")
+        mariadb_password = detection.get("password", "root")
+        
+        print(f"\n  MariaDB detectado: {mariadb_host}:{mariadb_port}")
+        print(f"  Usuario: {mariadb_user}")
+        
+        if not detection["database_exists"]:
+            print(f"  Database l2jdb_login: sera criado pelo entrypoint")
+        
+        update_login_env(mariadb_host, mariadb_port, mariadb_user, mariadb_password, external=True)
+    else:
+        # Não encontrou MariaDB - criar container
+        if detection.get("create_container"):
+            mariadb_user = detection.get("user", "root")
+            mariadb_password = detection.get("password", "root")
+        else:
+            print("\n  Nenhum MariaDB encontrado. Criando container mariadb-login...")
+            mariadb_user = "root"
+            mariadb_password = "root"
+        
+        mariadb_host = "mariadb-login"
+        mariadb_port = "3306"
+        
+        update_login_env(mariadb_host, mariadb_port, mariadb_user, mariadb_password, external=False)
+        
+        # Criar container mariadb-login
+        compose_file = DOCKER_DIR / "docker-compose.yml"
+        if compose_file.exists():
+            if mariadb_user != "root" or mariadb_password != "root":
+                os.environ["MYSQL_ROOT_PASSWORD"] = mariadb_password
+            
+            print("  Criando container mariadb-login...")
+            if not run_compose(compose_file, "up", "-d"):
+                print("  ERRO ao criar container mariadb-login!")
+                if "MYSQL_ROOT_PASSWORD" in os.environ:
+                    del os.environ["MYSQL_ROOT_PASSWORD"]
+                return
+            
+            if "MYSQL_ROOT_PASSWORD" in os.environ:
+                del os.environ["MYSQL_ROOT_PASSWORD"]
+            
+            print("  Container mariadb-login criado com sucesso!")
+    
+    # ============================================================
+    # 2. Configurar LoginServer
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  PASSO 2/5: Configurar LoginServer")
+    print("=" * 60)
+    
+    login_config = {
+        "DB_HOST": mariadb_host,
+        "DB_PORT": mariadb_port,
+        "DB_USER": mariadb_user,
+        "DB_PASSWORD": mariadb_password,
+        "LOGIN_DB": "l2jdb_login",
+        "HOSTNAME": "localhost",
+        "LOGIN_PORT": "2106",
+        "L2_EMAIL": "contato@jogatinando.com.br",
+    }
+    
+    print(f"  DB_HOST: {mariadb_host}")
+    print(f"  DB_PORT: {mariadb_port}")
+    print(f"  DB_USER: {mariadb_user}")
+    print(f"  DB_PASSWORD: ***")
+    print(f"  HOSTNAME: localhost")
+    print(f"  LOGIN_PORT: 2106")
+    
+    config_dir = DOCKER_DIR / "login" / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    create_login_properties(config_dir, login_config)
+    
+    print("  LoginServer configurado com sucesso!")
+    
+    # ============================================================
+    # 3. Iniciar MariaDB + LoginServer
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  PASSO 3/5: Iniciar MariaDB + LoginServer")
+    print("=" * 60)
+    
+    # MariaDB já foi iniciado no passo 1 se foi criado
+    # Se é externo, não precisa iniciar
+    
+    # Iniciar LoginServer
+    print("  Iniciando LoginServer...")
+    if not start_loginserver():
+        print("  ERRO ao iniciar LoginServer!")
+        return
+    
+    print("  LoginServer iniciado com sucesso!")
+    print("  Aguardando LoginServer ficar pronto...")
+    import time
+    time.sleep(5)  # Aguardar LoginServer inicializar
+    
+    # ============================================================
+    # 4. Criar GameServer #1
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  PASSO 4/5: Criar GameServer #1")
+    print("=" * 60)
+    
+    server_id = 1
+    server_dir = GAMESERVERS_DIR / f"gameserver-{server_id}"
+    
+    # Verificar se já existe
+    if server_dir.exists():
+        print(f"  AVISO: GameServer #{server_id} ja existe em {server_dir}")
+        if not confirm("  Sobrescrever?"):
+            print("  Pulando criacao do GameServer.")
+            game_config = None
+        else:
+            # Limpar diretório existente
+            import shutil as shutil_module
+            shutil_module.rmtree(server_dir)
+            game_config = None
+    
+    if game_config is None or not server_dir.exists():
+        game_config = {
+            "SERVER_ID": str(server_id),
+            "SERVER_HOSTNAME": f"gameserver-{server_id}",
+            "PUBLIC_PORT": str(7776 + server_id),
+            "GAME_DB": f"l2jdb_gs{server_id}",
+            # MariaDB local do GameServer
+            "DB_HOST": f"mariadb-gs{server_id}",
+            "DB_PORT": "3306",
+            "DB_USER": mariadb_user,
+            "DB_PASSWORD": mariadb_password,
+            # MariaDB do Login (remoto)
+            "LOGIN_DB_HOST": mariadb_host,
+            "LOGIN_DB_PORT": mariadb_port,
+            "LOGIN_DB_USER": mariadb_user,
+            "LOGIN_DB_PASSWORD": mariadb_password,
+            "LOGIN_DB": "l2jdb_login",
+            # Identidade
+            "LOGIN_HOSTNAME": "loginserver",
+            "LOGIN_PORT": "9014",
+        }
+        
+        print(f"  Server ID: {server_id}")
+        print(f"  Hostname: gameserver-{server_id}")
+        print(f"  Port: {7776 + server_id}")
+        print(f"  Database: l2jdb_gs{server_id}")
+        print(f"  LoginDB Host: {mariadb_host}:{mariadb_port}")
+        
+        # Criar estrutura de diretórios
+        server_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = server_dir / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Copiar docker-compose template
+        compose_template = GAMESERVERS_DIR / "template" / "docker-compose.yml"
+        compose_file = server_dir / "docker-compose.yml"
+        shutil.copy2(compose_template, compose_file)
+        
+        # Criar .env
+        env_file = server_dir / ".env"
+        env_content = "\n".join(f"{key}={value}" for key, value in game_config.items())
+        env_file.write_text(env_content, encoding='utf-8')
+        
+        # Gerar properties
+        create_game_properties(config_dir, game_config)
+        
+        print("  GameServer #1 configurado com sucesso!")
+    
+    # ============================================================
+    # 5. Iniciar GameServer #1
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  PASSO 5/5: Iniciar GameServer #1")
+    print("=" * 60)
+    
+    if game_config is not None:
+        compose_file = server_dir / "docker-compose.yml"
+        env_file = server_dir / ".env"
+        
+        if compose_file.exists():
+            print("  Iniciando GameServer #1...")
+            if run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None):
+                print("  GameServer #1 iniciado com sucesso!")
+            else:
+                print("  ERRO ao iniciar GameServer #1!")
+        else:
+            print("  ERRO: docker-compose.yml nao encontrado!")
+    
+    # ============================================================
+    # Resumo
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  SETUP COMPLETO!")
+    print("=" * 60)
+    print()
+    print("  Servidores configurados:")
+    print(f"    LoginServer:  localhost:2106")
+    print(f"    GameServer #1: localhost:7777")
+    print()
+    print("  Databases:")
+    print(f"    Login:  l2jdb_login ({mariadb_host}:{mariadb_port})")
+    print(f"    Game:   l2jdb_gs1 (mariadb-gs1:3306)")
+    print()
+    print("  Credenciais MariaDB:")
+    print(f"    Usuario: {mariadb_user}")
+    print(f"    Senha:   {mariadb_password}")
+    print()
+    print("  Proximos passos:")
+    print("    1. Aguarde alguns segundos para os servidores iniciarem")
+    print("    2. Conecte o cliente L2 em localhost:2106")
+    print("    3. Crie uma conta no jogo")
+    print()
+    print("  Comandos uteis:")
+    print("    - Listar servidores: opcao 8 no menu")
+    print("    - Ver logs: opcao 9 no menu")
+    print("    - Parar tudo: opcao 7 no menu")
+
+# ============================================================
 # Main Menu
 # ============================================================
 
 def main_menu():
     while True:
         options = [
-            "1. Iniciar MariaDB LoginServer",
-            "2. Iniciar LoginServer",
-            "3. Criar GameServer",
-            "4. Iniciar GameServer",
-            "5. Parar GameServer",
-            "6. Parar Todos os Serviços",
-            "7. Listar servidores ativos",
-            "8. Logs",
-            "9. Edicao em massa de environment",
-            "10. Gerenciar perfis de configuracao",
-            "11. Sair",
+            "1. Criar Base (Setup Completo)",
+            "2. Iniciar MariaDB LoginServer",
+            "3. Iniciar LoginServer",
+            "4. Criar GameServer",
+            "5. Iniciar GameServer",
+            "6. Parar GameServer",
+            "7. Parar Todos os Serviços",
+            "8. Listar servidores ativos",
+            "9. Logs",
+            "10. Edicao em massa de environment",
+            "11. Gerenciar perfis de configuracao",
+            "12. Sair",
         ]
         
         idx = choose_from_menu("Lineternity Stack Manager v2.0", options)
         
         if idx == 0:
-            start_mariadb_login()
+            create_base()
         elif idx == 1:
-            start_loginserver()
+            start_mariadb_login()
         elif idx == 2:
-            create_game_server()
+            start_loginserver()
         elif idx == 3:
-            start_game_server()
+            create_game_server()
         elif idx == 4:
-            stop_game_server()
+            start_game_server()
         elif idx == 5:
-            stop_all_services()
+            stop_game_server()
         elif idx == 6:
-            list_servers()
+            stop_all_services()
         elif idx == 7:
-            show_logs_menu()
+            list_servers()
         elif idx == 8:
-            bulk_edit_env()
+            show_logs_menu()
         elif idx == 9:
-            manage_config_profiles()
+            bulk_edit_env()
         elif idx == 10:
+            manage_config_profiles()
+        elif idx == 11:
             print("\n  Saindo...")
             break
         else:
