@@ -3172,42 +3172,33 @@ public final class Config
 	public static final void loadGameServer()
 	{
 		LOGGER.info("Loading gameserver configuration files.");
-		
-		loadOfflineShop();
-		
-		loadSafeDisconnect();
-		
-		loadBossZerg();
-		
-		loadClans();
-		
-		loadEvents();
-		
-		loadGeoengine();
-		
-		loadHexID();
-		
-		loadLanguage();
-		
-		loadProtection();
-		
-		loadNpcs();
-		
-		loadPlayers();
-		
-		loadSieges();
-		
-		loadServer();
-		
-		loadRates();
-		
-		loadRusAcis();
-
-		loadTranslator();
-		
-	    loadBossJewelUpgrades();
-	    
-	    loadBossHealConfigs();
+		try
+		{
+			loadOfflineShop();
+			loadSafeDisconnect();
+			loadBossZerg();
+			loadClans();
+			loadEvents();
+			loadGeoengine();
+			loadHexID();
+			loadLanguage();
+			loadProtection();
+			loadNpcs();
+			loadPlayers();
+			loadSieges();
+			loadServer();
+			loadRates();
+			loadRusAcis();
+			loadTranslator();
+			loadBossJewelUpgrades();
+			loadBossHealConfigs();
+		}
+		catch (Throwable t)
+		{
+			LOGGER.error("FATAL: Exception during loadGameServer!", t);
+			t.printStackTrace(System.err);
+			System.exit(1);
+		}
 	}	
 	
 	public static final void loadLoginServer()

@@ -65,7 +65,7 @@ public final class StringReplacer
 				break;
 			
 			newIndex = index + 2;
-			_sb.replace(index, newIndex, (obj == null) ? null : obj.toString());
+			_sb.replace(index, newIndex, (obj == null) ? "null" : obj.toString());
 		}
 	}
 	
