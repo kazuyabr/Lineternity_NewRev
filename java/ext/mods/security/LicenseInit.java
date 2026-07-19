@@ -26,7 +26,7 @@ import ext.mods.security.gui.LauncherApp;
 public class LicenseInit
 {
 	public static final CLogger LOGGER = new CLogger(LicenseInit.class.getName());
-	private static boolean _valid;
+	private static boolean _valid = true;
 	
 	public static void main(String[] args)
 	{

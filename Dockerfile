@@ -1,37 +1,40 @@
-# --- Imagem Base ---
-    FROM eclipse-temurin:21-jre-alpine
+# --- Stage 1: Compile patched LicenseInit.java ---
+FROM eclipse-temurin:25-jdk-alpine AS builder
 
-    # --- Instala Dependências ---
-    # Combina todas as instalações em um único comando RUN
-    # Adiciona 'util-linux' (para uuidgen), 'bash' (para o script) e 'dos2unix' (para corrigir line endings)
-    RUN apk add --no-cache util-linux bash dos2unix
-    
-    # --- Ambiente ---
-    WORKDIR /l2Brproject
-    
-    # Cria o diretório de log que seu script espera
-    RUN mkdir log
-    
-    # --- Copia os Arquivos do Projeto ---
-    # Copia tudo (incluindo o entrypoint.sh)
-    COPY . .
-    
-    # --- Prepara o Script de Entrypoint ---
-    # Aplica o dos2unix para remover line endings do Windows
-    # E dá permissão de execução
-    # Fazemos isso *depois* de copiar para garantir que o script esteja correto
-    RUN dos2unix entrypoint.sh && chmod +x entrypoint.sh
-    
-    # --- Portas ---
-    EXPOSE 7777
-    EXPOSE 2106
-    
-    # --- Comando Final ---
-    # Se o seu script #!/bin/bash estiver correto, isto funciona.
-    ENTRYPOINT ["./entrypoint.sh"]
-    
-    # --- ALTERNATIVA (Mais Explícita) ---
-    # Você também pode forçar o uso do bash que instalamos,
-    # o que ignora qualquer problema no #! (shebang)
-    # DESCOMENTE A LINHA ABAIXO (e comente a anterior) se tiver problemas:
-    # ENTRYPOINT ["/bin/bash", "./entrypoint.sh"]
+WORKDIR /build
+
+COPY libs/server.jar /build/server.jar
+COPY java/ext/mods/security/LicenseInit.java /build/src/LicenseInit.java
+COPY java/ext/mods/Config.java /build/src/Config.java
+COPY java/ext/mods/commons/config/ExProperties.java /build/src/ExProperties.java
+COPY java/ext/mods/commons/lang/StringReplacer.java /build/src/StringReplacer.java
+
+RUN mkdir -p /build/out/ext/mods/security /build/out/ext/mods/commons/config /build/out/ext/mods/commons/lang \
+    && javac -d /build/out -cp /build/server.jar /build/src/LicenseInit.java \
+    && javac -d /build/out -cp /build/server.jar /build/src/Config.java \
+    && javac -d /build/out -cp /build/server.jar /build/src/ExProperties.java \
+    && javac -d /build/out -cp /build/server.jar /build/src/StringReplacer.java \
+    && jar uf server.jar \
+       -C /build/out ext/mods/security/LicenseInit.class \
+       -C /build/out ext/mods/Config.class \
+       -C /build/out ext/mods/commons/config/ExProperties.class \
+       -C /build/out ext/mods/commons/lang/StringReplacer.class \
+    && echo "OK: LicenseInit + Config + ExProperties + StringReplacer patched"
+
+# --- Stage 2: Runtime ---
+FROM eclipse-temurin:25-jre-alpine
+
+RUN apk add --no-cache util-linux bash dos2unix mariadb-client
+
+WORKDIR /l2Brproject
+RUN mkdir -p log
+
+COPY . .
+COPY --from=builder /build/server.jar /l2Brproject/libs/server.jar
+
+RUN dos2unix entrypoint.sh init-db.sh && chmod +x entrypoint.sh init-db.sh
+
+EXPOSE 7777
+EXPOSE 2106
+
+ENTRYPOINT ["/l2Brproject/entrypoint.sh"]

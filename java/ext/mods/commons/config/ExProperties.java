@@ -118,7 +118,7 @@ public class ExProperties extends Properties
 		if ((value = super.getProperty(name, null)) != null)
 			val = value.split(delimiter);
 		else
-			LOGGER.warn("The following property key '{}' is missing. It will use default value '{}'.", name, defaultValue);
+			LOGGER.warn("The following property key '{}' is missing. It will use default value '{}'.", name, java.util.Arrays.toString(defaultValue));
 		
 		return val;
 	}
