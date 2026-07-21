@@ -618,79 +618,6 @@ def create_login_server():
         start_mariadb_login()
         start_loginserver()
 
-def create_game_server():
-    print_header("Criar GameServer")
-    
-    # Get server ID
-    while True:
-        server_id_str = input("  Server ID (1-255): ").strip()
-        if server_id_str.isdigit():
-            server_id = int(server_id_str)
-            if 1 <= server_id <= 255:
-                break
-        print("  ID invalido. Use um numero entre 1 e 255.")
-    
-    server_dir = GAMESERVERS_DIR / f"gameserver-{server_id}"
-    
-    if server_dir.exists():
-        print(f"\n  AVISO: GameServer {server_id} ja existe em {server_dir}")
-        if not confirm("  Sobrescrever?"):
-            print("  Operacao cancelada.")
-            return
-    
-    config_mode = select_config_mode()
-    
-    # Set default values based on server ID
-    defaults = {
-        "SERVER_ID": str(server_id),
-        "SERVER_HOSTNAME": f"gameserver-{server_id}",
-        "PUBLIC_PORT": str(7776 + server_id),
-        "GAME_DB": f"l2jdb_gs{server_id}",
-    }
-    
-    if config_mode == "basic":
-        config = collect_mandatory_config("game")
-    elif config_mode == "advanced_select":
-        config = collect_advanced_config_with_selection("game")
-    else:
-        config = collect_full_config("game")
-    
-    # Apply defaults
-    for key, value in defaults.items():
-        if key not in config or not config[key]:
-            config[key] = value
-    
-    print("\n  Configuracao coletada:")
-    for key, value in config.items():
-        print(f"    {key}: {value}")
-    
-    if not confirm(f"\n  Confirmar criacao do GameServer #{server_id}?"):
-        print("  Operacao cancelada.")
-        return
-    
-    # Create server directory structure
-    server_dir.mkdir(parents=True, exist_ok=True)
-    config_dir = server_dir / "config"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Copy docker-compose template
-    compose_template = GAMESERVERS_DIR / "template" / "docker-compose.yml"
-    compose_file = server_dir / "docker-compose.yml"
-    shutil.copy2(compose_template, compose_file)
-    
-    # Create .env file
-    env_file = server_dir / ".env"
-    env_content = "\n".join(f"{key}={value}" for key, value in config.items())
-    env_file.write_text(env_content, encoding='utf-8')
-    
-    # Generate properties
-    create_game_properties(config_dir, config)
-    
-    print(f"\n  GameServer #{server_id} criado com sucesso!")
-    print(f"  Server dir: {server_dir}")
-    print(f"  Config dir: {config_dir}")
-    print(f"  Env file: {env_file}")
-
 def remove_game_server():
     print_header("Remover GameServer")
     
@@ -1272,19 +1199,26 @@ def start_game_server():
     print_header("Iniciar GameServer")
     
     servers = list_existing_game_servers()
-    if not servers:
-        print("  Nenhum GameServer configurado.")
-        print("  Execute 'Criar GameServer' primeiro.")
-        return
     
+    # Build options: existing servers + create new + cancel
     options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+    options.append("Criar novo GameServer")
     options.append("Todos os GameServers")
     options.append("Cancelar")
     
-    idx = choose_from_menu("Selecione o GameServer para iniciar", options)
+    idx = choose_from_menu("Selecione o GameServer", options)
     
-    if idx == len(servers):
-        # Start all
+    total = len(servers)
+    
+    if idx == total + 2:
+        print("  Operacao cancelada.")
+        return
+    
+    if idx == total + 1:
+        # Start all existing
+        if not servers:
+            print("  Nenhum GameServer configurado.")
+            return
         print("\n  Iniciando todos os GameServers...")
         for server in servers:
             compose_file = server.compose_path
@@ -1292,9 +1226,76 @@ def start_game_server():
             if compose_file.exists():
                 run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
         print("\n  Todos os GameServers iniciados!")
-    elif idx == len(servers) + 1:
-        print("  Operacao cancelada.")
-    elif 0 <= idx < len(servers):
+        return
+    
+    if idx == total:
+        # Create new GameServer
+        while True:
+            server_id_str = input("\n  Server ID (1-255): ").strip()
+            if server_id_str.isdigit():
+                server_id = int(server_id_str)
+                if 1 <= server_id <= 255:
+                    break
+            print("  ID invalido. Use um numero entre 1 e 255.")
+        
+        server_dir = GAMESERVERS_DIR / f"gameserver-{server_id}"
+        
+        if server_dir.exists():
+            print(f"\n  GameServer #{server_id} ja existe.")
+            if not confirm("  Sobrescrever configuracao?"):
+                print("  Operacao cancelada.")
+                return
+        
+        # Collect config (basic mode by default)
+        config = collect_mandatory_config("game")
+        
+        # Apply defaults
+        defaults = {
+            "SERVER_ID": str(server_id),
+            "SERVER_HOSTNAME": f"gameserver-{server_id}",
+            "PUBLIC_PORT": str(7776 + server_id),
+            "GAME_DB": f"l2jdb_gs{server_id}",
+        }
+        for key, value in defaults.items():
+            if key not in config or not config[key]:
+                config[key] = value
+        
+        print("\n  Configuracao:")
+        for key, value in config.items():
+            print(f"    {key}: {value}")
+        
+        if not confirm(f"\n  Criar e iniciar GameServer #{server_id}?"):
+            print("  Operacao cancelada.")
+            return
+        
+        # Create server directory structure
+        server_dir.mkdir(parents=True, exist_ok=True)
+        config_dir = server_dir / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Copy docker-compose template
+        compose_template = GAMESERVERS_DIR / "template" / "docker-compose.yml"
+        compose_file = server_dir / "docker-compose.yml"
+        shutil.copy2(compose_template, compose_file)
+        
+        # Create .env file
+        env_file = server_dir / ".env"
+        env_content = "\n".join(f"{key}={value}" for key, value in config.items())
+        env_file.write_text(env_content, encoding='utf-8')
+        
+        # Generate properties
+        create_game_properties(config_dir, config)
+        
+        print(f"\n  GameServer #{server_id} criado!")
+        
+        # Start it
+        print(f"  Iniciando GameServer #{server_id}...")
+        run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
+        print(f"\n  GameServer #{server_id} iniciado!")
+        return
+    
+    # Start selected existing server
+    if 0 <= idx < total:
         server = servers[idx]
         compose_file = server.compose_path
         env_file = server.env_path
@@ -1770,15 +1771,14 @@ def main_menu():
             "1. Criar Base (Setup Completo)",
             "2. Iniciar MariaDB LoginServer",
             "3. Iniciar LoginServer",
-            "4. Criar GameServer",
-            "5. Iniciar GameServer",
-            "6. Parar GameServer",
-            "7. Parar Todos os Serviços",
-            "8. Listar servidores ativos",
-            "9. Logs",
-            "10. Edicao em massa de environment",
-            "11. Gerenciar perfis de configuracao",
-            "12. Sair",
+            "4. Iniciar GameServer",
+            "5. Parar GameServer",
+            "6. Parar Todos os Serviços",
+            "7. Listar servidores ativos",
+            "8. Logs",
+            "9. Edicao em massa de environment",
+            "10. Gerenciar perfis de configuracao",
+            "11. Sair",
         ]
         
         idx = choose_from_menu("Lineternity Stack Manager v2.0", options)
@@ -1790,22 +1790,20 @@ def main_menu():
         elif idx == 2:
             start_loginserver()
         elif idx == 3:
-            create_game_server()
-        elif idx == 4:
             start_game_server()
-        elif idx == 5:
+        elif idx == 4:
             stop_game_server()
-        elif idx == 6:
+        elif idx == 5:
             stop_all_services()
-        elif idx == 7:
+        elif idx == 6:
             list_servers()
-        elif idx == 8:
+        elif idx == 7:
             show_logs_menu()
-        elif idx == 9:
+        elif idx == 8:
             bulk_edit_env()
-        elif idx == 10:
+        elif idx == 9:
             manage_config_profiles()
-        elif idx == 11:
+        elif idx == 10:
             print("\n  Saindo...")
             break
         else:
