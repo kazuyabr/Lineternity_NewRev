@@ -518,6 +518,59 @@ def create_game_properties(config_dir: Path, config: dict[str, str]):
     print(f"  Properties de game criados em: {config_dir}")
 
 # ============================================================
+# Network Management
+# ============================================================
+
+def ensure_lineternity_network():
+    """Garante que a rede lineternity-network existe"""
+    result = subprocess.run(
+        ["docker", "network", "ls", "--filter", "name=lineternity-network", "--format", "{{.Name}}"],
+        capture_output=True, text=True
+    )
+    if "lineternity-network" in result.stdout:
+        print("  Rede lineternity-network: existe")
+        return True
+    
+    print("  Criando rede lineternity-network...")
+    result = subprocess.run(
+        ["docker", "network", "create", "lineternity-network"],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print("  Rede lineternity-network criada com sucesso!")
+        return True
+    else:
+        print(f"  ERRO ao criar rede: {result.stderr.strip()}")
+        return False
+
+def connect_container_to_network(container_name: str):
+    """Conecta um container à rede lineternity-network (se ainda não estiver)"""
+    # Verificar redes atuais do container
+    result = subprocess.run(
+        ["docker", "inspect", "--format",
+         "{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}",
+         container_name],
+        capture_output=True, text=True
+    )
+    
+    if "lineternity-network" in result.stdout:
+        print(f"  Container '{container_name}' ja esta na rede lineternity-network")
+        return True
+    
+    # Conectar
+    print(f"  Conectando '{container_name}' à rede lineternity-network...")
+    result = subprocess.run(
+        ["docker", "network", "connect", "lineternity-network", container_name],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"  '{container_name}' conectado à rede lineternity-network!")
+        return True
+    else:
+        print(f"  ERRO ao conectar: {result.stderr.strip()}")
+        return False
+
+# ============================================================
 # Docker Compose Operations
 # ============================================================
 
@@ -1157,6 +1210,10 @@ def start_loginserver():
         print(f"  ERRO: {compose_file.name} nao encontrado em {compose_file}")
         return False
     
+    # Garantir que a rede lineternity-network existe
+    print("  Verificando rede lineternity-network...")
+    ensure_lineternity_network()
+    
     print("  Iniciando LoginServer...")
     if not run_compose(compose_file, "up", "-d", env_file=env_file):
         print("  ERRO ao iniciar LoginServer!")
@@ -1197,6 +1254,11 @@ def stop_all_services():
 
 def start_game_server():
     print_header("Iniciar GameServer")
+    
+    # Garantir que a rede lineternity-network existe
+    print("  Verificando rede lineternity-network...")
+    ensure_lineternity_network()
+    print()
     
     servers = list_existing_game_servers()
     
