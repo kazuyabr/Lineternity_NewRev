@@ -1231,6 +1231,13 @@ def start_loginserver():
             _update_env_key(env_file, "DB_HOST", container_name)
             _update_env_key(env_file, "DB_PORT", "3306")  # porta interna do container
             print(f"  DB_HOST atualizado para: {container_name}:3306")
+            
+            # Regenerar properties com valores atualizados
+            config_dir = DOCKER_DIR / "login" / "config"
+            config_dir.mkdir(parents=True, exist_ok=True)
+            login_config = _read_env_dict(env_file)
+            create_login_properties(config_dir, login_config)
+            print("  Properties regeneradas com DB_HOST atualizado")
         else:
             print("  AVISO: Nenhum MariaDB Docker detectado.")
             print("  Certifique-se de que o MariaDB esta acessivel.")
@@ -1256,6 +1263,16 @@ def _update_env_key(env_file: Path, key: str, value: str):
     if not found:
         lines.append(f"{key}={value}")
     env_file.write_text("\n".join(lines) + "\n", encoding='utf-8')
+
+def _read_env_dict(env_file: Path) -> dict[str, str]:
+    """ Lê arquivo .env e retorna dict de chave=valor"""
+    config = {}
+    if env_file.exists():
+        for line in env_file.read_text(encoding='utf-8').splitlines():
+            if "=" in line and not line.startswith("#"):
+                key, value = line.split("=", 1)
+                config[key.strip()] = value.strip()
+    return config
 
 def stop_all_services():
     print_header("Parar Todos os Serviços")

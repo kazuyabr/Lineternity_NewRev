@@ -209,6 +209,47 @@ apply_custom_overrides() {
     echo ""
 }
 
+# --- Função para configurar properties com env vars atuais ---
+configure_properties() {
+    local mode=$1
+    
+    echo "=========================================="
+    echo "  Configurando properties"
+    echo "=========================================="
+    
+    # LoginServer properties
+    if [ "$mode" = "login" ] || [ "$mode" = "both" ]; then
+        local props="login/config/loginserver.properties"
+        if [ -f "$props" ]; then
+            echo "  Atualizando $props"
+            sed -i "s|^sql\.url = jdbc:mariadb://.*|sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${LOGIN_DB}?useUnicode=true\&characterEncoding=UTF-8|" "$props"
+            sed -i "s|^sql\.login = .*|sql.login = ${DB_USER_VAL}|" "$props"
+            sed -i "s|^sql\.password = .*|sql.password = ${DB_PASSWORD_VAL}|" "$props"
+            echo "    sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${LOGIN_DB}"
+            echo "    sql.login = ${DB_USER_VAL}"
+        else
+            echo "  AVISO: $props nao encontrado"
+        fi
+    fi
+    
+    # GameServer properties
+    if [ "$mode" = "gameserver" ] || [ "$mode" = "both" ]; then
+        local props="game/config/server.properties"
+        if [ -f "$props" ]; then
+            echo "  Atualizando $props"
+            sed -i "s|^sql\.url = jdbc:mariadb://.*|sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${GAME_DB}?useUnicode=true\&characterEncoding=UTF-8|" "$props"
+            sed -i "s|^sql\.login = .*|sql.login = ${DB_USER_VAL}|" "$props"
+            sed -i "s|^sql\.password = .*|sql.password = ${DB_PASSWORD_VAL}|" "$props"
+            echo "    sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${GAME_DB}"
+            echo "    sql.login = ${DB_USER_VAL}"
+        else
+            echo "  AVISO: $props nao encontrado"
+        fi
+    fi
+    
+    echo ""
+}
+
 # --- Configurações de variáveis ---
 L2_EMAIL=${L2_EMAIL:-"contato@jogatinando.com.br"}
 PASSWORD=${PASSWORD:-"12345678"}
@@ -265,6 +306,9 @@ if [ "$START_TYPE" = "login" ]; then
     # Aplicar custom.properties se existir
     apply_custom_overrides "login/config"
     
+    # Configurar properties com env vars atuais
+    configure_properties "login"
+    
     cd login || exit 1
     exec java $LOGIN_JAVA_OPTS -cp "$CLASSPATH" ext.mods.loginserver.LoginServer
 
@@ -294,6 +338,9 @@ elif [ "$START_TYPE" = "gameserver" ]; then
     
     # Aplicar custom.properties se existir
     apply_custom_overrides "game/config"
+    
+    # Configurar properties com env vars atuais
+    configure_properties "gameserver"
     
     cd game || exit 1
     echo "DEBUG: CLASSPATH jars = $(echo $CLASSPATH | tr ':' '\n' | wc -l)"
