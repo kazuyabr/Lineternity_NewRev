@@ -1214,6 +1214,27 @@ def start_loginserver():
     print("  Verificando rede lineternity-network...")
     ensure_lineternity_network()
     
+    # Se MariaDB externo, conectar container à rede lineternity-network
+    if use_external:
+        print("  Detectando MariaDB externo...")
+        containers = detect_mariadb_containers()
+        if containers:
+            # Usar o primeiro MariaDB encontrado
+            mdb = containers[0]
+            container_name = mdb["name"]
+            print(f"  MariaDB encontrado: {container_name} (porta {mdb['external_port']})")
+            
+            # Conectar à rede lineternity-network
+            connect_container_to_network(container_name)
+            
+            # Atualizar DB_HOST no .env para usar nome do container
+            _update_env_key(env_file, "DB_HOST", container_name)
+            _update_env_key(env_file, "DB_PORT", "3306")  # porta interna do container
+            print(f"  DB_HOST atualizado para: {container_name}:3306")
+        else:
+            print("  AVISO: Nenhum MariaDB Docker detectado.")
+            print("  Certifique-se de que o MariaDB esta acessivel.")
+    
     print("  Iniciando LoginServer...")
     if not run_compose(compose_file, "up", "-d", env_file=env_file):
         print("  ERRO ao iniciar LoginServer!")
@@ -1221,6 +1242,20 @@ def start_loginserver():
     
     print("\n  LoginServer iniciado com sucesso!")
     return True
+
+def _update_env_key(env_file: Path, key: str, value: str):
+    """Atualiza uma chave no arquivo .env"""
+    content = env_file.read_text(encoding='utf-8')
+    lines = content.splitlines()
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith(f"{key}="):
+            lines[i] = f"{key}={value}"
+            found = True
+            break
+    if not found:
+        lines.append(f"{key}={value}")
+    env_file.write_text("\n".join(lines) + "\n", encoding='utf-8')
 
 def stop_all_services():
     print_header("Parar Todos os Serviços")
@@ -1611,12 +1646,24 @@ def create_base():
         mariadb_port = detection["port"]
         mariadb_user = detection.get("user", "root")
         mariadb_password = detection.get("password", "root")
+        mariadb_container = detection.get("container_name", "")
         
         print(f"\n  MariaDB detectado: {mariadb_host}:{mariadb_port}")
         print(f"  Usuario: {mariadb_user}")
         
         if not detection["database_exists"]:
             print(f"  Database l2jdb_login: sera criado pelo entrypoint")
+        
+        # Conectar container MariaDB à rede lineternity-network
+        if mariadb_container:
+            print(f"  Conectando MariaDB '{mariadb_container}' à rede lineternity-network...")
+            ensure_lineternity_network()
+            connect_container_to_network(mariadb_container)
+            # Usar nome do container como host (acessível de dentro de outros containers)
+            mariadb_host_for_containers = mariadb_container
+        else:
+            # MariaDB não é container Docker (ex: serviço systemd)
+            mariadb_host_for_containers = "host.docker.internal"
         
         update_login_env(mariadb_host, mariadb_port, mariadb_user, mariadb_password, external=True)
     else:
@@ -1727,6 +1774,10 @@ def create_base():
             game_config = None
     
     if game_config is None or not server_dir.exists():
+        # Usar host acessível de dentro dos containers
+        login_db_host = mariadb_host_for_containers if use_external else "mariadb-login"
+        login_db_port = mariadb_port if use_external else "3306"
+        
         game_config = {
             "SERVER_ID": str(server_id),
             "SERVER_HOSTNAME": f"gameserver-{server_id}",
@@ -1738,8 +1789,8 @@ def create_base():
             "DB_USER": mariadb_user,
             "DB_PASSWORD": mariadb_password,
             # MariaDB do Login (remoto)
-            "LOGIN_DB_HOST": mariadb_host,
-            "LOGIN_DB_PORT": mariadb_port,
+            "LOGIN_DB_HOST": login_db_host,
+            "LOGIN_DB_PORT": login_db_port,
             "LOGIN_DB_USER": mariadb_user,
             "LOGIN_DB_PASSWORD": mariadb_password,
             "LOGIN_DB": "l2jdb_login",
@@ -1752,7 +1803,7 @@ def create_base():
         print(f"  Hostname: gameserver-{server_id}")
         print(f"  Port: {7776 + server_id}")
         print(f"  Database: l2jdb_gs{server_id}")
-        print(f"  LoginDB Host: {mariadb_host}:{mariadb_port}")
+        print(f"  LoginDB Host: {login_db_host}:{login_db_port}")
         
         # Criar estrutura de diretórios
         server_dir.mkdir(parents=True, exist_ok=True)
