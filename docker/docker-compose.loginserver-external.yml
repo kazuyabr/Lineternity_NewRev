@@ -13,8 +13,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    env_file:
-      - ./.env
     ports:
       - "${LOGIN_PORT:-2106}:2106"
     environment:
