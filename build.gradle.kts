@@ -235,6 +235,129 @@ tasks.register<Copy>("copyDependencies") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+// 9.1.1. TASK: Patch Java sources - compila 9 arquivos Java e injeta no server.jar
+tasks.register("patchJava") {
+    dependsOn(tasks.named("jar"))
+    group = "build"
+    description = "Compiles Java patch files and injects them into server.jar"
+
+    doLast {
+        val serverJar = file("libs/server.jar")
+        val srcDir = file("java")
+        val outDir = file("build/patch-java-out")
+        outDir.mkdirs()
+
+        val patches = listOf(
+            "ext/mods/security/LicenseInit.java",
+            "ext/mods/security/LicenseValidator.java",
+            "ext/mods/Config.java",
+            "ext/mods/commons/config/ExProperties.java",
+            "ext/mods/commons/lang/StringReplacer.java",
+            "ext/mods/loginserver/data/manager/GameServerManager.java",
+            "ext/mods/commons/util/JvmOptimizer.java",
+            "ext/mods/commons/logging/formatter/NoTimestampConsoleFormatter.java",
+            "ext/mods/gameserver/network/clientpackets/MoveBackwardToLocation.java"
+        )
+
+        val sep = File.pathSeparator
+
+        // Compile all patch files against server.jar
+        val existingPatches = patches.filter { File(srcDir, it).exists() }
+        if (existingPatches.isEmpty()) {
+            println("  No Java patch files found, skipping")
+            return@doLast
+        }
+
+        val classpath = "${serverJar.absolutePath}${sep}${outDir.absolutePath}"
+        project.exec {
+            commandLine(
+                "javac",
+                "-d", outDir.absolutePath,
+                "-cp", classpath,
+                *existingPatches.map { File(srcDir, it).absolutePath }.toTypedArray()
+            )
+        }
+        println("  Compiled ${existingPatches.size} Java patches")
+
+        // Inject patched classes into server.jar (replace originals)
+        val tempJar = File("libs/server.jar.patch-java")
+        serverJar.copyTo(tempJar, overwrite = true)
+
+        for (patch in existingPatches) {
+            val classFile = patch.replace(".java", ".class")
+            val classPath = File(outDir, classFile)
+            if (classPath.exists()) {
+                project.exec {
+                    commandLine(
+                        "jar", "uf", tempJar.absolutePath,
+                        "-C", outDir.absolutePath, classFile
+                    )
+                }
+            }
+        }
+
+        // Replace original with patched
+        tempJar.copyTo(serverJar, overwrite = true)
+        tempJar.delete()
+        println("  Java patches injected into server.jar")
+    }
+}
+
+// 9.1.2. TASK: Patch ASM bytecode - injeta MovementPatch em CreatureMove/PlayerMove
+tasks.register<JavaExec>("patchBytecode") {
+    dependsOn(tasks.named("patchJava"))
+    group = "build"
+    description = "Patches Kotlin bytecode in server.jar using ASM (CreatureMove + PlayerMove movement fix)"
+
+    doFirst {
+        val asmJar = file("libs/asm-9.8.jar")
+        val asmTreeJar = file("libs/asm-tree-9.8.jar")
+
+        // Download ASM 9.8 if not present
+        if (!asmJar.exists() || !asmTreeJar.exists()) {
+            println("  Downloading ASM 9.8...")
+            listOf(
+                "https://repo1.maven.org/maven2/org/ow2/asm/asm/9.8/asm-9.8.jar" to asmJar,
+                "https://repo1.maven.org/maven2/org/ow2/asm/asm-tree/9.8/asm-tree-9.8.jar" to asmTreeJar
+            ).forEach { (url, dest) ->
+                if (!dest.exists()) {
+                    java.net.URL(url).openStream().use { input ->
+                        dest.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    println("    Downloaded: ${dest.name}")
+                }
+            }
+        }
+
+        // Compile PatchBytecode.java against server.jar + ASM
+        val patchSrc = file("docker/PatchBytecode.java")
+        val patchOut = file("build/patch-out")
+        patchOut.mkdirs()
+
+        val sep = File.pathSeparator
+        project.exec {
+            commandLine(
+                "javac",
+                "-d", patchOut.absolutePath,
+                "-cp", "${file("libs/server.jar").absolutePath}${sep}${asmJar.absolutePath}${sep}${asmTreeJar.absolutePath}",
+                patchSrc.absolutePath
+            )
+        }
+        println("  PatchBytecode compiled")
+    }
+
+    // Run the patcher
+    val asmJar = file("libs/asm-9.8.jar")
+    val asmTreeJar = file("libs/asm-tree-9.8.jar")
+    val patchOut = file("build/patch-out")
+
+    classpath = files(patchOut, asmJar, asmTreeJar, file("libs/server.jar"))
+    mainClass.set("PatchBytecode")
+    args = listOf(file("libs/server.jar").absolutePath)
+
+    onlyIf { file("libs/server.jar").exists() }
+}
+
 // 9.2. TASK: Sincroniza classes do Gradle para a pasta bin (IDE)
 tasks.register<Copy>("syncBinClasses") {
     group = "distribution"
@@ -244,25 +367,165 @@ tasks.register<Copy>("syncBinClasses") {
     into(file("bin/main"))
 }
 
-// 9.1. TASK CUSTOMIZADA: Copia pasta crypta para Brproject_Distribution
+// 9.3. TASK: Copia pasta crypta para build/distribution
 tasks.register<Copy>("copyCrypta") {
     group = "distribution"
-    description = "Copia pasta crypta de game/data/prevention para Brproject_Distribution"
-    
+    description = "Copia pasta crypta para build/distribution"
+
     from(file("game/data/prevention/crypta")) {
         include("**/*")
-        // Inclui arquivos criptografados, metadados e chaves
         include("**/*.encrypted")
         include("**/*.meta")
         include("**/key.properties")
     }
-    into(file("Brproject_Distribution/game/data/prevention/crypta"))
-    
-    // Não sobrescreve arquivos existentes
+    into(file("build/distribution/game/data/prevention/crypta"))
+
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    
-    // Só executa se a pasta source existir
     onlyIf { file("game/data/prevention/crypta").exists() }
+}
+
+// 9.4. TASK: Monta build/distribution/ com todos os arquivos runtime para Docker
+tasks.create("distribution") {
+    dependsOn(tasks.named("patchBytecode"))
+    dependsOn(tasks.named("copyCrypta"))
+    group = "distribution"
+    description = "Monta build/distribution/ com arquivos runtime para Docker"
+
+    doLast {
+        val distDir = file("build/distribution")
+
+        println("=== Montando build/distribution/ ===")
+
+        // Limpar distribuicao anterior
+        if (distDir.exists()) {
+            distDir.deleteRecursively()
+        }
+        distDir.mkdirs()
+
+        // 1. libs/ (server.jar patched + todas dependencias)
+        project.copy {
+            from("libs")
+            into("$distDir/libs")
+            include("**/*.jar")
+        }
+        println("  libs/ copiado")
+
+        // 2. game/ (config + data)
+        project.copy {
+            from("game/config")
+            into("$distDir/game/config")
+            include("**/*.properties", "**/*.ini", "**/*.txt")
+        }
+        println("  game/config/ copiado")
+
+        project.copy {
+            from("game/data")
+            into("$distDir/game/data")
+            exclude("cache/**")
+            exclude("log/**")
+            exclude("prevention/**")
+        }
+        println("  game/data/ copiado")
+
+        // 3. login/ (excluindo cache e log)
+        project.copy {
+            from("login")
+            into("$distDir/login")
+            exclude("cache/**")
+            exclude("log/**")
+        }
+        println("  login/ copiado")
+
+        // 4. tools/sql/ (schemas do GameServer)
+        if (file("tools/sql").exists()) {
+            project.copy {
+                from("tools/sql")
+                into("$distDir/tools/sql")
+                include("**/*.sql")
+            }
+            println("  tools/sql/ copiado")
+        }
+
+        // 5. sql/ (schema do LoginServer)
+        if (file("sql").exists()) {
+            project.copy {
+                from("sql")
+                into("$distDir/sql")
+                include("**/*.sql")
+            }
+            println("  sql/ copiado")
+        }
+
+        // 6. Diretorios estaticos
+        val staticDirs = listOf("images", "sound", "Hwid", "tools")
+        for (dir in staticDirs) {
+            if (file(dir).exists()) {
+                project.copy {
+                    from(dir)
+                    into("$distDir/$dir")
+                }
+                println("  $dir/ copiado")
+            }
+        }
+
+        // 7. Scripts de entrada
+        listOf("entrypoint.sh", "init-db.sh").forEach { script ->
+            if (file(script).exists()) {
+                project.copy {
+                    from(script)
+                    into(distDir)
+                }
+                println("  $script copiado")
+            }
+        }
+
+        // 8. docker/entrypoint.sh e docker/init-db.sh (usados pelo stack.py compose)
+        if (file("docker/entrypoint.sh").exists()) {
+            project.copy {
+                from("docker/entrypoint.sh")
+                into("$distDir/docker")
+            }
+            println("  docker/entrypoint.sh copiado")
+        }
+        if (file("docker/init-db.sh").exists()) {
+            project.copy {
+                from("docker/init-db.sh")
+                into("$distDir/docker")
+            }
+            println("  docker/init-db.sh copiado")
+        }
+
+        // 9. Dockerfiles (build context = build/distribution/)
+        listOf("Dockerfile").forEach { df ->
+            if (file(df).exists()) {
+                project.copy {
+                    from(df)
+                    into(distDir)
+                }
+                println("  $df copiado")
+            }
+        }
+        if (file("docker/Dockerfile").exists()) {
+            project.copy {
+                from("docker/Dockerfile")
+                into("$distDir/docker")
+            }
+            println("  docker/Dockerfile copiado")
+        }
+
+        // 9. Cache scripts
+        if (file("cache").exists()) {
+            project.copy {
+                from("cache")
+                into("$distDir/cache")
+                include("*.inc.bat")
+            }
+            println("  cache/ copiado")
+        }
+
+        println("=== build/distribution/ montado com sucesso ===")
+        println("  Tamanho: ${distDir.walkTopDown().filter { it.isFile }.sumOf { it.length() } / 1024 / 1024} MB")
+    }
 }
 
 // 10. Configuração do Build Principal 
@@ -270,7 +533,9 @@ tasks.build {
     dependsOn(tasks.named("compileKotlin"))
     dependsOn(tasks.named("compileJava"))
     dependsOn(tasks.named("jar"))
-	dependsOn(tasks.named("PrepararTeste"))
+    dependsOn(tasks.named("patchJava"))
+    dependsOn(tasks.named("patchBytecode"))
+    dependsOn(tasks.named("distribution"))
     dependsOn(tasks.named("syncBinClasses"))
 }
 
@@ -289,109 +554,3 @@ tasks.named("compileKotlin") {
 }
 
 
-// 13. PrepararTeste (Distribuição de Teste)
-tasks.register("PrepararTeste") {
-	dependsOn(tasks.named("compileJava"))
-    mustRunAfter(tasks.named("jar"))
-    group = "distribution"
-    description = "Cria uma distribuicao de teste rapida em Brproject_Distribution (Dev Teste)"
-    
-
-    doLast {
-        val buildZip = file("Brproject_Distribution")
-        
-        
-        val now = Date()
-        val dStamp = SimpleDateFormat("yyyyMMdd").format(now)
-        val tStamp = SimpleDateFormat("HHmm").format(now)
-
-        println("=== BUILD DE TESTE - APENAS ARQUIVOS ESSENCIAIS ===")
-        println("Mantendo: libs/, login/, images/, sound/, Hwid/, tools/")
-        println("Criando em: ${buildZip.absolutePath}")
-
-        
-        println("Removendo caches AppCDS (game/login)...")
-        project.delete(
-            "game/cache", "login/cache", "game/log", "login/log",
-            "${buildZip}/game/cache", "${buildZip}/login/cache", 
-            "${buildZip}/game/log", "${buildZip}/login/log"
-        )
-
-        // Configurações do Game
-        project.copy {
-            from("game/config")
-            into("${buildZip}/game/config")
-            include("**/*.properties", "**/*.ini")
-        }
-
-        // Bibliotecas
-        project.copy {
-            from("libs")
-            into("${buildZip}/libs")
-            include("**/*.jar")
-        }
-
-        // Login Server (excluindo cache)
-        project.copy {
-            from("login")
-            into("${buildZip}/login")
-            exclude("cache/**")
-        }
-
-        // Diretórios estáticos copiados integralmente
-        val staticDirs = listOf("images", "sound", "Hwid", "tools")
-        for (dir in staticDirs) {
-            project.copy {
-                from(dir)
-                into("${buildZip}/$dir")
-            }
-        }
-
-        // Scripts e arquivos raiz
-        project.copy {
-            from(".")
-            into(buildZip)
-            include(
-                "StartGame_SemDashboard.bat",
-                "StartLogin_SemDashboard.bat",
-                "README.md",
-                "Dockerfile",
-                "entrypoint.sh"
-            )
-        }
-
-        // Cache Scripts
-        project.copy {
-            from("cache")
-            into("${buildZip}/cache")
-            include("*.inc.bat")
-        }
-
-        // 4. Criação do arquivo BUILD_INFO.txt
-        val buildInfoFile = file("${buildZip}/BUILD_INFO.txt")
-        buildInfoFile.writeText("""
-            === BUILD DE TESTE ===
-            Data: $dStamp $tStamp
-            Tipo: Teste (sem arquivos de dados pesados)
-
-            ARQUIVOS INCLUÍDOS:
-            - libs/ (todas as bibliotecas)
-            - login/ (servidor de login)
-            - images/ (imagens da interface)
-            - sound/ (sons)
-            - Hwid/ (proteção HWID)
-            - tools/ (ferramentas)
-            - game/config/ (configurações)
-
-            ARQUIVOS EXCLUÍDOS (para reduzir tamanho):
-            - game/data/custom/ (mods customizados)
-            - game/data/geodata/ (dados geográficos)
-            - game/data/locale/ (arquivos de idioma)
-            - game/data/xml/ (arquivos XML)
-        """.trimIndent())
-
-        println("=== BUILD CONCLUiDO ===")
-        println("Diretorio: ${buildZip.name}")
-        println("Arquivos para teste rapido.")
-    }
-}

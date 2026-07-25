@@ -10,6 +10,7 @@ import re
 import sys
 import subprocess
 import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -24,6 +25,7 @@ GAMESERVERS_DIR = DOCKER_DIR / "gameservers"
 TEMPLATES_DIR = DOCKER_DIR / "templates"
 LOGIN_TEMPLATES = TEMPLATES_DIR / "login"
 GAME_TEMPLATES = TEMPLATES_DIR / "game"
+DISTRIBUTION_DIR = PROJECT_ROOT / "build" / "distribution"
 
 # ============================================================
 # Data Classes
@@ -1108,6 +1110,130 @@ EXTERNAL_MARIADB={'true' if external else 'false'}
     print(f"  login/.env atualizado: DB_HOST={host}, DB_PORT={port}, DB_USER={user}")
 
 # ============================================================
+# Build
+# ============================================================
+
+def build_project():
+    """Compila o projeto completo: Gradle build + patches Java + ASM + build/distribution/"""
+    print_header("Compilar Projeto")
+    
+    # Detectar Gradle wrapper
+    if os.name == 'nt':
+        gradlew = PROJECT_ROOT / "gradlew.bat"
+    else:
+        gradlew = PROJECT_ROOT / "gradlew"
+    
+    if not gradlew.exists():
+        print(f"  ERRO: Gradle wrapper nao encontrado: {gradlew}")
+        print("  Certifique-se de que gradlew.bat (Windows) ou gradlew (Linux) existe na raiz do projeto.")
+        return False
+    
+    server_jar = PROJECT_ROOT / "libs" / "server.jar"
+    
+    print("  Este comando ira:")
+    print("    1. Compilar todo o codigo Java + Kotlin do projeto")
+    print("    2. Gerar libs/server.jar (fat JAR)")
+    print("    3. Aplicar patches Java (9 arquivos compilados contra server.jar)")
+    print("    4. Aplicar ASM bytecode patches (CreatureMove + PlayerMove)")
+    print("    5. Montar build/distribution/ com arquivos runtime para Docker")
+    print()
+    
+    if server_jar.exists():
+        import time
+        mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(server_jar.stat().st_mtime))
+        print(f"  server.jar atual: {server_jar.stat().st_size:,} bytes (modificado: {mtime})")
+    
+    if DISTRIBUTION_DIR.exists():
+        import time
+        mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(DISTRIBUTION_DIR.stat().st_mtime))
+        print(f"  build/distribution/ existe (modificado: {mtime})")
+    else:
+        print("  build/distribution/ NAO EXISTE (sera criado pelo build)")
+    
+    print()
+    print("  Executando: gradlew build distribution -x test")
+    print("  Aguarde...")
+    print()
+    
+    # Rodar Gradle build + distribution
+    try:
+        if os.name == 'nt':
+            result = subprocess.run(
+                [str(gradlew), "build", "distribution", "-x", "test"],
+                cwd=str(PROJECT_ROOT),
+                timeout=600
+            )
+        else:
+            result = subprocess.run(
+                [str(gradlew), "build", "distribution", "-x", "test"],
+                cwd=str(PROJECT_ROOT),
+                timeout=600
+            )
+    except subprocess.TimeoutExpired:
+        print("  ERRO: Build excedeu timeout de 10 minutos!")
+        return False
+    except FileNotFoundError:
+        print(f"  ERRO: Nao foi possivel executar: {gradlew}")
+        return False
+    
+    if result.returncode != 0:
+        print(f"\n  ERRO: Gradle build falhou (exit code: {result.returncode})")
+        print("  Verifique os erros acima e corrija antes de tentar novamente.")
+        return False
+    
+    # Verificar resultado
+    if not server_jar.exists():
+        print("\n  ERRO: server.jar nao foi gerado apos o build!")
+        return False
+    
+    if not DISTRIBUTION_DIR.exists():
+        print("\n  ERRO: build/distribution/ nao foi criado apos o build!")
+        return False
+    
+    dist_files = [f for f in DISTRIBUTION_DIR.rglob("*") if f.is_file()]
+    if len(dist_files) == 0:
+        print("\n  ERRO: build/distribution/ existe mas esta VAZIO!")
+        print("  A task 'distribution' do Gradle nao copiou arquivos.")
+        print("  Verifique se os arquivos fonte existem (libs/, game/, login/, etc.)")
+        return False
+    
+    import time
+    mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(server_jar.stat().st_mtime))
+    size = server_jar.stat().st_size
+    
+    dist_size = sum(f.stat().st_size for f in dist_files)
+    dist_size_mb = dist_size / (1024 * 1024)
+    
+    print()
+    print("  " + "=" * 50)
+    print(f"  BUILD CONCLUIDO COM SUCESSO!")
+    print(f"  server.jar: {size:,} bytes (modificado: {mtime})")
+    print(f"  build/distribution/: {dist_size_mb:.1f} MB ({len(dist_files)} arquivos)")
+    print("  " + "=" * 50)
+    print()
+    print("  Para iniciar os servidores, use as opcoes do menu.")
+    
+    return True
+
+
+def check_distribution():
+    """Verifica se build/distribution/ existe e tem conteudo. Retorna True se OK."""
+    if not DISTRIBUTION_DIR.exists():
+        print("\n  AVISO: build/distribution/ nao existe!")
+        print("  Execute a opcao 'Compilar Projeto (Build)' primeiro.")
+        print("  Sem build/distribution/, os containers nao podem ser iniciados.")
+        return False
+    
+    dist_files = [f for f in DISTRIBUTION_DIR.rglob("*") if f.is_file()]
+    if len(dist_files) == 0:
+        print("\n  AVISO: build/distribution/ existe mas esta VAZIO!")
+        print("  Execute a opcao 'Compilar Projeto (Build)' primeiro.")
+        print("  Sem arquivos em build/distribution/, os containers nao podem ser iniciados.")
+        return False
+    
+    return True
+
+# ============================================================
 # Service Management
 # ============================================================
 
@@ -1183,6 +1309,9 @@ def start_mariadb_login():
 
 def start_loginserver():
     print_header("Iniciar LoginServer")
+    
+    if not check_distribution():
+        return False
     
     env_file = DOCKER_DIR / "login" / ".env"
     if not env_file.exists():
@@ -1304,8 +1433,121 @@ def stop_all_services():
     
     print("\n  Todos os servicos parados com sucesso!")
 
+def update_images():
+    print_header("Atualizar Imagens")
+    
+    if not check_distribution():
+        return
+    
+    # Verificar se Dockerfiles existem na distribution
+    root_df = DISTRIBUTION_DIR / "Dockerfile"
+    docker_df = DISTRIBUTION_DIR / "docker" / "Dockerfile"
+    if not root_df.exists() or not docker_df.exists():
+        print("\n  AVISO: Dockerfiles nao encontrados em build/distribution/")
+        print("  Execute a opcao 'Compilar Projeto (Build)' primeiro para gerar a distribuicao completa.")
+        return
+    
+    # Listar servidores disponiveis
+    login_env = DOCKER_DIR / "login" / ".env"
+    login_compose = None
+    if login_env.exists():
+        content = login_env.read_text(encoding='utf-8')
+        use_external = any(
+            line.startswith("EXTERNAL_MARIADB=") and line.split("=", 1)[1].strip().lower() == "true"
+            for line in content.splitlines()
+        )
+        if use_external:
+            login_compose = DOCKER_DIR / "docker-compose.loginserver-external.yml"
+        else:
+            login_compose = DOCKER_DIR / "docker-compose.loginserver.yml"
+    
+    game_servers = list_existing_game_servers()
+    
+    # Montar menu
+    options = []
+    if login_compose and login_compose.exists():
+        options.append("LoginServer")
+    for s in game_servers:
+        options.append(f"GameServer #{s.server_id} ({s.hostname})")
+    options.append("Todos")
+    options.append("Cancelar")
+    
+    if not options or options == ["Cancelar"]:
+        print("  Nenhum servidor configurado.")
+        return
+    
+    idx = choose_from_menu("Selecione para atualizar imagem", options)
+    
+    total = len(options)
+    if idx == total - 1:  # Cancelar
+        print("  Operacao cancelada.")
+        return
+    
+    # Determinar quais atualizar
+    to_update = []
+    if idx == total - 2:  # Todos
+        if login_compose and login_compose.exists():
+            to_update.append(("LoginServer", login_compose))
+        for s in game_servers:
+            to_update.append((f"GameServer #{s.server_id}", s.compose_path))
+    elif login_compose and login_compose.exists() and idx == 0:
+        to_update.append(("LoginServer", login_compose))
+    else:
+        # GameServer (ajustar indice)
+        gs_idx = idx - (1 if login_compose and login_compose.exists() else 0)
+        if 0 <= gs_idx < len(game_servers):
+            s = game_servers[gs_idx]
+            to_update.append((f"GameServer #{s.server_id}", s.compose_path))
+    
+    if not to_update:
+        print("  Nenhum servidor selecionado.")
+        return
+    
+    # Confirmar
+    print(f"\n  Imagens que serao atualizadas:")
+    for name, _ in to_update:
+        print(f"    - {name}")
+    
+    if not confirm("\n  Continuar?"):
+        print("  Operacao cancelada.")
+        return
+    
+    # Executar build + recreate
+    success = 0
+    fail = 0
+    for name, compose_file in to_update:
+        print(f"\n  --- Atualizando {name} ---")
+        print(f"  Compose: {compose_file.name}")
+        
+        env_file = compose_file.parent / ".env"
+        if not env_file.exists():
+            env_file = None
+        
+        # Build
+        print(f"  Reconstruindo imagem...")
+        if not run_compose(compose_file, "build", env_file=env_file):
+            print(f"  ERRO: Build falhou para {name}")
+            fail += 1
+            continue
+        
+        # Recreate
+        print(f"  Recriando container...")
+        if not run_compose(compose_file, "up", "-d", "--force-recreate", env_file=env_file):
+            print(f"  ERRO: Recreate falhou para {name}")
+            fail += 1
+            continue
+        
+        print(f"  {name} atualizado com sucesso!")
+        success += 1
+    
+    print(f"\n  {'=' * 40}")
+    print(f"  Atualizacao concluida: {success} ok, {fail} falha(s)")
+
 def start_game_server():
     print_header("Iniciar GameServer")
+    
+    if not check_distribution():
+        return
     
     # Garantir que a rede lineternity-network existe
     print("  Verificando rede lineternity-network...")
@@ -1370,6 +1612,33 @@ def start_game_server():
             "PUBLIC_PORT": str(7776 + server_id),
             "GAME_DB": f"l2jdb_gs{server_id}",
         }
+        
+        # Ler DB_HOST do LoginServer para LOGIN_DB_HOST do GameServer
+        login_env = DOCKER_DIR / "login" / ".env"
+        login_db_host = "mariadb-login"
+        login_db_port = "3306"
+        login_db_user = "root"
+        login_db_password = "root"
+        if login_env.exists():
+            for line in login_env.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line.startswith("DB_HOST="):
+                    login_db_host = line.split("=", 1)[1].strip()
+                elif line.startswith("DB_PORT="):
+                    login_db_port = line.split("=", 1)[1].strip()
+                elif line.startswith("DB_USER="):
+                    login_db_user = line.split("=", 1)[1].strip()
+                elif line.startswith("DB_PASSWORD="):
+                    login_db_password = line.split("=", 1)[1].strip()
+        
+        defaults["LOGIN_DB_HOST"] = login_db_host
+        defaults["LOGIN_DB_PORT"] = login_db_port
+        defaults["LOGIN_DB_USER"] = login_db_user
+        defaults["LOGIN_DB_PASSWORD"] = login_db_password
+        defaults["LOGIN_DB"] = "l2jdb_login"
+        defaults["LOGIN_HOSTNAME"] = "loginserver"
+        defaults["LOGIN_PORT"] = "9014"
+        
         for key, value in defaults.items():
             if key not in config or not config[key]:
                 config[key] = value
@@ -1635,6 +1904,9 @@ def create_base():
     """Wizard de setup completo para máquina nova - MariaDB + LoginServer + GameServer #1"""
     print_header("Criar Base (Setup Completo)")
     
+    if not check_distribution():
+        return
+    
     print("  Este wizard ira configurar:")
     print("    1. MariaDB (detectar ou criar)")
     print("    2. LoginServer (configuracao padrao)")
@@ -1892,48 +2164,274 @@ def create_base():
     print("    - Parar tudo: opcao 7 no menu")
 
 # ============================================================
+# GM Access Level Management
+# ============================================================
+
+def parse_access_levels(xml_path: Path) -> list[dict]:
+    """Parse accessLevels.xml e retorna lista de niveis de acesso"""
+    levels = []
+    if not xml_path.exists():
+        return levels
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        for access in root.findall('access'):
+            level = int(access.get('level', 0))
+            name = access.get('name', f'Level {level}')
+            is_gm = access.get('isGM', 'false').lower() == 'true'
+            levels.append({
+                'level': level,
+                'name': name,
+                'is_gm': is_gm,
+            })
+    except Exception as e:
+        print(f"  ERRO ao parsear accessLevels.xml: {e}")
+    return levels
+
+def get_running_gameserver_containers() -> list[dict]:
+    """Lista containers GameServer ativos via docker ps"""
+    result = subprocess.run(
+        ["docker", "ps", "--filter", "name=lineternity-gameserver", "--format", "{{.Names}}\t{{.Status}}"],
+        capture_output=True, text=True
+    )
+    containers = []
+    if not result.stdout.strip():
+        return containers
+    for line in result.stdout.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) == 2:
+            name = parts[0]
+            status = parts[1]
+            # Extrair server_id do nome (lineternity-gameserver-1 -> 1)
+            try:
+                server_id = int(name.split("-")[-1])
+            except (ValueError, IndexError):
+                continue
+            containers.append({
+                'name': name,
+                'server_id': server_id,
+                'status': status,
+            })
+    return containers
+
+def get_mariadb_container_for_gameserver(server_id: int) -> str:
+    """Retorna nome do container MariaDB de um GameServer"""
+    return f"lineternity-mariadb-gs{server_id}"
+
+def run_sql_on_mariadb(container_name: str, database: str, sql: str, fetch: bool = False) -> tuple[bool, str]:
+    """Executa SQL em um container MariaDB via docker exec"""
+    cmd = [
+        "docker", "exec", container_name,
+        "mysql", "-u", "root", "-proot", "--skip-ssl",
+        database, "-N", "-e", sql
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    if fetch:
+        return result.returncode == 0, result.stdout.strip()
+    return result.returncode == 0, result.stdout.strip()
+
+def set_gm_access():
+    """Funcao para setar nivel de acesso de um personagem"""
+    print_header("Setar GM / Access Level")
+
+    # 1. Listar GameServers ativos
+    containers = get_running_gameserver_containers()
+    if not containers:
+        print("  Nenhum GameServer ativo encontrado.")
+        print("  Inicie um GameServer primeiro (opcao 4 do menu).")
+        return
+
+    options = [f"GameServer #{c['server_id']} ({c['name']}) - {c['status']}" for c in containers]
+    options.append("Voltar")
+
+    idx = choose_from_menu("Selecione o GameServer", options)
+    if idx == len(containers):
+        return
+    if idx < 0 or idx >= len(containers):
+        return
+
+    selected = containers[idx]
+    mariadb_container = get_mariadb_container_for_gameserver(selected['server_id'])
+    game_db = f"l2jdb_gs{selected['server_id']}"
+
+    # Verificar se MariaDB esta rodando
+    check = subprocess.run(
+        ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
+        capture_output=True, text=True
+    )
+    if mariadb_container not in check.stdout:
+        print(f"  ERRO: Container MariaDB '{mariadb_container}' nao esta rodando.")
+        return
+
+    # 2. Pedir conta
+    print()
+    account_name = input("  Conta do jogador: ").strip()
+    if not account_name:
+        print("  Conta invalida.")
+        return
+
+    # 3. Pedir personagem
+    char_name = input("  Nome do personagem: ").strip()
+    if not char_name:
+        print("  Nome invalido.")
+        return
+
+    # 4. Verificar se personagem existe
+    check_sql = f"SELECT obj_Id, accesslevel FROM characters WHERE char_name='{char_name}' AND account_name='{account_name}';"
+    ok, result = run_sql_on_mariadb(mariadb_container, game_db, check_sql, fetch=True)
+
+    if not ok:
+        print(f"  ERRO ao consultar banco de dados.")
+        return
+
+    if not result:
+        print(f"  Personagem '{char_name}' na conta '{account_name}' nao encontrado.")
+        print(f"  Verifique se o nome esta correto (sensivel a maiusculas/minusculas).")
+        return
+
+    parts = result.split()
+    char_obj_id = parts[0]
+    current_level = int(parts[1]) if len(parts) > 1 else 0
+
+    print(f"\n  Personagem encontrado: {char_name} (ID: {char_obj_id})")
+    print(f"  Access Level atual: {current_level}")
+
+    # 5. Parsear accessLevels.xml
+    xml_path = PROJECT_ROOT / "game" / "data" / "xml" / "accessLevels.xml"
+    levels = parse_access_levels(xml_path)
+
+    if not levels:
+        print(f"  AVISO: accessLevels.xml nao encontrado em {xml_path}")
+        print(f"  Usando lista padrao de niveis.")
+        levels = [
+            {'level': -1, 'name': 'Banned', 'is_gm': False},
+            {'level': 0, 'name': 'User', 'is_gm': False},
+            {'level': 1, 'name': 'Chat Moderator', 'is_gm': False},
+            {'level': 2, 'name': 'Test GM', 'is_gm': False},
+            {'level': 3, 'name': 'General GM', 'is_gm': False},
+            {'level': 4, 'name': 'Support GM', 'is_gm': False},
+            {'level': 5, 'name': 'Event GM', 'is_gm': False},
+            {'level': 6, 'name': 'Head GM', 'is_gm': False},
+            {'level': 7, 'name': 'Admin', 'is_gm': True},
+            {'level': 8, 'name': 'Master', 'is_gm': True},
+        ]
+
+    # 6. Mostrar niveis e permitir selecao
+    print()
+    print("  Niveis de Acesso:")
+    print()
+
+    # Ordenar por level
+    levels_sorted = sorted(levels, key=lambda x: x['level'])
+
+    for lv in levels_sorted:
+        marker = " ◄─ recomendado para GM" if lv['level'] == 8 else ""
+        gm_marker = " [GM]" if lv['is_gm'] else ""
+        print(f"  [{lv['level']:>2}] {lv['name']}{gm_marker}{marker}")
+
+    print(f"  [ V] Voltar")
+    print()
+
+    level_input = input("  Selecione o nivel (numero): ").strip()
+
+    if level_input.lower() in ('v', 'voltar', ''):
+        return
+
+    try:
+        new_level = int(level_input)
+    except ValueError:
+        print(f"  Valor invalido: '{level_input}'. Use um numero.")
+        return
+
+    # Verificar se o nivel existe
+    valid_levels = [lv['level'] for lv in levels]
+    if new_level not in valid_levels:
+        print(f"  Nivel {new_level} invalido. Valores validos: {valid_levels}")
+        return
+
+    # Encontrar nome do nivel
+    level_name = next((lv['name'] for lv in levels if lv['level'] == new_level), f'Level {new_level}')
+
+    # 7. Confirmar
+    print()
+    print(f"  Conta:         {account_name}")
+    print(f"  Personagem:    {char_name}")
+    print(f"  Nivel:         {new_level} - {level_name}")
+    print(f"  Level atual:   {current_level}")
+    print()
+
+    if not confirm("  Confirmar alteracao?"):
+        print("  Operacao cancelada.")
+        return
+
+    # 8. Executar UPDATE
+    update_sql = f"UPDATE characters SET accesslevel = {new_level} WHERE char_name='{char_name}' AND account_name='{account_name}';"
+    ok, _ = run_sql_on_mariadb(mariadb_container, game_db, update_sql)
+
+    if ok:
+        # Verificar se realmente alterou
+        verify_sql = f"SELECT accesslevel FROM characters WHERE char_name='{char_name}' AND account_name='{account_name}';"
+        ok2, new_val = run_sql_on_mariadb(mariadb_container, game_db, verify_sql, fetch=True)
+        if ok2 and new_val.strip() == str(new_level):
+            print(f"\n  ✅ Access level alterado com sucesso!")
+            print(f"     {char_name}: {current_level} → {new_level} ({level_name})")
+        else:
+            print(f"\n  ⚠️ Comando executado, mas verificacao retornou valor inesperado: '{new_val}'")
+    else:
+        print(f"\n  ❌ ERRO ao executar UPDATE no banco de dados.")
+
+# ============================================================
 # Main Menu
 # ============================================================
 
 def main_menu():
     while True:
         options = [
-            "1. Criar Base (Setup Completo)",
-            "2. Iniciar MariaDB LoginServer",
-            "3. Iniciar LoginServer",
-            "4. Iniciar GameServer",
-            "5. Parar GameServer",
-            "6. Parar Todos os Serviços",
-            "7. Listar servidores ativos",
-            "8. Logs",
-            "9. Edicao em massa de environment",
-            "10. Gerenciar perfis de configuracao",
-            "11. Sair",
+            "1. Compilar Projeto (Build)",
+            "2. Criar Base (Setup Completo)",
+            "3. Iniciar MariaDB LoginServer",
+            "4. Iniciar LoginServer",
+            "5. Iniciar GameServer",
+            "6. Parar GameServer",
+            "7. Parar Todos os Serviços",
+            "8. Listar servidores ativos",
+            "9. Logs",
+            "10. Edicao em massa de environment",
+            "11. Gerenciar perfis de configuracao",
+            "12. Setar GM / Access Level",
+            "13. Atualizar Imagens",
+            "14. Sair",
         ]
         
-        idx = choose_from_menu("Lineternity Stack Manager v2.0", options)
+        idx = choose_from_menu("Lineternity Stack Manager v2.2", options)
         
         if idx == 0:
-            create_base()
+            build_project()
         elif idx == 1:
-            start_mariadb_login()
+            create_base()
         elif idx == 2:
-            start_loginserver()
+            start_mariadb_login()
         elif idx == 3:
-            start_game_server()
+            start_loginserver()
         elif idx == 4:
-            stop_game_server()
+            start_game_server()
         elif idx == 5:
-            stop_all_services()
+            stop_game_server()
         elif idx == 6:
-            list_servers()
+            stop_all_services()
         elif idx == 7:
-            show_logs_menu()
+            list_servers()
         elif idx == 8:
-            bulk_edit_env()
+            show_logs_menu()
         elif idx == 9:
-            manage_config_profiles()
+            bulk_edit_env()
         elif idx == 10:
+            manage_config_profiles()
+        elif idx == 11:
+            set_gm_access()
+        elif idx == 12:
+            update_images()
+        elif idx == 13:
             print("\n  Saindo...")
             break
         else:
