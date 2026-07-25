@@ -1,12 +1,12 @@
 @echo off
 REM Invalida AppCDS: server.jar atualizado ou modo GC alterado (G1 vs ZGC).
-REM Uso: call "%~dp0cache\brproject-cds-check.inc.bat" "cache\brproject_cds.jsa" "..\libs\server.jar" "G1"
+REM Uso: call "%~dp0cache\lineternity-cds-check.inc.bat" "cache\lineternity_cds.jsa" "..\libs\server.jar" "G1"
 setlocal EnableDelayedExpansion
 set "CDS=%~1"
 set "JAR=%~2"
 set "MODE=%~3"
 if "%MODE%"=="" set "MODE=G1"
-set "META=%~dp1brproject_cds.gc"
+set "META=%~dp1lineternity_cds.gc"
 
 if /i "%MODE%"=="ZGC" (
   if exist "%CDS%" (

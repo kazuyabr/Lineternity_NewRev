@@ -59,8 +59,7 @@ game/config/hexid.txt
 pathnode.bin
 
 # Distribution files
-Brproject_Distribution/
-Brproject_7z/
+build/7z/
 build/
 *.7z
 *.zip

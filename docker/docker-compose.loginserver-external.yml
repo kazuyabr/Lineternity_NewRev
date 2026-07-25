@@ -11,7 +11,7 @@ services:
     hostname: loginserver
     image: lineternity-newrev:latest
     build:
-      context: ..
+      context: ../build/distribution
       dockerfile: docker/Dockerfile
     ports:
       - "${LOGIN_PORT:-2106}:2106"
@@ -25,8 +25,8 @@ services:
       HOSTNAME: ${HOSTNAME:-localhost}
       LOGIN_PORT: ${LOGIN_PORT:-2106}
     volumes:
-      - ./login/config:/l2Brproject/login/config
-      - ../../logs:/l2Brproject/logs
+      - ./login/config:/lineternity/login/config
+      - ../../logs:/lineternity/logs
     command: ["login"]
     restart: unless-stopped
     networks:

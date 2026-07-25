@@ -1,5 +1,5 @@
 @echo off
-title GameServer Registration Console - Brproject
+title GameServer Registration Console - Lineternity
 color 0E
 cd /d "%~dp0"
 
@@ -24,4 +24,3 @@ if %errorlevel% neq 0 (
 )
 
 pause
-

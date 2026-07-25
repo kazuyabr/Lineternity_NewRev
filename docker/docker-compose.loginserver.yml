@@ -2,6 +2,28 @@ name: lineternity-loginserver
 
 services:
   # ============================================================
+  # MariaDB Login - Banco de dados do LoginServer
+  # Contém: l2jdb_login (accounts, gameservers, hwid)
+  # ============================================================
+  mariadb-login:
+    container_name: lineternity-mariadb-login
+    hostname: mariadb-login
+    image: mariadb:10.11
+    volumes:
+      - mariadb_login_data:/var/lib/mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lineternity
+
+  # ============================================================
   # LoginServer - Independente
   # Conecta em: mariadb-login (l2jdb_login)
   # Porta: 2106
@@ -11,7 +33,7 @@ services:
     hostname: loginserver
     image: lineternity-newrev:latest
     build:
-      context: ..
+      context: ../build/distribution
       dockerfile: docker/Dockerfile
     depends_on:
       mariadb-login:
@@ -28,14 +50,17 @@ services:
       HOSTNAME: ${HOSTNAME:-localhost}
       LOGIN_PORT: ${LOGIN_PORT:-2106}
     volumes:
-      - ./login/config:/l2Brproject/login/config
-      - ../../logs:/l2Brproject/logs
+      - ./login/config:/lineternity/login/config
+      - ../../logs:/lineternity/logs
     command: ["login"]
     restart: unless-stopped
     networks:
       lineternity:
         aliases:
           - loginserver
+
+volumes:
+  mariadb_login_data:
 
 networks:
   lineternity:

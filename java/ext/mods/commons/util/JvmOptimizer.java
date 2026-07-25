@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -49,7 +49,7 @@ public final class JvmOptimizer
 	private static final CLogger LOGGER = new CLogger(JvmOptimizer.class.getName());
 	
 	private static final String APP_CDS_DIR = "cache";
-	private static final String APP_CDS_FILE = "cache/brproject_cds.jsa";
+	private static final String APP_CDS_FILE = "cache/lineternity_cds.jsa";
 	
 	private static boolean _initialized = false;
 	private static boolean _loggerConfigured = false;
@@ -180,7 +180,7 @@ public final class JvmOptimizer
 				LOGGER.warn("        -> A JVM criara o snapshot automaticamente ao encerrar o servidor.");
 				LOGGER.warn("        -> O proximo boot ja sera mais rapido.");
 				LOGGER.warn("        -> No shutdown, avisos [cds] sobre JFR/proxy sao normais (classes nao arquivaveis).");
-				LOGGER.warn("        -> Use classpath fixo (cache/brproject-classpath.inc.bat); evite libs/* no Windows.");
+				LOGGER.warn("        -> Use classpath fixo (cache/lineternity-classpath.inc.bat); evite libs/* no Windows.");
 			}
 		}
 		else
@@ -610,12 +610,12 @@ public final class JvmOptimizer
 	{
 		final List<String> flags = new ArrayList<>();
 		
-		if ("true".equalsIgnoreCase(System.getProperty("brproject.safe.graphics")))
+		if ("true".equalsIgnoreCase(System.getProperty("lineternity.safe.graphics")))
 		{
 			flags.add("-Dsun.java2d.opengl=false");
 			flags.add("-Dsun.java2d.d3d=false");
 			flags.add("-Dsun.java2d.pmoffscreen=false");
-			flags.add("-Dbrproject.safe.graphics=true");
+			flags.add("-Dlineternity.safe.graphics=true");
 		}
 		
 		final String javaVersion = System.getProperty("java.version");
@@ -1085,7 +1085,7 @@ public final class JvmOptimizer
 				
 				final String[] restartScripts = 
 				{
-					"StartBrproject.bat",
+					"StartLineternity.bat",
 					"start.vbs",
 					"start.sh",
 					"entrypoint.sh"
@@ -1165,7 +1165,7 @@ public final class JvmOptimizer
 	 */
 	private static boolean isVerboseStartup()
 	{
-		return "true".equalsIgnoreCase(System.getProperty("brproject.jvm.verbose"));
+		return "true".equalsIgnoreCase(System.getProperty("lineternity.jvm.verbose"));
 	}
 
 	/** Boot silencioso: sem console do JvmOptimizer (so banner Team no stdout). */
@@ -1184,7 +1184,7 @@ public final class JvmOptimizer
 	}
 
 	/**
-	 * Console do JvmOptimizer (somente com -Dbrproject.jvm.verbose=true).
+	 * Console do JvmOptimizer (somente com -Dlineternity.jvm.verbose=true).
 	 */
 	private static void configureJvmOptimizerLogger()
 	{
@@ -1224,6 +1224,29 @@ public final class JvmOptimizer
 			LOGGER.error("     | Mensagem:  {}                                        |", 
 				exception.getMessage() != null ? exception.getMessage() : "N/A");
 			LOGGER.error("     +---------------------------------------------------------+");
+			
+			java.io.StringWriter sw = new java.io.StringWriter();
+			exception.printStackTrace(new java.io.PrintWriter(sw));
+			LOGGER.error("     Stack trace completo:");
+			for (String line : sw.toString().split("\n"))
+			{
+				LOGGER.error("       {}", line);
+			}
+			
+			Throwable cause = exception.getCause();
+			int depth = 0;
+			while (cause != null && depth < 10)
+			{
+				LOGGER.error("     Caused by: {} - {}", cause.getClass().getSimpleName(), cause.getMessage());
+				java.io.StringWriter csw = new java.io.StringWriter();
+				cause.printStackTrace(new java.io.PrintWriter(csw));
+				for (String line : csw.toString().split("\n"))
+				{
+					LOGGER.error("       {}", line);
+				}
+				cause = cause.getCause();
+				depth++;
+			}
 			
 			if (!_normalShutdown && isCriticalError(exception))
 			{

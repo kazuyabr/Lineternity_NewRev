@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -24,10 +24,10 @@ public final class BrProjectMeta
 {
 	private BrProjectMeta() {}
 
-	public static final String TEAM = "BRPROJECT";
-	public static final String BRAND = "Brproject";
-	public static final String DISTRIB_MODE = "MODO DISTRIBUICAO (Brproject_Distribution)";
-	public static final String BUILD_LINE = "BUILD 2026 | 3.8 | Brproject";
+	public static final String TEAM = "LINETERNITY";
+	public static final String BRAND = "Lineternity";
+	public static final String DISTRIB_MODE = "MODO DISTRIBUICAO (build/distribution)";
+	public static final String BUILD_LINE = "BUILD 2026 | 3.8 | Lineternity";
 	public static final String CORE_LINE = "CORE: Dhousefe-L2JBR | Agazes33 | Ban-L2jDev | Warman | SrEli | Dev < A.L.N/>";
 	public static final String SIGNATURE = "Dev < A.L.N/>";
 }

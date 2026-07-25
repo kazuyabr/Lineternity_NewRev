@@ -1,6 +1,6 @@
 /*
  * MIT License
- * * Copyright (c) 2024-2026 L2Brproject
+ * * Copyright (c) 2024-2026 L2Lineternity
  * * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -491,7 +491,7 @@ open class CreatureMove<T : Creature>(
         }
     }
     protected open fun handleNextPosition(nextX: Int, nextY: Int, nextZ: Int, type: MoveType): Boolean {
-        if (!geoEngine.canMoveToTarget(_actor.x, _actor.y, _actor.z, nextX, nextY, nextZ)) {
+        if (Config.SISTEMA_PATHFINDING && !geoEngine.canMoveToTarget(_actor.x, _actor.y, _actor.z, nextX, nextY, nextZ)) {
             if (_actor is Player) {
                 syncPlayerLocation(true)
             }

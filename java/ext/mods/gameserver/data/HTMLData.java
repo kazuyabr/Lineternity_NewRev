@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -111,10 +111,18 @@ public final class HTMLData extends AbstractLocaleData
 	
 	public String getHtm(Locale locale, String file)
 	{
-		var result = _data.get(locale).get(file);
+		var localeData = _data.get(locale);
+		if (localeData == null)
+			localeData = _data.get(Config.DEFAULT_LOCALE);
+		if (localeData == null)
+			return "<html><body>Locale data not loaded for: " + locale + "</body></html>";
+		
+		var result = localeData.get(file);
 		if (result == null)
 		{
-			result = _data.get(Config.DEFAULT_LOCALE).get(file);
+			var defaultData = _data.get(Config.DEFAULT_LOCALE);
+			if (defaultData != null)
+				result = defaultData.get(file);
 			if (result == null)
 				return "<html><body>Not found file: " + file + "</body></html>";
 		}

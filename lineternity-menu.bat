@@ -1,13 +1,13 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Brproject - Build
+title Lineternity - Build
 
 :menu
 cls
 echo.
 echo   ========================================================================================================
-echo                                          Brproject - Build
+echo                                          Lineternity - Build
 echo.
 echo   [1] Compila incrementalmente os arquivos de codigo Java e Kotlin de forma rapida.
 echo   [2] Exclui todos os artefatos de compilacao anteriores, em seguida, realiza uma compilacao completa.
@@ -33,19 +33,19 @@ if errorlevel 1 goto :compile
 :compile
 echo.
 echo --- Compilando... ---
-call "%~dp0gradlew.bat" br-compile
+call "%~dp0gradlew.bat" li-compile
 goto :apos
 
 :clean_build
 echo.
 echo --- Clean + compilar... ---
-call "%~dp0gradlew.bat" br-compile-clean
+call "%~dp0gradlew.bat" li-compile-clean
 goto :apos
 
 :ant_dist
 echo.
 echo --- Ant dist-test... ---
-call "%~dp0gradlew.bat" br-ant-dist-test
+call "%~dp0gradlew.bat" li-ant-dist-test
 goto :apos
 
 :apos

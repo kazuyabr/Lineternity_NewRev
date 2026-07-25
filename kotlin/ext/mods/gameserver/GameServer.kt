@@ -1,6 +1,6 @@
 /*
  * MIT License
- * * Copyright (c) 2024-2026 L2Brproject
+ * * Copyright (c) 2024-2026 L2Lineternity
  * * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -223,7 +223,7 @@ class GameServer : Runnable {
             private set
         @JvmStatic
         fun main(args: Array<String>) {
-            if ("true".equals(System.getProperty("brproject.safe.graphics"), ignoreCase = true)) {
+            if ("true".equals(System.getProperty("lineternity.safe.graphics"), ignoreCase = true)) {
                 System.setProperty("sun.java2d.opengl", "false")
                 System.setProperty("sun.java2d.d3d", "false")
                 System.setProperty("sun.java2d.pmoffscreen", "false")
@@ -321,7 +321,7 @@ class GameServer : Runnable {
             QuestData.getInstance()
             BattleBossData.getInstance()
             BattleBossCountDownTask.getInstance().start()
-            StringUtil.printSection("[Brproject Ext Mods]")
+            StringUtil.printSection("[Lineternity Ext Mods]")
             ExtensionLoader.loadExtensions()
             GameListenerManager.getInstance().notifyStart()
             try {

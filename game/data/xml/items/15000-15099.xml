@@ -1,7 +1,7 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <list>
 	<item id="15000" type="Armor" name="Earring of Antharas Rare">
-		<set name="icon" val="icon.antharasbrproject" />
+		<set name="icon" val="icon.antharaslineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rear;lear" />
 		<set name="crystal_type" val="S" />
@@ -17,7 +17,7 @@
 		</for>
 	</item>
 	<item id="15001" type="Armor" name="Earring of Antharas Found">
-		<set name="icon" val="icon.antharasbrproject2" />
+		<set name="icon" val="icon.antharaslineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rear;lear" />
 		<set name="crystal_type" val="S" />
@@ -33,7 +33,7 @@
 		</for>
 	</item>
 	<item id="15002" type="Armor" name="Necklace of Valakas Rare">
-		<set name="icon" val="icon.valakasbrproject" />
+		<set name="icon" val="icon.valakaslineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="neck" />
 		<set name="crystal_type" val="S" />
@@ -49,7 +49,7 @@
 		</for>
 	</item>
 	<item id="15003" type="Armor" name="Necklace of Valakas Found">
-		<set name="icon" val="icon.valakasbrproject2" />
+		<set name="icon" val="icon.valakaslineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="neck" />
 		<set name="crystal_type" val="S" />
@@ -65,7 +65,7 @@
 		</for>
 	</item>
 	<item id="15004" type="Armor" name="Ring of Baium Rare">
-		<set name="icon" val="icon.baiumbrproject" />
+		<set name="icon" val="icon.baiumlineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rfinger;lfinger" />
 		<set name="crystal_type" val="S" />
@@ -81,7 +81,7 @@
 		</for>
 	</item>
 	<item id="15005" type="Armor" name="Ring of Baium Found">
-		<set name="icon" val="icon.baiumbrproject2" />
+		<set name="icon" val="icon.baiumlineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rfinger;lfinger" />
 		<set name="crystal_type" val="S" />
@@ -97,7 +97,7 @@
 		</for>
 	</item>
 	<item id="15006" type="Armor" name="Zaken's Earring Rare">
-		<set name="icon" val="icon.zakenbrproject" />
+		<set name="icon" val="icon.zakenlineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rear;lear" />
 		<set name="crystal_type" val="S" />
@@ -113,7 +113,7 @@
 		</for>
 	</item>
 	<item id="15007" type="Armor" name="Zaken's Earring Found">
-		<set name="icon" val="icon.zakenbrproject2" />
+		<set name="icon" val="icon.zakenlineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rear;lear" />
 		<set name="crystal_type" val="S" />
@@ -129,7 +129,7 @@
 		</for>
 	</item>
 	<item id="15008" type="Armor" name="Ring of Queen Ant Rare">
-		<set name="icon" val="icon.queenbrproject" />
+		<set name="icon" val="icon.queenlineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rfinger;lfinger" />
 		<set name="crystal_type" val="B" />
@@ -145,7 +145,7 @@
 		</for>
 	</item>
 	<item id="15009" type="Armor" name="Ring of Queen Ant Found">
-		<set name="icon" val="icon.queenbrproject2" />
+		<set name="icon" val="icon.queenlineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rfinger;lfinger" />
 		<set name="crystal_type" val="B" />
@@ -161,7 +161,7 @@
 		</for>
 	</item>
 	<item id="15010" type="Armor" name="Earring of Orfen Rare">
-		<set name="icon" val="icon.orfenbrproject" />
+		<set name="icon" val="icon.orfenlineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rear;lear" />
 		<set name="crystal_type" val="A" />
@@ -177,7 +177,7 @@
 		</for>
 	</item>
 	<item id="15011" type="Armor" name="Earring of Orfen Found">
-		<set name="icon" val="icon.orfenbrproject2" />
+		<set name="icon" val="icon.orfenlineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rear;lear" />
 		<set name="crystal_type" val="A" />
@@ -193,7 +193,7 @@
 		</for>
 	</item>
 	<item id="15012" type="Armor" name="Ring of Core Rare">
-		<set name="icon" val="icon.corebrproject" />
+		<set name="icon" val="icon.corelineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rfinger;lfinger" />
 		<set name="crystal_type" val="A" />
@@ -209,7 +209,7 @@
 		</for>
 	</item>
 	<item id="15013" type="Armor" name="Ring of Core Found">
-		<set name="icon" val="icon.corebrproject2" />
+		<set name="icon" val="icon.corelineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="rfinger;lfinger" />
 		<set name="crystal_type" val="A" />
@@ -225,7 +225,7 @@
 		</for>
 	</item>
 	<item id="15014" type="Armor" name="Frintezza's Necklace Rare">
-		<set name="icon" val="icon.frintessabrproject" />
+		<set name="icon" val="icon.frintessalineternity" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="neck" />
 		<set name="crystal_type" val="A" />
@@ -239,7 +239,7 @@
 		</for>
 	</item>
 	<item id="15015" type="Armor" name="Frintezza's Necklace Found">
-		<set name="icon" val="icon.frintessabrproject2" />
+		<set name="icon" val="icon.frintessalineternity2" />
 		<set name="default_action" val="equip" />
 		<set name="bodypart" val="neck" />
 		<set name="crystal_type" val="A" />
@@ -253,7 +253,7 @@
 		</for>
 	</item>
 	<item id="15017" type="EtcItem" name="Box Standard">
-		<set name="icon" val="icon.boxbrproject" />
+		<set name="icon" val="icon.boxlineternity" />
 		<set name="default_action" val="skill_reduce" />
 		<set name="etcitem_type" val="POTION" />
 		<set name="material" val="LIQUID" />
@@ -267,7 +267,7 @@
 		<set name="is_sellable" val="false" />
 	</item>
 	<item id="15018" type="EtcItem" name="Box Premium">
-		<set name="icon" val="icon.boxbrproject2" />
+		<set name="icon" val="icon.boxlineternity2" />
 		<set name="default_action" val="skill_reduce" />
 		<set name="etcitem_type" val="POTION" />
 		<set name="material" val="LIQUID" />
@@ -281,7 +281,7 @@
 		<set name="is_sellable" val="false" />
 	</item>
 	<item id="15019" type="EtcItem" name="Chest Standard">
-		<set name="icon" val="icon.caixa1brproject" />
+		<set name="icon" val="icon.caixa1lineternity" />
 		<set name="default_action" val="skill_reduce" />
 		<set name="etcitem_type" val="POTION" />
 		<set name="material" val="LIQUID" />
@@ -295,7 +295,7 @@
 		<set name="is_sellable" val="false" />
 	</item>
 	<item id="15020" type="EtcItem" name="Chest Mid-tier">
-		<set name="icon" val="icon.caixa2brproject" />
+		<set name="icon" val="icon.caixa2lineternity" />
 		<set name="default_action" val="skill_reduce" />
 		<set name="etcitem_type" val="POTION" />
 		<set name="material" val="LIQUID" />
@@ -309,7 +309,7 @@
 		<set name="is_sellable" val="false" />
 	</item>
 	<item id="15021" type="EtcItem" name="Chest Rare">
-		<set name="icon" val="icon.caixa3brproject" />
+		<set name="icon" val="icon.caixa3lineternity" />
 		<set name="default_action" val="skill_reduce" />
 		<set name="etcitem_type" val="POTION" />
 		<set name="material" val="LIQUID" />
@@ -323,7 +323,7 @@
 		<set name="is_sellable" val="false" />
 	</item>
 	<item id="15022" type="EtcItem" name="Nobless Item">
-		<set name="icon" val="icon.noblebrproject" />
+		<set name="icon" val="icon.noblelineternity" />
 		<set name="default_action" val="skill_reduce" />
 		<set name="etcitem_type" val="POTION" />
 		<set name="material" val="LIQUID" />

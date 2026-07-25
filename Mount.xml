@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE project>
-<project name="Brproject" default="dist-secure" basedir=".">
+<project name="Lineternity" default="dist-secure" basedir=".">
 	<scriptdef name="substring" language="javascript">
 		<attribute name="text" />
 		<attribute name="start" />
@@ -78,6 +78,15 @@
 				<available file="C:\Program Files\Java\jdk25\bin\java.exe" type="file" />
 			</and>
 		</condition>
+		<condition property="java.home.path" value="C:\Program Files\jdk">
+			<and>
+				<not>
+					<isset property="java.home.path" />
+				</not>
+				<os family="windows" />
+				<available file="C:\Program Files\jdk\bin\java.exe" type="file" />
+			</and>
+		</condition>
 		
 		<!-- Prioridade 5: Usa o Java que está executando o Ant (fallback) -->
 		<property name="java.home.path" value="${java.home}" />
@@ -123,21 +132,21 @@
 
 	<target name="prepare-local" description="Prepare the local folder property" depends="detect-java">
 		<property name="build" location="build" />
-		<property name="buildZip" location="Brproject_Distribution" />
-		<property name="build7z" location="Brproject_7z" />
-		<property name="7z.filename" value="Brproject.7z" />
+		<property name="buildZip" location="build/distribution" />
+		<property name="build7z" location="build/7z" />
+		<property name="7z.filename" value="Lineternity.7z" />
 	</target>
 	
 	<target name="prepare-test" description="Prepare the test folder property" depends="detect-java">
 		<property name="build" location="build" />
-		<property name="buildZip" location="Brproject_Distribution" />
-		<property name="build7z" location="Brproject_7z" />
-		<property name="7z.filename" value="Brproject_Test.7z" />
+		<property name="buildZip" location="build/distribution" />
+		<property name="build7z" location="build/7z" />
+		<property name="7z.filename" value="Lineternity_Test.7z" />
 	</target>
 
 	<target name="prepare-final" description="Prepare the final folders properties">
 		<property name="build.dist" location="${build}/dist" />
-		<property name="build.dist.server" location="${build.dist}/Brproject_Secure" />
+		<property name="build.dist.server" location="${build.dist}/Lineternity" />
 		<property name="build.dist.server.tools" location="${build.dist.server}/tools" />
 		<property name="build.dist.server.game" location="${build.dist.server}/game" />
 		<property name="build.dist.server.images" location="${build.dist.server}/images" />
@@ -249,7 +258,7 @@
 		
 		<!-- Copiar scripts de inicialização -->
 		<copy file="${basedir}/start.vbs" todir="${build.dist.server}" />
-		<copy file="${basedir}/StartBrproject.bat" todir="${build.dist.server}" />
+		<copy file="${basedir}/StartLineternity.bat" todir="${build.dist.server}" />
 		
 		<!-- Copiar documentação (apenas README.md) -->
 		<copy file="${basedir}/README.md" todir="${build.dist.server}" />
@@ -257,7 +266,7 @@
 	</target>
 
 	<target name="dist-local" depends="prepare-local,prepare-final,export" description="Create distribution files and Zip one into 'Zip' folder.">
-		<zip destfile="${buildZip}/Brproject.zip" basedir="${build.dist}" update="true" />
+		<zip destfile="${buildZip}/Lineternity.zip" basedir="${build.dist}" update="true" />
 		<delete dir="${build}" />
 	</target>
 
@@ -349,13 +358,13 @@
 	</target>
 
 	<!-- Target para criar arquivo 7z (independente da compilação) -->
-	<target name="dist-7z" description="Create 7z distribution file from existing Brproject_Distribution.">
-		<echo message="Criando arquivo 7z a partir de Brproject_Distribution..." />
+	<target name="dist-7z" description="Create 7z distribution file from existing build/distribution.">
+		<echo message="Criando arquivo 7z a partir de build/distribution..." />
 		
 		<!-- Definir propriedades necessárias -->
-		<property name="buildZip" location="Brproject_Distribution" />
-		<property name="build7z" location="Brproject_7z" />
-		<property name="7z.filename" value="Brproject.7z" />
+		<property name="buildZip" location="build/distribution" />
+		<property name="build7z" location="build/7z" />
+		<property name="7z.filename" value="Lineternity.7z" />
 		
 		<!-- Verificar se a pasta de distribuição existe -->
 		<available file="${buildZip}" type="dir" property="distribution.exists" />
@@ -372,7 +381,7 @@
 		</exec>
 		
 		<!-- Fallback para ZIP se 7z falhar -->
-		<zip destfile="${build7z}/Brproject.zip" basedir="${buildZip}" update="true" />
+		<zip destfile="${build7z}/Lineternity.zip" basedir="${buildZip}" update="true" />
 		
 		<echo message="Arquivo de distribuição criado em: ${build7z}" />
 		<echo message="Arquivo: ${7z.filename}" />
@@ -436,10 +445,9 @@
 	</target>
 
 	<!-- Target para build de teste - apenas arquivos essenciais para criptografia -->
-	<target name="dist-test" depends="prepare-test,encrypt-security-tools" description="Create test distribution with only essential files for encryption in Brproject_Distribution">
-		<echo message="=== BUILD DE TESTE - APENAS ARQUIVOS ESSENCIAIS ===" />
-		<echo message="Excluindo: data/custom/, data/geodata/, data/locale/, data/xml/" />
-		<echo message="Mantendo: libs/, login/, images/, sound/, Hwid/, tools/" />
+	<target name="dist-test" depends="prepare-test,encrypt-security-tools" description="Create test distribution with essential files in build/distribution">
+		<echo message="=== BUILD DE TESTE ===" />
+		<echo message="Incluindo: libs/, login/, images/, sound/, Hwid/, tools/, geodata/" />
 		<echo message="Criando em: ${buildZip}" />
 		
 		<!-- AppCDS: invalidar snapshots antigos apos recompilar server.jar -->
@@ -464,6 +472,21 @@
 				<include name="**/*.encrypted" />
 				<include name="**/*.meta" />
 				<include name="**/key.properties" />
+			</fileset>
+		</copy>
+
+		<!-- Copiar geodata (necessario para movimento do player) -->
+		<echo message="Copiando geodata..." />
+		<mkdir dir="${buildZip}/game/data/geodata" />
+		<copy todir="${buildZip}/game/data/geodata">
+			<fileset dir="game/data/geodata">
+				<include name="**/*.dat" />
+				<include name="**/*.txt" />
+				<include name="**/*.bin" />
+				<include name="**/*.idx" />
+				<include name="**/*.exe" />
+				<include name="**/*.ini" />
+				<include name="**/LICENSE" />
 			</fileset>
 		</copy>
 
@@ -527,7 +550,7 @@
 		</copy>
 		
 		<!-- Garantir que scripts de inicialização estão atualizados -->
-		<copy file="StartBrproject.bat" todir="${buildZip}" />
+		<copy file="StartLineternity.bat" todir="${buildZip}" />
 		<copy file="StartGame_SemDashboard.bat" todir="${buildZip}" />
 		<copy file="StartLogin_SemDashboard.bat" todir="${buildZip}" />
 		<copy file="start.vbs" todir="${buildZip}" />
@@ -547,7 +570,7 @@
 		<echo file="${buildZip}/BUILD_INFO.txt">
 === BUILD DE TESTE ===
 Data: ${DSTAMP} ${TSTAMP}
-Tipo: Teste (sem arquivos de dados pesados)
+Tipo: Teste
 
 ARQUIVOS INCLUÍDOS:
 - libs/ (todas as bibliotecas)
@@ -558,19 +581,12 @@ ARQUIVOS INCLUÍDOS:
 - tools/ (ferramentas)
 - game/data/prevention/crypta/ (classes criptografadas)
 - game/config/ (configurações)
-
-ARQUIVOS EXCLUÍDOS (para reduzir tamanho):
-- game/data/custom/ (dados customizados)
 - game/data/geodata/ (dados geográficos)
-- game/data/locale/ (arquivos de idioma)
-- game/data/xml/ (arquivos XML)
 
 		</echo>
 		
 		<echo message="=== BUILD DE TESTE CONCLUÍDO ===" />
 		<echo message="Diretório: ${buildZip}" />
-		<echo message="Arquivos pesados removidos para teste rápido" />
-		<echo message="Arquivos essenciais para criptografia mantidos" />
 		<echo message="security-tools.jar criptografado e incluído na distribuição" />
 	</target>
 	
@@ -582,12 +598,12 @@ ARQUIVOS EXCLUÍDOS (para reduzir tamanho):
 			<arg value="a" />
 			<arg value="-t7z" />
 			<arg value="-mx=9" />
-			<arg value="${build7z}/Brproject_Test.7z" />
+			<arg value="${build7z}/Lineternity_Test.7z" />
 			<arg value="${build.dist.server}/*" />
 		</exec>
 		
 		<echo message="=== 7Z DE TESTE CRIADO ===" />
-		<echo message="Arquivo: ${build7z}/Brproject_Test.7z" />
+		<echo message="Arquivo: ${build7z}/Lineternity_Test.7z" />
 	</target>
 
 	<!-- Target principal para distribuição completa -->

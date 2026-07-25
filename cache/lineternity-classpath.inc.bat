@@ -1,6 +1,6 @@
 @echo off
 REM Classpath absoluto e ordenado para AppCDS (evita "shared class paths mismatch").
-REM Uso: call "%~dp0cache\brproject-classpath.inc.bat" "%~dp0libs"
+REM Uso: call "%~dp0cache\lineternity-classpath.inc.bat" "%~dp0libs"
 setlocal EnableDelayedExpansion
 set "LIBS=%~f1"
 if "%LIBS%"=="" set "LIBS=%~dp0..\libs"
@@ -15,4 +15,4 @@ for /f "delims=" %%f in ('dir /b /on "%LIBS%\*.jar" 2^>nul') do (
     if errorlevel 1 set "CP=!CP!;%LIBS%\%%f"
   )
 )
-endlocal & set "BRPROJECT_CP=%CP%"
+endlocal & set "LINETERNITY_CP=%CP%"

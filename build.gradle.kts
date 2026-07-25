@@ -217,7 +217,7 @@ tasks.jar {
 // IMPORTANTE: Não sobrescreve JARs locais existentes (DeepL.jar, license.jar, etc)
 tasks.register<Copy>("copyDependencies") {
     group = "distribution"
-    description = "Copia dependências Maven para a pasta /libs e pasta crypta para Brproject_Distribution"
+    description = "Copia dependências Maven para a pasta /libs e pasta crypta para build/distribution"
     
     // Copia JARs do Maven para /libs
     from(configurations.runtimeClasspath.get().filter { 

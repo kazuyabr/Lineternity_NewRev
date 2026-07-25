@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -164,7 +164,7 @@ public class MoveBackwardToLocation extends L2GameClientPacket
 				
 				final Location checkLoc = new Location(newX, newY, player.getZ());
 				
-				if (!GeoEngine.getInstance().canMove(player.getX(), player.getY(), player.getZ(), checkLoc.getX(), checkLoc.getY(), checkLoc.getZ(), null))
+				if (Config.SISTEMA_PATHFINDING && !GeoEngine.getInstance().canMove(player.getX(), player.getY(), player.getZ(), checkLoc.getX(), checkLoc.getY(), checkLoc.getZ(), null))
 				{
 					player.sendPacket(ActionFailed.STATIC_PACKET);
 					return;

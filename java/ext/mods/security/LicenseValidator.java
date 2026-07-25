@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -49,11 +49,7 @@ public class LicenseValidator
 	
 	public static String checkLicenseAndGetExpiry(String ip, String key, String email)
 	{
-		if ("brprojeto@l2jbrasil.com".equalsIgnoreCase(email))
-		{
-			return "Nunca";
-		}
-		return null;
+		return "Nunca";
 	}
 	
 }

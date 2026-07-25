@@ -1,6 +1,6 @@
 /*
  * MIT License
- * * Copyright (c) 2024-2026 L2Brproject
+ * * Copyright (c) 2024-2026 L2Lineternity
  * * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -360,7 +360,7 @@ class PlayerMove(actor: Player) : CreatureMove<Player>(actor) {
                 syncPlayerLocation(true)
                 return true
             }
-        } else if (type == MoveType.GROUND && !GeoEngine.getInstance().canMoveToTarget(curX, curY, curZ, nextX, nextY, nextZ) && !_actor.temporaryFixPagan()) {
+        } else if (Config.SISTEMA_PATHFINDING && type == MoveType.GROUND && !GeoEngine.getInstance().canMoveToTarget(curX, curY, curZ, nextX, nextY, nextZ) && !_actor.temporaryFixPagan()) {
             _blocked = true
             syncPlayerLocation(true)
             return true

@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -101,7 +101,7 @@ public class ProcessManagerService {
             command.add("-Dsun.java2d.opengl=false");
             command.add("-Dsun.java2d.d3d=false");
             command.add("-Dsun.java2d.pmoffscreen=false");
-            command.add("-Dbrproject.safe.graphics=true");
+            command.add("-Dlineternity.safe.graphics=true");
         }
         
         command.add("-XX:+UseG1GC");
@@ -116,7 +116,7 @@ public class ProcessManagerService {
         if (tipo.equals("gameserver"))
         {
             command.add("-XX:+AutoCreateSharedArchive");
-            command.add("-XX:SharedArchiveFile=cache/brproject_cds.jsa");
+            command.add("-XX:SharedArchiveFile=cache/lineternity_cds.jsa");
             command.add("-Xlog:cds=error");
         }
 

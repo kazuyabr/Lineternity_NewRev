@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -73,18 +73,11 @@ public class GameServerManager implements IXmlReader
 		LOGGER.info("Loaded {} registered gameserver(s).", _registeredServers.size());
 		
 		if (_registeredServers.isEmpty()) {
-			LOGGER.error("===================================================================");
-			LOGGER.error("ERRO CRÍTICO: Nenhum gameserver registrado encontrado no banco de dados!");
-			LOGGER.error("===================================================================");
-			LOGGER.error("O LoginServer não pode iniciar sem pelo menos um gameserver registrado.");
-			LOGGER.error("Isso causará falha de autenticação (wrong hexid) quando o GameServer tentar conectar.");
-			LOGGER.error("");
-			LOGGER.error("SOLUÇÃO:");
-			LOGGER.error("1. Execute o DatabaseManager e configure o banco de dados.");
-			LOGGER.error("2. Ou use o GameServerRegister para registrar um gameserver.");
-			LOGGER.error("3. Ou insira manualmente um registro na tabela 'gameservers' do banco de dados.");
-			LOGGER.error("===================================================================");
-			throw new RuntimeException("Nenhum gameserver registrado encontrado no banco de dados. Configure o banco antes de iniciar o servidor.");
+			LOGGER.warn("===================================================================");
+			LOGGER.warn("AVISO: Nenhum gameserver registrado encontrado no banco de dados!");
+			LOGGER.warn("===================================================================");
+			LOGGER.warn("O LoginServer continuará. O GameServer se auto-registrará ao conectar.");
+			LOGGER.warn("===================================================================");
 		}
 		
 		initRSAKeys();

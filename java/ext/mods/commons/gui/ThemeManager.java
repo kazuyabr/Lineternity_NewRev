@@ -1,10 +1,10 @@
 /*
-* Copyleft © 2024-2026 L2Brproject
-* * This file is part of L2Brproject derived from aCis409/RusaCis3.8
-* * L2Brproject is free software: you can redistribute it and/or modify it
+* Copyleft © 2024-2026 L2Lineternity
+* * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+* * L2Lineternity is free software: you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
 * Free Software Foundation, either version 3 of the License.
-* * L2Brproject is distributed in the hope that it will be useful,
+* * L2Lineternity is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 * General Public License for more details.
@@ -24,9 +24,9 @@ import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 
 public class ThemeManager {
 
-    /** Modo seguro: usa cores solidas em vez de gradientes (VPS sem GPU). Ative com -Dbrproject.safe.graphics=true */
+    /** Modo seguro: usa cores solidas em vez de gradientes (VPS sem GPU). Ative com -Dlineternity.safe.graphics=true */
     public static boolean isSafeGraphics() {
-        return "true".equalsIgnoreCase(System.getProperty("brproject.safe.graphics"));
+        return "true".equalsIgnoreCase(System.getProperty("lineternity.safe.graphics"));
     }
 
     public static final Color VERY_DARK_BACKGROUND = new Color(10, 10, 15); 
