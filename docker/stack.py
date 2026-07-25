@@ -28,6 +28,46 @@ GAME_TEMPLATES = TEMPLATES_DIR / "game"
 DISTRIBUTION_DIR = PROJECT_ROOT / "build" / "distribution"
 
 # ============================================================
+# Java Detection
+# ============================================================
+
+def detect_java_home():
+    """Detecta JAVA_HOME a partir do comando java no PATH ou da variavel de ambiente."""
+    # 1. Usar JAVA_HOME do ambiente se existir
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home and Path(java_home).exists():
+        return java_home
+    
+    # 2. Detectar a partir do executavel java no PATH
+    try:
+        if os.name == 'nt':
+            result = subprocess.run(
+                ["where", "java"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                java_exe = result.stdout.strip().splitlines()[0]
+                # C:\Program Files\jdk\bin\java.exe -> C:\Program Files\jdk
+                java_home = str(Path(java_exe).parent.parent)
+                if Path(java_home).exists():
+                    return java_home
+        else:
+            result = subprocess.run(
+                ["readlink", "-f", "$(which java)"],
+                shell=True, capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                java_exe = result.stdout.strip()
+                java_home = str(Path(java_exe).parent.parent)
+                if Path(java_home).exists():
+                    return java_home
+    except Exception:
+        pass
+    
+    # 3. Nao encontrado
+    return None
+
+# ============================================================
 # Data Classes
 # ============================================================
 
@@ -1128,6 +1168,20 @@ def build_project():
         print("  Certifique-se de que gradlew.bat (Windows) ou gradlew (Linux) existe na raiz do projeto.")
         return False
     
+    # Detectar JAVA_HOME
+    java_home = detect_java_home()
+    if not java_home:
+        print("  ERRO: JAVA_HOME nao encontrado!")
+        print("  Instale o JDK 25 e configure JAVA_HOME no ambiente.")
+        print("  Exemplo: set JAVA_HOME=C:\\Program Files\\jdk")
+        return False
+    
+    # Preparar environment com JAVA_HOME
+    build_env = os.environ.copy()
+    build_env["JAVA_HOME"] = java_home
+    
+    print(f"  JAVA_HOME: {java_home}")
+    
     server_jar = PROJECT_ROOT / "libs" / "server.jar"
     
     print("  Este comando ira:")
@@ -1157,18 +1211,12 @@ def build_project():
     
     # Rodar Gradle build + distribution
     try:
-        if os.name == 'nt':
-            result = subprocess.run(
-                [str(gradlew), "build", "distribution", "-x", "test"],
-                cwd=str(PROJECT_ROOT),
-                timeout=600
-            )
-        else:
-            result = subprocess.run(
-                [str(gradlew), "build", "distribution", "-x", "test"],
-                cwd=str(PROJECT_ROOT),
-                timeout=600
-            )
+        result = subprocess.run(
+            [str(gradlew), "build", "distribution", "-x", "test"],
+            cwd=str(PROJECT_ROOT),
+            env=build_env,
+            timeout=600
+        )
     except subprocess.TimeoutExpired:
         print("  ERRO: Build excedeu timeout de 10 minutos!")
         return False
