@@ -5,8 +5,11 @@ import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.JavaExec 
 import org.gradle.api.Task
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.net.URL
 
 // 1. Plugins
 plugins {
@@ -269,13 +272,16 @@ tasks.register("patchJava") {
         }
 
         val classpath = "${serverJar.absolutePath}${sep}${outDir.absolutePath}"
-        project.exec {
-            commandLine(
-                "javac",
-                "-d", outDir.absolutePath,
-                "-cp", classpath,
-                *existingPatches.map { File(srcDir, it).absolutePath }.toTypedArray()
-            )
+        val javacCmd = listOf("javac", "-d", outDir.absolutePath, "-cp", classpath) +
+            existingPatches.map { File(srcDir, it).absolutePath }
+        val javacProc = ProcessBuilder(javacCmd)
+            .directory(projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val javacOutput = javacProc.inputStream.bufferedReader().readText()
+        val javacExit = javacProc.waitFor()
+        if (javacExit != 0) {
+            throw GradleException("javac failed with exit code $javacExit:\n$javacOutput")
         }
         println("  Compiled ${existingPatches.size} Java patches")
 
@@ -287,12 +293,12 @@ tasks.register("patchJava") {
             val classFile = patch.replace(".java", ".class")
             val classPath = File(outDir, classFile)
             if (classPath.exists()) {
-                project.exec {
-                    commandLine(
-                        "jar", "uf", tempJar.absolutePath,
-                        "-C", outDir.absolutePath, classFile
-                    )
-                }
+                val jarCmd = listOf("jar", "uf", tempJar.absolutePath, "-C", outDir.absolutePath, classFile)
+                val jarProc = ProcessBuilder(jarCmd)
+                    .directory(projectDir)
+                    .redirectErrorStream(true)
+                    .start()
+                jarProc.waitFor()
             }
         }
 
@@ -321,7 +327,7 @@ tasks.register<JavaExec>("patchBytecode") {
                 "https://repo1.maven.org/maven2/org/ow2/asm/asm-tree/9.8/asm-tree-9.8.jar" to asmTreeJar
             ).forEach { (url, dest) ->
                 if (!dest.exists()) {
-                    java.net.URL(url).openStream().use { input ->
+                    URL(url).openStream().use { input ->
                         dest.outputStream().use { output -> input.copyTo(output) }
                     }
                     println("    Downloaded: ${dest.name}")
@@ -335,13 +341,17 @@ tasks.register<JavaExec>("patchBytecode") {
         patchOut.mkdirs()
 
         val sep = File.pathSeparator
-        project.exec {
-            commandLine(
-                "javac",
-                "-d", patchOut.absolutePath,
-                "-cp", "${file("libs/server.jar").absolutePath}${sep}${asmJar.absolutePath}${sep}${asmTreeJar.absolutePath}",
-                patchSrc.absolutePath
-            )
+        val javacCmd = listOf("javac", "-d", patchOut.absolutePath, "-cp",
+            "${file("libs/server.jar").absolutePath}${sep}${asmJar.absolutePath}${sep}${asmTreeJar.absolutePath}",
+            patchSrc.absolutePath)
+        val javacProc = ProcessBuilder(javacCmd)
+            .directory(projectDir)
+            .redirectErrorStream(true)
+            .start()
+        val javacOutput = javacProc.inputStream.bufferedReader().readText()
+        val javacExit = javacProc.waitFor()
+        if (javacExit != 0) {
+            throw GradleException("javac (PatchBytecode) failed with exit code $javacExit:\n$javacOutput")
         }
         println("  PatchBytecode compiled")
     }
@@ -351,7 +361,7 @@ tasks.register<JavaExec>("patchBytecode") {
     val asmTreeJar = file("libs/asm-tree-9.8.jar")
     val patchOut = file("build/patch-out")
 
-    classpath = files(patchOut, asmJar, asmTreeJar, file("libs/server.jar"))
+    classpath = files(patchOut, asmJar, asmTreeJar)
     mainClass.set("PatchBytecode")
     args = listOf(file("libs/server.jar").absolutePath)
 
@@ -367,29 +377,12 @@ tasks.register<Copy>("syncBinClasses") {
     into(file("bin/main"))
 }
 
-// 9.3. TASK: Copia pasta crypta para build/distribution
-tasks.register<Copy>("copyCrypta") {
-    group = "distribution"
-    description = "Copia pasta crypta para build/distribution"
-
-    from(file("game/data/prevention/crypta")) {
-        include("**/*")
-        include("**/*.encrypted")
-        include("**/*.meta")
-        include("**/key.properties")
-    }
-    into(file("build/distribution/game/data/prevention/crypta"))
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    onlyIf { file("game/data/prevention/crypta").exists() }
-}
-
-// 9.4. TASK: Monta build/distribution/ com todos os arquivos runtime para Docker
-tasks.create("distribution") {
+// 9.3. TASK: Monta build/distribution/ com todos os arquivos runtime (espelha Mount.xml dist-test)
+tasks.register("distribution") {
     dependsOn(tasks.named("patchBytecode"))
-    dependsOn(tasks.named("copyCrypta"))
+    outputs.upToDateWhen { false }
     group = "distribution"
-    description = "Monta build/distribution/ com arquivos runtime para Docker"
+    description = "Monta build/distribution/ com todos os arquivos runtime (espelha Mount.xml dist-test)"
 
     doLast {
         val distDir = file("build/distribution")
@@ -402,74 +395,110 @@ tasks.create("distribution") {
         }
         distDir.mkdirs()
 
-        // 1. libs/ (server.jar patched + todas dependencias)
+        // 1. game/data/prevention/crypta/ (classes criptografadas, meta, key)
+        file("$distDir/game/data/prevention/crypta").mkdirs()
+        val cryptaSrc = file("game/data/prevention/crypta")
+        if (cryptaSrc.exists()) {
+            project.copy {
+                from(cryptaSrc) {
+                    include("**/*.encrypted")
+                    include("**/*.meta")
+                    include("**/key.properties")
+                }
+                into("$distDir/game/data/prevention/crypta")
+            }
+            println("  game/data/prevention/crypta/ copiado")
+        }
+
+        // 2. game/data/geodata/ (dados geographicos)
+        file("$distDir/game/data/geodata").mkdirs()
+        val geodataSrc = file("game/data/geodata")
+        if (geodataSrc.exists()) {
+            project.copy {
+                from(geodataSrc) {
+                    include("**/*.dat", "**/*.txt", "**/*.bin", "**/*.idx", "**/*.exe", "**/*.ini", "**/LICENSE")
+                }
+                into("$distDir/game/data/geodata")
+            }
+            println("  game/data/geodata/ copiado")
+        }
+
+        // 3. game/config/ (configuracoes)
+        project.copy {
+            from("game/config")
+            into("$distDir/game/config")
+            include("**/*.properties", "**/*.ini")
+        }
+        println("  game/config/ copiado")
+
+        // 4. libs/ (server.jar patched + dependencias, exceto security-tools.jar original)
         project.copy {
             from("libs")
             into("$distDir/libs")
             include("**/*.jar")
+            exclude("security-tools.jar")
+        }
+        // Copiar security-tools.jar criptografado
+        if (file("libs/security-tools.jar.encrypted").exists()) {
+            project.copy {
+                from("libs/security-tools.jar.encrypted")
+                into("$distDir/libs")
+            }
         }
         println("  libs/ copiado")
 
-        // 2. game/ (config + data)
-        project.copy {
-            from("game/config")
-            into("$distDir/game/config")
-            include("**/*.properties", "**/*.ini", "**/*.txt")
-        }
-        println("  game/config/ copiado")
-
-        project.copy {
-            from("game/data")
-            into("$distDir/game/data")
-            exclude("cache/**")
-            exclude("log/**")
-            exclude("prevention/**")
-        }
-        println("  game/data/ copiado")
-
-        // 3. login/ (excluindo cache e log)
+        // 5. login/ (excluindo cache)
         project.copy {
             from("login")
             into("$distDir/login")
             exclude("cache/**")
-            exclude("log/**")
         }
         println("  login/ copiado")
 
-        // 4. tools/sql/ (schemas do GameServer)
-        if (file("tools/sql").exists()) {
+        // 6. images/
+        if (file("images").exists()) {
             project.copy {
-                from("tools/sql")
-                into("$distDir/tools/sql")
-                include("**/*.sql")
+                from("images")
+                into("$distDir/images")
             }
-            println("  tools/sql/ copiado")
+            println("  images/ copiado")
         }
 
-        // 5. sql/ (schema do LoginServer)
-        if (file("sql").exists()) {
+        // 7. sound/
+        if (file("sound").exists()) {
             project.copy {
-                from("sql")
-                into("$distDir/sql")
-                include("**/*.sql")
+                from("sound")
+                into("$distDir/sound")
             }
-            println("  sql/ copiado")
+            println("  sound/ copiado")
         }
 
-        // 6. Diretorios estaticos
-        val staticDirs = listOf("images", "sound", "Hwid", "tools")
-        for (dir in staticDirs) {
-            if (file(dir).exists()) {
-                project.copy {
-                    from(dir)
-                    into("$distDir/$dir")
-                }
-                println("  $dir/ copiado")
+        // 8. Hwid/
+        if (file("Hwid").exists()) {
+            project.copy {
+                from("Hwid")
+                into("$distDir/Hwid")
             }
+            println("  Hwid/ copiado")
         }
 
-        // 7. Scripts de entrada
-        listOf("entrypoint.sh", "init-db.sh").forEach { script ->
+        // 9. tools/
+        if (file("tools").exists()) {
+            project.copy {
+                from("tools")
+                into("$distDir/tools")
+            }
+            println("  tools/ copiado")
+        }
+
+        // 10. Scripts de inicializacao
+        listOf(
+            "StartLineternity.bat",
+            "StartGame_SemDashboard.bat",
+            "StartLogin_SemDashboard.bat",
+            "start.vbs",
+            "Start.exe"
+        ).forEach { script ->
             if (file(script).exists()) {
                 project.copy {
                     from(script)
@@ -478,34 +507,37 @@ tasks.create("distribution") {
                 println("  $script copiado")
             }
         }
+        // Start Linux (nome com espaco)
+        if (file("Start Linux").exists()) {
+            project.copy {
+                from("Start Linux")
+                into(distDir)
+            }
+            println("  Start Linux copiado")
+        }
 
-        // 8. docker/entrypoint.sh e docker/init-db.sh (usados pelo stack.py compose)
+        // 11. Arquivos raiz
+        listOf("README.md", "Dockerfile", "entrypoint.sh").forEach { f ->
+            if (file(f).exists()) {
+                project.copy {
+                    from(f)
+                    into(distDir)
+                }
+                println("  $f copiado")
+            }
+        }
+
+        // 12. docker/ (entrypoint, Dockerfile)
         if (file("docker/entrypoint.sh").exists()) {
+            file("$distDir/docker").mkdirs()
             project.copy {
                 from("docker/entrypoint.sh")
                 into("$distDir/docker")
             }
             println("  docker/entrypoint.sh copiado")
         }
-        if (file("docker/init-db.sh").exists()) {
-            project.copy {
-                from("docker/init-db.sh")
-                into("$distDir/docker")
-            }
-            println("  docker/init-db.sh copiado")
-        }
-
-        // 9. Dockerfiles (build context = build/distribution/)
-        listOf("Dockerfile").forEach { df ->
-            if (file(df).exists()) {
-                project.copy {
-                    from(df)
-                    into(distDir)
-                }
-                println("  $df copiado")
-            }
-        }
         if (file("docker/Dockerfile").exists()) {
+            file("$distDir/docker").mkdirs()
             project.copy {
                 from("docker/Dockerfile")
                 into("$distDir/docker")
@@ -513,7 +545,29 @@ tasks.create("distribution") {
             println("  docker/Dockerfile copiado")
         }
 
-        // 9. Cache scripts
+        // 13. Gradle/ (wrapper para gradlew.bat dentro da distribuicao)
+        if (file("gradle").exists()) {
+            project.copy {
+                from("gradle")
+                into("$distDir/gradle")
+            }
+            println("  gradle/ copiado")
+        }
+        if (file("gradlew").exists()) {
+            project.copy {
+                from("gradlew")
+                into(distDir)
+            }
+        }
+        if (file("gradlew.bat").exists()) {
+            project.copy {
+                from("gradlew.bat")
+                into(distDir)
+            }
+            println("  gradlew copiado")
+        }
+
+        // 14. Cache scripts (classpath, AppCDS, G1 reclaim)
         if (file("cache").exists()) {
             project.copy {
                 from("cache")
@@ -523,8 +577,36 @@ tasks.create("distribution") {
             println("  cache/ copiado")
         }
 
+        // 15. BUILD_INFO.txt
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        val distFiles = distDir.walkTopDown().filter { it.isFile }.toList()
+        val distSizeMB = distFiles.sumOf { it.length() } / 1024 / 1024
+        file("$distDir/BUILD_INFO.txt").writeText(
+            """
+            |=== BUILD DE TESTE ===
+            |Data: $timestamp
+            |Tipo: Teste
+            |Tamanho: ${distSizeMB} MB (${distFiles.size} arquivos)
+            |
+            |ARQUIVOS INCLUIDOS:
+            |- libs/ (todas as bibliotecas)
+            |- login/ (servidor de login)
+            |- images/ (imagens da interface)
+            |- sound/ (sons)
+            |- Hwid/ (protecao HWID)
+            |- tools/ (ferramentas)
+            |- game/data/prevention/crypta/ (classes criptografadas)
+            |- game/config/ (configuracoes)
+            |- game/data/geodata/ (dados geograficos)
+            |- StartLineternity.bat
+            |- StartGame_SemDashboard.bat
+            |- StartLogin_SemDashboard.bat
+            """.trimMargin()
+        )
+        println("  BUILD_INFO.txt criado")
+
         println("=== build/distribution/ montado com sucesso ===")
-        println("  Tamanho: ${distDir.walkTopDown().filter { it.isFile }.sumOf { it.length() } / 1024 / 1024} MB")
+        println("  Tamanho: ${distSizeMB} MB (${distFiles.size} arquivos)")
     }
 }
 

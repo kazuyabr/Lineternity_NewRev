@@ -75,51 +75,20 @@ set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
 @rem ---------------------------------------------------------------------------
 @rem Lineternity: atalhos (na raiz do projeto). Uso:
 @rem   gradlew.bat li-menu             - abre menu interativo (lineternity-menu.bat)
-@rem   gradlew.bat li-compile          - compila Java+Kotlin (compileJava compileKotlin)
-@rem   gradlew.bat li-compile-clean    - clean + compila
-@rem   gradlew.bat li-ant-dist-test    - ant -f Mount.xml dist-test e inicia servidores
+@rem   gradlew.bat li-compile          - compila Java+Kotlin + server.jar + patches + distribution
+@rem   gradlew.bat li-compile-clean    - clean + compila completo
 @rem ---------------------------------------------------------------------------
 if /i "%~1"=="li-menu" (
 call "%APP_HOME%\lineternity-menu.bat"
 goto end
 )
 if /i "%~1"=="li-compile" (
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain PrepararTeste jar compileJava compileKotlin
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain build distribution -x test
 goto end
 )
 if /i "%~1"=="li-compile-clean" (
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain clean PrepararTeste jar compileJava compileKotlin
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain clean build distribution -x test
 goto end
-)
-if /i "%~1"=="li-ant-dist-test" (
-    "%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain PrepararTeste
-
-    @rem Verifica se a task do Gradle falhou. Se falhar, nao tenta abrir os servidores.
-    if errorlevel 1 (
-        echo.
-        echo [ERRO] Falha ao executar a task PrepararTeste no Gradle. Servidores nao serao iniciados.
-        popd
-        goto fail
-    )
-)
-
-echo.
-echo Preparar Teste.
-
-@rem # STREAMING_CHUNK:Starting Login Server
-echo Iniciando StartLogin_SemDashboard.bat...
-if exist "build\distribution\StartLogin_SemDashboard.bat" (
-start "Login Server" cmd /c "cd /d build\distribution && call StartLogin_SemDashboard.bat"
-) else (
-echo Aviso: Arquivo build\distribution\StartLogin_SemDashboard.bat nao encontrado!
-)
-
-@rem # STREAMING_CHUNK:Starting Game Server
-echo Iniciando StartGame_SemDashboard.bat...
-if exist "build\distribution\StartGame_SemDashboard.bat" (
-start "Game Server" cmd /c "cd /d build\distribution && call StartGame_SemDashboard.bat"
-) else (
-echo Aviso: Arquivo build\distribution\StartGame_SemDashboard.bat nao encontrado!
 )
 
 popd

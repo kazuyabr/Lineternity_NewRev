@@ -9,17 +9,14 @@ echo.
 echo   ========================================================================================================
 echo                                          Lineternity - Build
 echo.
-echo   [1] Compila incrementalmente os arquivos de codigo Java e Kotlin de forma rapida.
-echo   [2] Exclui todos os artefatos de compilacao anteriores, em seguida, realiza uma compilacao completa.
-echo   [3] Esta e uma acao composta que automatiza o ciclo completo para iniciar o servidor de desenvolvimento
+echo   [1] Compilar incrementalmente os arquivos de codigo Java e Kotlin de forma rapida.
+echo   [2] Clean + compilacao completa (com distribution)
+echo   [3] Clean + compilacao completa (com distribution)
 echo.
 echo   ========================================================================================================
 echo.
 echo.
 echo.
-echo   [1] Compilar normal (Rapido)
-echo   [2] Clean + Compilar normal
-echo   [3] Mount: Mount e Teste
 echo   [0] Sair
 echo.
 rem choice: teclas 1, 2, 3, 0  -  ERRORLEVEL 1..4 (testar do maior para o menor)
@@ -44,8 +41,8 @@ goto :apos
 
 :ant_dist
 echo.
-echo --- Ant dist-test... ---
-call "%~dp0gradlew.bat" li-ant-dist-test
+echo --- Clean + Compilar completo... ---
+call "%~dp0gradlew.bat" li-compile-clean
 goto :apos
 
 :apos

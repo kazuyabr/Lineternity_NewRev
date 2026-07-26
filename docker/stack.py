@@ -1157,23 +1157,22 @@ def build_project():
     """Compila o projeto completo: Gradle build + patches Java + ASM + build/distribution/"""
     print_header("Compilar Projeto")
     
-    # Detectar Gradle wrapper
-    if os.name == 'nt':
-        gradlew = PROJECT_ROOT / "gradlew.bat"
-    else:
-        gradlew = PROJECT_ROOT / "gradlew"
-    
-    if not gradlew.exists():
-        print(f"  ERRO: Gradle wrapper nao encontrado: {gradlew}")
-        print("  Certifique-se de que gradlew.bat (Windows) ou gradlew (Linux) existe na raiz do projeto.")
-        return False
-    
     # Detectar JAVA_HOME
     java_home = detect_java_home()
     if not java_home:
         print("  ERRO: JAVA_HOME nao encontrado!")
         print("  Instale o JDK 25 e configure JAVA_HOME no ambiente.")
         print("  Exemplo: set JAVA_HOME=C:\\Program Files\\jdk")
+        return False
+    
+    java_exe = Path(java_home) / "bin" / "java.exe"
+    if not java_exe.exists():
+        print(f"  ERRO: java.exe nao encontrado: {java_exe}")
+        return False
+    
+    wrapper_jar = PROJECT_ROOT / "gradle" / "wrapper" / "gradle-wrapper.jar"
+    if not wrapper_jar.exists():
+        print(f"  ERRO: gradle-wrapper.jar nao encontrado: {wrapper_jar}")
         return False
     
     # Preparar environment com JAVA_HOME
@@ -1205,14 +1204,22 @@ def build_project():
         print("  build/distribution/ NAO EXISTE (sera criado pelo build)")
     
     print()
-    print("  Executando: gradlew build distribution -x test")
+    print("  Executando: java.exe ... GradleWrapperMain --no-daemon build distribution -x test")
     print("  Aguarde...")
     print()
     
-    # Rodar Gradle build + distribution
+    # Rodar Gradle direto via java.exe (evita problemas com gradlew.bat no Windows)
+    gradle_cmd = [
+        str(java_exe), "-Xmx64m", "-Xms64m",
+        "-classpath", str(wrapper_jar),
+        "org.gradle.wrapper.GradleWrapperMain",
+        "--no-daemon", "--rerun-tasks",
+        "build", "distribution", "-x", "test"
+    ]
+    
     try:
         result = subprocess.run(
-            [str(gradlew), "build", "distribution", "-x", "test"],
+            gradle_cmd,
             cwd=str(PROJECT_ROOT),
             env=build_env,
             timeout=600
@@ -1221,7 +1228,7 @@ def build_project():
         print("  ERRO: Build excedeu timeout de 10 minutos!")
         return False
     except FileNotFoundError:
-        print(f"  ERRO: Nao foi possivel executar: {gradlew}")
+        print(f"  ERRO: Nao foi possivel executar: {java_exe}")
         return False
     
     if result.returncode != 0:
