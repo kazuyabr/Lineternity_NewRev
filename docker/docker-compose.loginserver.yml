@@ -51,6 +51,7 @@ services:
       LOGIN_PORT: ${LOGIN_PORT:-2106}
     volumes:
       - ./login/config:/lineternity/login/config
+      - ../login/serverNames.xml:/lineternity/login/serverNames.xml
       - ../../logs:/lineternity/logs
     command: ["login"]
     restart: unless-stopped

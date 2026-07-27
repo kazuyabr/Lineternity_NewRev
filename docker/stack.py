@@ -902,6 +902,188 @@ def show_logs_menu():
         return
 
 # ============================================================
+# Quick Data Update (docker cp for remote/production)
+# ============================================================
+
+def update_container_data():
+    """Atualiza dados não compilados (HTML, XML, etc) em containers via docker cp"""
+    print_header("Atualizar Dados nos Containers")
+    
+    # Listar containers Lineternity rodando
+    result = subprocess.run(
+        ["docker", "ps", "--filter", "name=lineternity", "--format", "{{.Names}}\t{{.Ports}}\t{{.Status}}"],
+        capture_output=True, text=True
+    )
+    
+    if not result.stdout.strip():
+        print("  Nenhum container Lineternity rodando.")
+        input("\n  Pressione Enter para voltar...")
+        return
+    
+    containers = []
+    for line in result.stdout.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            containers.append({"name": parts[0], "ports": parts[1], "status": parts[2] if len(parts) > 2 else ""})
+    
+    # Filtrar: só GameServer e LoginServer (não MariaDB)
+    updatable = [c for c in containers if "mariadb" not in c["name"]]
+    
+    if not updatable:
+        print("  Nenhum container atualizável rodando (só GameServer/LoginServer).")
+        input("\n  Pressione Enter para voltar...")
+        return
+    
+    print("  Containers atualizáveis:")
+    for i, c in enumerate(updatable, 1):
+        print(f"    [{i}] {c['name']} ({c['ports']}) - {c['status']}")
+    
+    print(f"    [V] Voltar")
+    
+    choice = input("\n  Selecionar container: ").strip()
+    if choice.lower() == 'v' or not choice.isdigit():
+        return
+    
+    idx = int(choice) - 1
+    if idx < 0 or idx >= len(updatable):
+        print("  Opção inválida.")
+        input("\n  Pressione Enter para voltar...")
+        return
+    
+    container = updatable[idx]
+    container_name = container["name"]
+    
+    # Determinar tipo de container
+    if "gameserver" in container_name:
+        _update_gameserver_data(container_name)
+    elif "loginserver" in container_name:
+        _update_loginserver_data(container_name)
+    else:
+        print(f"  Tipo de container desconhecido: {container_name}")
+    
+    input("\n  Pressione Enter para voltar...")
+
+
+def _update_gameserver_data(container_name: str):
+    """Atualiza dados de um GameServer específico"""
+    print(f"\n  Subdiretórios em game/data/ (não compilados):")
+    print(f"    [1] locale/          (16 MB) - HTML, sysstrings")
+    print(f"    [2] xml/             (37 MB) - XML data files")
+    print(f"    [3] custom/          (0 MB)  - Custom mods")
+    print(f"    [4] crests/          (0 MB)  - Imagens de crest")
+    print(f"    [5] serverNames.xml  (~0 MB)")
+    print(f"    [6] Todos (exceto geodata)")
+    
+    choice = input("\n  Selecionar (ex: 1,2,5): ").strip()
+    if not choice:
+        return
+    
+    # Mapear opções para diretórios
+    dir_map = {
+        "1": "locale",
+        "2": "xml",
+        "3": "custom",
+        "4": "crests",
+        "5": "serverNames.xml",
+    }
+    
+    selected = []
+    if choice == "6":
+        selected = ["locale", "xml", "custom", "crests", "serverNames.xml"]
+    else:
+        for item in choice.split(","):
+            item = item.strip()
+            if item in dir_map:
+                selected.append(dir_map[item])
+    
+    if not selected:
+        print("  Nenhum diretório selecionado.")
+        return
+    
+    print(f"\n  Copiando para {container_name}...")
+    for item in selected:
+        src = PROJECT_ROOT / "game" / "data" / item
+        if item == "serverNames.xml":
+            dest = f"{container_name}:/lineternity/game/data/{item}"
+        else:
+            dest = f"{container_name}:/lineternity/game/data/{item}"
+        
+        if src.exists():
+            result = subprocess.run(
+                ["docker", "cp", str(src) + "/.", dest] if src.is_dir() else ["docker", "cp", str(src), dest],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                print(f"    OK: {item}")
+            else:
+                print(f"    ERRO: {item} - {result.stderr.strip()}")
+        else:
+            print(f"    AVISO: {src} não existe, pulando...")
+    
+    print(f"\n  Copia concluída!")
+    
+    # Perguntar se quer reiniciar
+    if confirm("  Reiniciar GameServer para recarregar?"):
+        _restart_game_server(container_name)
+
+
+def _update_loginserver_data(container_name: str):
+    """Atualiza dados de um LoginServer específico"""
+    print(f"\n  Arquivos não montados no LoginServer:")
+    print(f"    [1] login/serverNames.xml")
+    
+    choice = input("\n  Selecionar (1): ").strip()
+    if choice != "1":
+        return
+    
+    src = PROJECT_ROOT / "login" / "serverNames.xml"
+    dest = f"{container_name}:/lineternity/login/serverNames.xml"
+    
+    if src.exists():
+        result = subprocess.run(
+            ["docker", "cp", str(src), dest],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print(f"    OK: serverNames.xml")
+        else:
+            print(f"    ERRO: {result.stderr.strip()}")
+    else:
+        print(f"    AVISO: {src} não existe!")
+    
+    print(f"\n  Copia concluída!")
+    
+    # Perguntar se quer reiniciar
+    if confirm("  Reiniciar LoginServer para recarregar?"):
+        _restart_login_server(container_name)
+
+
+def _restart_game_server(container_name: str):
+    """Reinicia um GameServer específico"""
+    print(f"  Reiniciando {container_name}...")
+    result = subprocess.run(
+        ["docker", "restart", container_name],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"  {container_name} reiniciado com sucesso!")
+    else:
+        print(f"  ERRO ao reiniciar: {result.stderr.strip()}")
+
+
+def _restart_login_server(container_name: str):
+    """Reinicia um LoginServer específico"""
+    print(f"  Reiniciando {container_name}...")
+    result = subprocess.run(
+        ["docker", "restart", container_name],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"  {container_name} reiniciado com sucesso!")
+    else:
+        print(f"  ERRO ao reiniciar: {result.stderr.strip()}")
+
+# ============================================================
 # MariaDB Detection
 # ============================================================
 
@@ -2484,7 +2666,8 @@ def main_menu():
             "11. Gerenciar perfis de configuracao",
             "12. Setar GM / Access Level",
             "13. Atualizar Imagens",
-            "14. Sair",
+            "14. Atualizar Dados nos Containers",
+            "15. Sair",
         ]
         
         idx = choose_from_menu("Lineternity Stack Manager v2.2", options)
@@ -2516,6 +2699,8 @@ def main_menu():
         elif idx == 12:
             update_images()
         elif idx == 13:
+            update_container_data()
+        elif idx == 14:
             print("\n  Saindo...")
             break
         else:

@@ -34,7 +34,7 @@ services:
     hostname: gameserver-${SERVER_ID}
     image: lineternity-newrev:latest
     build:
-      context: ../../build/distribution
+      context: ../../../build/distribution
       dockerfile: docker/Dockerfile
     depends_on:
       mariadb:
@@ -63,6 +63,10 @@ services:
       LOGIN_PORT: ${LOGIN_PORT:-9014}
     volumes:
       - ./config:/lineternity/game/config
+      - ../../../game/data/locale:/lineternity/game/data/locale
+      - ../../../game/data/xml:/lineternity/game/data/xml
+      - ../../../game/data/custom:/lineternity/game/data/custom
+      - ../../../game/data/crests:/lineternity/game/data/crests
       - ../../logs:/lineternity/logs
     command: ["gameserver", "${SERVER_ID}"]
     restart: unless-stopped
