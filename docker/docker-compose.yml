@@ -28,4 +28,5 @@ volumes:
 
 networks:
   lineternity:
+    external: true
     name: lineternity-network

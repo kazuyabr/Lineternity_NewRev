@@ -554,10 +554,25 @@ def create_login_properties(config_dir: Path, config: dict[str, str]):
     print(f"  Properties de login criados em: {config_dir}")
 
 def create_game_properties(config_dir: Path, config: dict[str, str]):
-    for template_file in GAME_TEMPLATES.glob("*.properties"):
-        output_file = config_dir / template_file.name
-        generate_properties(template_file, output_file, config)
-    print(f"  Properties de game criados em: {config_dir}")
+    # Copiar TODOS os arquivos de game/config/ (source é autoridade)
+    source_config = PROJECT_ROOT / "game" / "config"
+    for source_file in source_config.iterdir():
+        if source_file.is_file():
+            shutil.copy2(source_file, config_dir / source_file.name)
+
+    # Aplicar overrides per-server (placeholders) em todos os .properties
+    for prop_file in config_dir.glob("*.properties"):
+        content = prop_file.read_text(encoding='utf-8')
+        modified = False
+        for key, value in config.items():
+            placeholder = "{{" + key + "}}"
+            if placeholder in content:
+                content = content.replace(placeholder, value)
+                modified = True
+        if modified:
+            prop_file.write_text(content, encoding='utf-8')
+
+    print(f"  Config copiada de game/config/ para: {config_dir}")
 
 # ============================================================
 # Network Management
@@ -1427,6 +1442,11 @@ def start_loginserver():
             print("  Certifique-se de que o MariaDB esta acessivel.")
     
     print("  Iniciando LoginServer...")
+    
+    # Reconstruir imagem antes de iniciar (garante versao atualizada)
+    print("  Reconstruindo imagem do LoginServer...")
+    run_compose(compose_file, "build", "--no-cache", env_file=env_file)
+    
     if not run_compose(compose_file, "up", "-d", env_file=env_file):
         print("  ERRO ao iniciar LoginServer!")
         return False
@@ -1578,9 +1598,9 @@ def update_images():
         if not env_file.exists():
             env_file = None
         
-        # Build
-        print(f"  Reconstruindo imagem...")
-        if not run_compose(compose_file, "build", env_file=env_file):
+        # Build (forcar rebuild completo para garantir imagem atualizada)
+        print(f"  Reconstruindo imagem (build --no-cache)...")
+        if not run_compose(compose_file, "build", "--no-cache", env_file=env_file):
             print(f"  ERRO: Build falhou para {name}")
             fail += 1
             continue
@@ -1635,6 +1655,9 @@ def start_game_server():
             compose_file = server.compose_path
             env_file = server.env_path
             if compose_file.exists():
+                print(f"\n  --- GameServer #{server.server_id} ---")
+                print(f"  Reconstruindo imagem...")
+                run_compose(compose_file, "build", "--no-cache", env_file=env_file if env_file.exists() else None)
                 run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
         print("\n  Todos os GameServers iniciados!")
         return
@@ -1728,6 +1751,8 @@ def start_game_server():
         
         # Start it
         print(f"  Iniciando GameServer #{server_id}...")
+        print(f"  Reconstruindo imagem...")
+        run_compose(compose_file, "build", "--no-cache", env_file=env_file if env_file.exists() else None)
         run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
         print(f"\n  GameServer #{server_id} iniciado!")
         return
@@ -1739,6 +1764,8 @@ def start_game_server():
         env_file = server.env_path
         if compose_file.exists():
             print(f"\n  Iniciando GameServer #{server.server_id}...")
+            print(f"  Reconstruindo imagem...")
+            run_compose(compose_file, "build", "--no-cache", env_file=env_file if env_file.exists() else None)
             run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None)
             print(f"\n  GameServer #{server.server_id} iniciado!")
 
@@ -2182,6 +2209,8 @@ def create_base():
         
         if compose_file.exists():
             print("  Iniciando GameServer #1...")
+            print("  Reconstruindo imagem...")
+            run_compose(compose_file, "build", "--no-cache", env_file=env_file if env_file.exists() else None)
             if run_compose(compose_file, "up", "-d", env_file=env_file if env_file.exists() else None):
                 print("  GameServer #1 iniciado com sucesso!")
             else:
