@@ -1489,6 +1489,18 @@ def check_distribution():
 # Service Management
 # ============================================================
 
+def _stop_mariadb_login_if_running():
+    """Para e remove container mariadb-login se estiver rodando (libera RAM quando usando MariaDB externo)."""
+    result = subprocess.run(
+        ["docker", "ps", "-a", "--filter", "name=lineternity-mariadb-login", "--format", "{{.Names}}\t{{.Status}}"],
+        capture_output=True, text=True, timeout=10
+    )
+    if result.stdout.strip():
+        print("\n  Parando container lineternity-mariadb-login (nao necessario com MariaDB externo)...")
+        subprocess.run(["docker", "stop", "lineternity-mariadb-login"], capture_output=True, timeout=30)
+        subprocess.run(["docker", "rm", "lineternity-mariadb-login"], capture_output=True, timeout=30)
+        print("  Container lineternity-mariadb-login removido (RAM liberada).")
+
 def start_mariadb_login():
     print_header("Iniciar MariaDB LoginServer")
     
@@ -1516,6 +1528,10 @@ def start_mariadb_login():
             )
             print("\n  Configuracao atualizada para usar MariaDB externo.")
             print("  LoginServer ira conectar em:", detection["host"] + ":" + detection["port"])
+            
+            # Parar container mariadb-login se estiver rodando (liberar RAM)
+            _stop_mariadb_login_if_running()
+            
             return True
         else:
             print("\n  Criando container mariadb-login...")
