@@ -25,7 +25,6 @@ services:
       HOSTNAME: ${HOSTNAME:-localhost}
       LOGIN_PORT: ${LOGIN_PORT:-2106}
     volumes:
-      - ./login/config:/lineternity/login/config
       - ../../logs:/lineternity/logs
     command: ["login"]
     restart: unless-stopped

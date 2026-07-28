@@ -965,13 +965,14 @@ def update_container_data():
 
 def _update_gameserver_data(container_name: str):
     """Atualiza dados de um GameServer específico"""
-    print(f"\n  Subdiretórios em game/data/ (não compilados):")
+    print(f"\n  Subdiretórios em game/data/ e game/config/:")
     print(f"    [1] locale/          (16 MB) - HTML, sysstrings")
     print(f"    [2] xml/             (37 MB) - XML data files")
     print(f"    [3] custom/          (0 MB)  - Custom mods")
     print(f"    [4] crests/          (0 MB)  - Imagens de crest")
     print(f"    [5] serverNames.xml  (~0 MB)")
-    print(f"    [6] Todos (exceto geodata)")
+    print(f"    [6] config/          (~2 MB) - Properties (//reload config)")
+    print(f"    [7] Todos (exceto geodata)")
     
     choice = input("\n  Selecionar (ex: 1,2,5): ").strip()
     if not choice:
@@ -984,11 +985,12 @@ def _update_gameserver_data(container_name: str):
         "3": "custom",
         "4": "crests",
         "5": "serverNames.xml",
+        "6": "config",
     }
     
     selected = []
-    if choice == "6":
-        selected = ["locale", "xml", "custom", "crests", "serverNames.xml"]
+    if choice == "7":
+        selected = ["locale", "xml", "custom", "crests", "serverNames.xml", "config"]
     else:
         for item in choice.split(","):
             item = item.strip()
@@ -1001,11 +1003,16 @@ def _update_gameserver_data(container_name: str):
     
     print(f"\n  Copiando para {container_name}...")
     for item in selected:
-        src = PROJECT_ROOT / "game" / "data" / item
-        if item == "serverNames.xml":
-            dest = f"{container_name}:/lineternity/game/data/{item}"
+        if item == "config":
+            # Config fica em game/config/, não game/data/config/
+            src = PROJECT_ROOT / "game" / "config"
+            dest = f"{container_name}:/lineternity/game/config"
         else:
-            dest = f"{container_name}:/lineternity/game/data/{item}"
+            src = PROJECT_ROOT / "game" / "data" / item
+            if item == "serverNames.xml":
+                dest = f"{container_name}:/lineternity/game/data/{item}"
+            else:
+                dest = f"{container_name}:/lineternity/game/data/{item}"
         
         if src.exists():
             result = subprocess.run(
@@ -1028,27 +1035,45 @@ def _update_gameserver_data(container_name: str):
 
 def _update_loginserver_data(container_name: str):
     """Atualiza dados de um LoginServer específico"""
-    print(f"\n  Arquivos não montados no LoginServer:")
+    print(f"\n  Arquivos do LoginServer:")
     print(f"    [1] login/serverNames.xml")
+    print(f"    [2] login/config/       - Properties (//reload config)")
     
-    choice = input("\n  Selecionar (1): ").strip()
-    if choice != "1":
+    choice = input("\n  Selecionar (ex: 1,2): ").strip()
+    if not choice:
         return
     
-    src = PROJECT_ROOT / "login" / "serverNames.xml"
-    dest = f"{container_name}:/lineternity/login/serverNames.xml"
+    items = [c.strip() for c in choice.split(",")]
     
-    if src.exists():
-        result = subprocess.run(
-            ["docker", "cp", str(src), dest],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            print(f"    OK: serverNames.xml")
-        else:
-            print(f"    ERRO: {result.stderr.strip()}")
-    else:
-        print(f"    AVISO: {src} não existe!")
+    for item in items:
+        if item == "1":
+            src = PROJECT_ROOT / "login" / "serverNames.xml"
+            dest = f"{container_name}:/lineternity/login/serverNames.xml"
+            if src.exists():
+                result = subprocess.run(
+                    ["docker", "cp", str(src), dest],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    print(f"    OK: serverNames.xml")
+                else:
+                    print(f"    ERRO: {result.stderr.strip()}")
+            else:
+                print(f"    AVISO: {src} não existe!")
+        elif item == "2":
+            src = PROJECT_ROOT / "login" / "config"
+            dest = f"{container_name}:/lineternity/login/config"
+            if src.exists():
+                result = subprocess.run(
+                    ["docker", "cp", str(src) + "/.", dest],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    print(f"    OK: login/config/")
+                else:
+                    print(f"    ERRO: {result.stderr.strip()}")
+            else:
+                print(f"    AVISO: {src} não existe!")
     
     print(f"\n  Copia concluída!")
     
@@ -1972,50 +1997,148 @@ def stop_game_server():
             run_compose(compose_file, "down", env_file=env_file if env_file.exists() else None)
             print(f"\n  GameServer #{server.server_id} parado!")
 
-def bulk_edit_env():
-    print_header("Edicao em Massa de Environment")
+def bulk_edit_config():
+    print_header("Edicao de Configuracoes por Servidor")
     
-    servers = list_existing_game_servers()
-    if not servers:
-        print("  Nenhum GameServer encontrado.")
+    print("  Tipo de servidor:")
+    print("    [1] GameServer")
+    print("    [2] LoginServer")
+    print("    [3] Cancelar")
+    
+    tipo = input("\n  Selecionar: ").strip()
+    if tipo == "3" or not tipo:
+        return
+    
+    if tipo == "1":
+        servers = list_existing_game_servers()
+        if not servers:
+            print("  Nenhum GameServer encontrado.")
+            input("\n  Pressione Enter para continuar...")
+            return
+        
+        options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+        options.append("Cancelar")
+        
+        idx = choose_from_menu("Selecione o GameServer para editar", options)
+        if idx == len(servers):
+            return
+        
+        server = servers[idx]
+        config_dir = server.server_dir / "config"
+        server_label = f"GameServer #{server.server_id}"
+    elif tipo == "2":
+        # LoginServer - listar arquivos de config
+        config_dir = DOCKER_DIR / "login" / "config"
+        server_label = "LoginServer"
+    else:
+        print("  Opcao invalida.")
+        return
+    
+    if not config_dir.exists():
+        print(f"  Diretorio de config nao encontrado: {config_dir}")
         input("\n  Pressione Enter para continuar...")
         return
     
-    options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
-    options.append("Cancelar")
-    
-    idx = choose_from_menu("Selecione o GameServer para editar", options)
-    if idx == len(servers):
+    # Listar arquivos .properties
+    props_files = sorted(config_dir.glob("*.properties"))
+    if not props_files:
+        print("  Nenhum arquivo .properties encontrado.")
+        input("\n  Pressione Enter para continuar...")
         return
     
-    server = servers[idx]
+    print(f"\n  Arquivos .properties em {server_label}:")
+    for i, f in enumerate(props_files, 1):
+        size = f.stat().st_size
+        print(f"    [{i}] {f.name} ({size} bytes)")
     
-    print(f"\n  Editando environment do GameServer #{server.server_id}")
-    print("  Deixe em branco para manter o valor atual.\n")
+    print(f"    [V] Voltar")
     
-    env_file = server.env_path
-    config = {}
-    if env_file.exists():
-        for line in env_file.read_text().splitlines():
-            if "=" in line and not line.startswith("#"):
-                key, value = line.split("=", 1)
-                config[key.strip()] = value.strip()
+    choice = input("\n  Selecionar arquivo: ").strip()
+    if choice.lower() == 'v' or not choice.isdigit():
+        return
     
-    new_config = {}
-    for key, value in config.items():
-        new_value = input(f"  {key} [{value}]: ").strip()
-        new_config[key] = new_value if new_value else value
+    idx = int(choice) - 1
+    if idx < 0 or idx >= len(props_files):
+        print("  Opcao invalida.")
+        return
     
-    # Write updated env file
-    env_content = "\n".join(f"{key}={value}" for key, value in new_config.items())
-    env_file.write_text(env_content, encoding='utf-8')
+    selected_file = props_files[idx]
     
-    print(f"\n  Environment atualizado: {env_file}")
+    # Ler propriedades atuais
+    lines = selected_file.read_text(encoding='utf-8').splitlines()
+    props = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            if "=" in stripped:
+                key, value = stripped.split("=", 1)
+                props.append((key.strip(), value.strip(), line))
+            else:
+                props.append((None, None, line))
+        else:
+            props.append((None, None, line))
     
-    if confirm("  Reiniciar GameServer para aplicar mudancas?"):
-        compose_file = server.compose_path
-        if compose_file.exists():
-            run_compose(compose_file, "restart", env_file=env_file)
+    print(f"\n  Editando: {selected_file.name}")
+    print("  Deixe em branco para manter valor atual.\n")
+    
+    new_lines = []
+    modified = False
+    for key, value, original in props:
+        if key:
+            new_value = input(f"  {key} [{value}]: ").strip()
+            if new_value:
+                new_lines.append(f"{key} = {new_value}")
+                modified = True
+            else:
+                new_lines.append(original)
+        else:
+            new_lines.append(original)
+    
+    if not modified:
+        print("\n  Nenhuma alteracao feita.")
+        return
+    
+    # Salvar
+    selected_file.write_text("\n".join(new_lines) + "\n", encoding='utf-8')
+    print(f"\n  {selected_file.name} atualizado com sucesso!")
+    print("  Use //reload config no jogo para aplicar as mudancas.")
+    
+    # Copiar para container se estiver rodando
+    containers = _find_running_containers(server_label)
+    if containers:
+        if confirm(f"  Copiar {selected_file.name} para container rodando?"):
+            for container_name in containers:
+                dest = f"{container_name}:{selected_file.parent}"
+                result = subprocess.run(
+                    ["docker", "cp", str(selected_file), dest],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    print(f"    OK: {container_name}")
+                else:
+                    print(f"    ERRO: {container_name} - {result.stderr.strip()}")
+
+
+def _find_running_containers(server_label: str):
+    """Encontra containers rodando baseado no label do servidor"""
+    result = subprocess.run(
+        ["docker", "ps", "--filter", "name=lineternity", "--format", "{{.Names}}"],
+        capture_output=True, text=True
+    )
+    if not result.stdout.strip():
+        return []
+    
+    containers = []
+    for name in result.stdout.strip().splitlines():
+        if "GameServer" in server_label:
+            server_id = server_label.split("#")[1].strip()
+            if f"gameserver-{server_id}" in name:
+                containers.append(name)
+        elif "LoginServer" in server_label:
+            if "loginserver" in name:
+                containers.append(name)
+    
+    return containers
 
 def manage_config_profiles():
     print_header("Gerenciar Perfis de Configuracao")
@@ -2624,7 +2747,7 @@ def main_menu():
             "6. Parar Todos os Serviços",
             "7. Listar servidores ativos",
             "8. Logs",
-            "9. Edicao em massa de environment",
+            "9. Editar Config por Servidor",
             "10. Gerenciar perfis de configuracao",
             "11. Setar GM / Access Level",
             "12. Atualizar Imagens",
@@ -2651,7 +2774,7 @@ def main_menu():
         elif idx == 7:
             show_logs_menu()
         elif idx == 8:
-            bulk_edit_env()
+            bulk_edit_config()
         elif idx == 9:
             manage_config_profiles()
         elif idx == 10:

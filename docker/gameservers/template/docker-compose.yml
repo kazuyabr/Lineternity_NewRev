@@ -62,7 +62,6 @@ services:
       LOGIN_HOSTNAME: ${LOGIN_HOSTNAME:-loginserver}
       LOGIN_PORT: ${LOGIN_PORT:-9014}
     volumes:
-      - ./config:/lineternity/game/config
       - ../../../game/data/locale:/lineternity/game/data/locale
       - ../../../game/data/xml:/lineternity/game/data/xml
       - ../../../game/data/custom:/lineternity/game/data/custom
