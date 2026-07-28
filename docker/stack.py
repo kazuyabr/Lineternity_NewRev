@@ -724,8 +724,7 @@ def create_login_server():
     print("\n  LoginServer criado com sucesso!")
     print(f"  Config dir: {config_dir}")
     
-    if confirm("\n  Iniciar MariaDB e LoginServer agora?"):
-        start_mariadb_login()
+    if confirm("\n  Iniciar LoginServer agora?"):
         start_loginserver()
 
 def remove_game_server():
@@ -1501,80 +1500,6 @@ def _stop_mariadb_login_if_running():
         subprocess.run(["docker", "rm", "lineternity-mariadb-login"], capture_output=True, timeout=30)
         print("  Container lineternity-mariadb-login removido (RAM liberada).")
 
-def start_mariadb_login():
-    print_header("Iniciar MariaDB LoginServer")
-    
-    # Detectar MariaDB existente
-    detection = detect_or_configure_mariadb()
-    
-    if detection["found"]:
-        # MariaDB externo encontrado
-        print(f"\n  MariaDB detectado: {detection.get('container_name', 'manual')} ({detection['host']}:{detection['port']})")
-        print(f"  Usuario: {detection.get('user', 'root')}")
-        
-        if detection["database_exists"]:
-            print(f"  Database l2jdb_login: EXISTE")
-        else:
-            print(f"  Database l2jdb_login: NAO EXISTE (sera criado pelo entrypoint)")
-        
-        if confirm("\n  Usar este MariaDB para o LoginServer?"):
-            # Usar MariaDB externo
-            update_login_env(
-                detection["host"], 
-                detection["port"],
-                detection.get("user", "root"),
-                detection.get("password", "root"),
-                external=True
-            )
-            print("\n  Configuracao atualizada para usar MariaDB externo.")
-            print("  LoginServer ira conectar em:", detection["host"] + ":" + detection["port"])
-            
-            # Parar container mariadb-login se estiver rodando (liberar RAM)
-            _stop_mariadb_login_if_running()
-            
-            return True
-        else:
-            print("\n  Criando container mariadb-login...")
-    
-    # Se detect_or_configure_mariadb retornou create_container=True,
-    # usar credenciais customizadas
-    if detection.get("create_container"):
-        custom_user = detection.get("user", "root")
-        custom_password = detection.get("password", "root")
-    else:
-        custom_user = "root"
-        custom_password = "root"
-    
-    # Criar container mariadb-login
-    compose_file = DOCKER_DIR / "docker-compose.yml"
-    if not compose_file.exists():
-        print(f"  ERRO: docker-compose.yml nao encontrado em {compose_file}")
-        return False
-    
-    # Atualizar .env para usar container local com credenciais
-    update_login_env("mariadb-login", "3306", custom_user, custom_password, external=False)
-    
-    # Se credenciais customizadas, passar via environment
-    if custom_user != "root" or custom_password != "root":
-        os.environ["MYSQL_ROOT_PASSWORD"] = custom_password
-        print(f"  Criando MariaDB com senha customizada...")
-    
-    print("  Iniciando MariaDB LoginServer...")
-    if not run_compose(compose_file, "up", "-d"):
-        print("  ERRO ao iniciar MariaDB LoginServer!")
-        # Limpar environment
-        if "MYSQL_ROOT_PASSWORD" in os.environ:
-            del os.environ["MYSQL_ROOT_PASSWORD"]
-        return False
-    
-    # Limpar environment
-    if "MYSQL_ROOT_PASSWORD" in os.environ:
-        del os.environ["MYSQL_ROOT_PASSWORD"]
-    
-    print("\n  MariaDB LoginServer iniciado com sucesso!")
-    print(f"  Credenciais: {custom_user}/***@mariadb-login:3306")
-    return True
-
 def start_loginserver():
     print_header("Iniciar LoginServer")
     
@@ -1582,67 +1507,113 @@ def start_loginserver():
         return False
     
     env_file = DOCKER_DIR / "login" / ".env"
+    
+    # ============================================================
+    # Se .env não existe → primeira vez, detectar MariaDB
+    # ============================================================
     if not env_file.exists():
-        print(f"  ERRO: .env nao encontrado em {env_file}")
-        print("  Execute 'Criar LoginServer' primeiro.")
-        return False
+        print("  Primeira execucao - detectando MariaDB...")
+        detection = detect_or_configure_mariadb()
+        
+        if detection["found"]:
+            print(f"\n  MariaDB detectado: {detection.get('container_name', 'externo')} ({detection['host']}:{detection['port']})")
+            print(f"  Database l2jdb_login: {'EXISTE' if detection['database_exists'] else 'sera criado pelo entrypoint'}")
+            
+            if confirm("\n  Usar este MariaDB externo para o LoginServer?"):
+                update_login_env(
+                    detection["host"],
+                    detection["port"],
+                    detection.get("user", "root"),
+                    detection.get("password", "root"),
+                    external=True
+                )
+            else:
+                update_login_env("mariadb-login", "3306", "root", "root", external=False)
+        else:
+            print("\n  Nenhum MariaDB externo. Usando MariaDB junto com o LoginServer.")
+            update_login_env("mariadb-login", "3306", "root", "root", external=False)
     
-    # Verificar se usa MariaDB externo
-    use_external = False
-    if env_file.exists():
-        content = env_file.read_text(encoding='utf-8')
-        for line in content.splitlines():
-            if line.startswith("EXTERNAL_MARIADB=") and line.split("=", 1)[1].strip().lower() == "true":
-                use_external = True
-                break
+    # ============================================================
+    # Ler config do .env
+    # ============================================================
+    config = _read_env_dict(env_file)
+    use_external = config.get("EXTERNAL_MARIADB", "false").lower() == "true"
+    db_host = config.get("DB_HOST", "mariadb-login")
+    db_port = config.get("DB_PORT", "3306")
+    db_user = config.get("DB_USER", "root")
+    db_password = config.get("DB_PASSWORD", "root")
     
-    # Escolher compose file correto
+    # ============================================================
+    # Garantir rede
+    # ============================================================
+    print("  Verificando rede lineternity-network...")
+    ensure_lineternity_network()
+    
+    # ============================================================
+    # Se externo: verificar conectividade e configurar rede
+    # ============================================================
+    if use_external:
+        print(f"  Testando conexao com MariaDB externo: {db_host}:{db_port}...")
+        
+        if not test_mariadb_connection(db_host, db_port, db_user, db_password):
+            print(f"\n  MariaDB externo ({db_host}:{db_port}) inacessivel!")
+            print("  Verifique se o MariaDB esta rodando e acessivel.")
+            print("  Alternativa: usar MariaDB junto com o LoginServer (opcao embedded)")
+            
+            if confirm("\n  Deseja usar MariaDB embedded (junto com o LoginServer)?"):
+                update_login_env("mariadb-login", "3306", "root", "root", external=False)
+                use_external = False
+                db_host = "mariadb-login"
+            else:
+                return False
+        
+        if use_external:
+            # Conectar container MariaDB externo à rede lineternity-network
+            containers = detect_mariadb_containers()
+            if containers:
+                for mdb in containers:
+                    container_name = mdb["name"]
+                    if test_mariadb_connection("localhost", mdb["external_port"], db_user, db_password):
+                        print(f"  Conectando MariaDB '{container_name}' à rede lineternity-network...")
+                        connect_container_to_network(container_name)
+                        
+                        # Atualizar DB_HOST para nome do container (acessível de dentro de outros containers)
+                        _update_env_key(env_file, "DB_HOST", container_name)
+                        _update_env_key(env_file, "DB_PORT", "3306")
+                        db_host = container_name
+                        print(f"  DB_HOST atualizado: {container_name}:3306")
+                        break
+            
+            # Parar mariadb-login se estiver rodando (libera RAM)
+            _stop_mariadb_login_if_running()
+    
+    # ============================================================
+    # Escolher compose file
+    # ============================================================
     if use_external:
         compose_file = DOCKER_DIR / "docker-compose.loginserver-external.yml"
-        print("  Usando MariaDB externo (sem depends_on mariadb-login)")
+        print("  Modo: MariaDB externo")
     else:
         compose_file = DOCKER_DIR / "docker-compose.loginserver.yml"
+        print("  Modo: MariaDB embedded (mariadb-login junto com LoginServer)")
     
     if not compose_file.exists():
         print(f"  ERRO: {compose_file.name} nao encontrado em {compose_file}")
         return False
     
-    # Garantir que a rede lineternity-network existe
-    print("  Verificando rede lineternity-network...")
-    ensure_lineternity_network()
+    # ============================================================
+    # Regenerar properties com valores atuais do .env
+    # ============================================================
+    config_dir = DOCKER_DIR / "login" / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    login_config = _read_env_dict(env_file)
+    create_login_properties(config_dir, login_config)
     
-    # Se MariaDB externo, conectar container à rede lineternity-network
-    if use_external:
-        print("  Detectando MariaDB externo...")
-        containers = detect_mariadb_containers()
-        if containers:
-            # Usar o primeiro MariaDB encontrado
-            mdb = containers[0]
-            container_name = mdb["name"]
-            print(f"  MariaDB encontrado: {container_name} (porta {mdb['external_port']})")
-            
-            # Conectar à rede lineternity-network
-            connect_container_to_network(container_name)
-            
-            # Atualizar DB_HOST no .env para usar nome do container
-            _update_env_key(env_file, "DB_HOST", container_name)
-            _update_env_key(env_file, "DB_PORT", "3306")  # porta interna do container
-            print(f"  DB_HOST atualizado para: {container_name}:3306")
-            
-            # Regenerar properties com valores atualizados
-            config_dir = DOCKER_DIR / "login" / "config"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            login_config = _read_env_dict(env_file)
-            create_login_properties(config_dir, login_config)
-            print("  Properties regeneradas com DB_HOST atualizado")
-        else:
-            print("  AVISO: Nenhum MariaDB Docker detectado.")
-            print("  Certifique-se de que o MariaDB esta acessivel.")
-    
+    # ============================================================
+    # Build + Start
+    # ============================================================
     print("  Iniciando LoginServer...")
-    
-    # Reconstruir imagem antes de iniciar (garante versao atualizada)
-    print("  Reconstruindo imagem do LoginServer...")
+    print("  Reconstruindo imagem...")
     run_compose(compose_file, "build", "--no-cache", env_file=env_file)
     
     if not run_compose(compose_file, "up", "-d", env_file=env_file):
@@ -2188,8 +2159,8 @@ def create_base():
         return
     
     print("  Este wizard ira configurar:")
-    print("    1. MariaDB (detectar ou criar)")
-    print("    2. LoginServer (configuracao padrao)")
+    print("    1. MariaDB (detectar ou usar embedded)")
+    print("    2. LoginServer + MariaDB (iniciar juntos)")
     print("    3. GameServer #1 (configuracao padrao)")
     print()
     print("  Resultado: servidor pronto para teste do cliente!")
@@ -2202,7 +2173,7 @@ def create_base():
     # 1. Detectar/configurar MariaDB
     # ============================================================
     print("\n" + "=" * 60)
-    print("  PASSO 1/5: Configurar MariaDB")
+    print("  PASSO 1/4: Configurar MariaDB")
     print("=" * 60)
     
     detection = detect_or_configure_mariadb()
@@ -2228,20 +2199,18 @@ def create_base():
             print(f"  Conectando MariaDB '{mariadb_container}' à rede lineternity-network...")
             ensure_lineternity_network()
             connect_container_to_network(mariadb_container)
-            # Usar nome do container como host (acessível de dentro de outros containers)
             mariadb_host_for_containers = mariadb_container
         else:
-            # MariaDB não é container Docker (ex: serviço systemd)
             mariadb_host_for_containers = "host.docker.internal"
         
         update_login_env(mariadb_host, mariadb_port, mariadb_user, mariadb_password, external=True)
     else:
-        # Não encontrou MariaDB - criar container
+        # Usar MariaDB embedded (junto com o LoginServer)
         if detection.get("create_container"):
             mariadb_user = detection.get("user", "root")
             mariadb_password = detection.get("password", "root")
         else:
-            print("\n  Nenhum MariaDB encontrado. Criando container mariadb-login...")
+            print("\n  Nenhum MariaDB externo. Usando MariaDB embedded.")
             mariadb_user = "root"
             mariadb_password = "root"
         
@@ -2249,30 +2218,12 @@ def create_base():
         mariadb_port = "3306"
         
         update_login_env(mariadb_host, mariadb_port, mariadb_user, mariadb_password, external=False)
-        
-        # Criar container mariadb-login
-        compose_file = DOCKER_DIR / "docker-compose.yml"
-        if compose_file.exists():
-            if mariadb_user != "root" or mariadb_password != "root":
-                os.environ["MYSQL_ROOT_PASSWORD"] = mariadb_password
-            
-            print("  Criando container mariadb-login...")
-            if not run_compose(compose_file, "up", "-d"):
-                print("  ERRO ao criar container mariadb-login!")
-                if "MYSQL_ROOT_PASSWORD" in os.environ:
-                    del os.environ["MYSQL_ROOT_PASSWORD"]
-                return
-            
-            if "MYSQL_ROOT_PASSWORD" in os.environ:
-                del os.environ["MYSQL_ROOT_PASSWORD"]
-            
-            print("  Container mariadb-login criado com sucesso!")
     
     # ============================================================
     # 2. Configurar LoginServer
     # ============================================================
     print("\n" + "=" * 60)
-    print("  PASSO 2/5: Configurar LoginServer")
+    print("  PASSO 2/4: Configurar LoginServer")
     print("=" * 60)
     
     login_config = {
@@ -2300,16 +2251,12 @@ def create_base():
     print("  LoginServer configurado com sucesso!")
     
     # ============================================================
-    # 3. Iniciar MariaDB + LoginServer
+    # 3. Iniciar LoginServer (handle MariaDB via depends_on)
     # ============================================================
     print("\n" + "=" * 60)
-    print("  PASSO 3/5: Iniciar MariaDB + LoginServer")
+    print("  PASSO 3/4: Iniciar LoginServer + MariaDB")
     print("=" * 60)
     
-    # MariaDB já foi iniciado no passo 1 se foi criado
-    # Se é externo, não precisa iniciar
-    
-    # Iniciar LoginServer
     print("  Iniciando LoginServer...")
     if not start_loginserver():
         print("  ERRO ao iniciar LoginServer!")
@@ -2318,13 +2265,13 @@ def create_base():
     print("  LoginServer iniciado com sucesso!")
     print("  Aguardando LoginServer ficar pronto...")
     import time
-    time.sleep(5)  # Aguardar LoginServer inicializar
+    time.sleep(5)
     
     # ============================================================
     # 4. Criar GameServer #1
     # ============================================================
     print("\n" + "=" * 60)
-    print("  PASSO 4/5: Criar GameServer #1")
+    print("  PASSO 4/4: Criar e Iniciar GameServer #1")
     print("=" * 60)
     
     server_id = 1
@@ -2395,10 +2342,10 @@ def create_base():
         print("  GameServer #1 configurado com sucesso!")
     
     # ============================================================
-    # 5. Iniciar GameServer #1
+    # Iniciar GameServer #1
     # ============================================================
     print("\n" + "=" * 60)
-    print("  PASSO 5/5: Iniciar GameServer #1")
+    print("  Iniciando GameServer #1...")
     print("=" * 60)
     
     if game_config is not None:
@@ -2671,52 +2618,49 @@ def main_menu():
         options = [
             "1. Compilar Projeto (Build)",
             "2. Criar Base (Setup Completo)",
-            "3. Iniciar MariaDB LoginServer",
-            "4. Iniciar LoginServer",
-            "5. Iniciar GameServer",
-            "6. Parar GameServer",
-            "7. Parar Todos os Serviços",
-            "8. Listar servidores ativos",
-            "9. Logs",
-            "10. Edicao em massa de environment",
-            "11. Gerenciar perfis de configuracao",
-            "12. Setar GM / Access Level",
-            "13. Atualizar Imagens",
-            "14. Atualizar Dados nos Containers",
-            "15. Sair",
+            "3. Iniciar LoginServer",
+            "4. Iniciar GameServer",
+            "5. Parar GameServer",
+            "6. Parar Todos os Serviços",
+            "7. Listar servidores ativos",
+            "8. Logs",
+            "9. Edicao em massa de environment",
+            "10. Gerenciar perfis de configuracao",
+            "11. Setar GM / Access Level",
+            "12. Atualizar Imagens",
+            "13. Atualizar Dados nos Containers",
+            "14. Sair",
         ]
         
-        idx = choose_from_menu("Lineternity Stack Manager v2.2", options)
+        idx = choose_from_menu("Lineternity Stack Manager v2.3", options)
         
         if idx == 0:
             build_project()
         elif idx == 1:
             create_base()
         elif idx == 2:
-            start_mariadb_login()
-        elif idx == 3:
             start_loginserver()
-        elif idx == 4:
+        elif idx == 3:
             start_game_server()
-        elif idx == 5:
+        elif idx == 4:
             stop_game_server()
-        elif idx == 6:
+        elif idx == 5:
             stop_all_services()
-        elif idx == 7:
+        elif idx == 6:
             list_servers()
-        elif idx == 8:
+        elif idx == 7:
             show_logs_menu()
-        elif idx == 9:
+        elif idx == 8:
             bulk_edit_env()
-        elif idx == 10:
+        elif idx == 9:
             manage_config_profiles()
-        elif idx == 11:
+        elif idx == 10:
             set_gm_access()
-        elif idx == 12:
+        elif idx == 11:
             update_images()
-        elif idx == 13:
+        elif idx == 12:
             update_container_data()
-        elif idx == 14:
+        elif idx == 13:
             print("\n  Saindo...")
             break
         else:
