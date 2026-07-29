@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<list>
+	<!-- Random PvP Zones - cycles through these zones on a timer -->
+	<zone name="Dion Arena" x="12312" y="182752" z="-3558" />
+	<zone name="Gludin Arena" x="-86979" y="142402" z="-3643" />
+	<zone name="Giran Arena" x="73890" y="142656" z="-3778" />
+</list>

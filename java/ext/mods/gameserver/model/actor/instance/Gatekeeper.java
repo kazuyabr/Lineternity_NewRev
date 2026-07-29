@@ -20,6 +20,8 @@ package ext.mods.gameserver.model.actor.instance;
 import ext.mods.Config;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.model.actor.template.NpcTemplate;
+import ext.mods.gameserver.data.manager.RandomPvpZoneManager;
+import ext.mods.gameserver.network.serverpackets.NpcHtmlMessage;
 
 /**
  * An instance type extending {@link Folk}, used for teleporters.<br>
@@ -60,6 +62,21 @@ public final class Gatekeeper extends Folk
 		if (!Config.KARMA_PLAYER_CAN_USE_GK && player.getKarma() > 0 && showPkDenyChatWindow(player, "gatekeeper"))
 			return;
 		
-		showChatWindow(player, getHtmlPath(player, getNpcId(), val));
+		String filename = getHtmlPath(player, getNpcId(), val);
+		
+		if (Config.RANDOM_PVP_ZONE && getNpcId() == 50010)
+		{
+			RandomPvpZoneManager manager = RandomPvpZoneManager.getInstance();
+			NpcHtmlMessage html = new NpcHtmlMessage(getObjectId());
+			html.setFile(player.getLocale(), filename);
+			html.replace("%objectId%", getObjectId());
+			html.replace("%name%", manager.getCurrentZoneName());
+			html.replace("%timer%", manager.getCurrentZoneTimeLeft());
+			player.sendPacket(html);
+			player.sendPacket(ext.mods.gameserver.network.serverpackets.ActionFailed.STATIC_PACKET);
+			return;
+		}
+		
+		showChatWindow(player, filename);
 	}
 }

@@ -93,6 +93,7 @@ import ext.mods.gameserver.data.manager.PartyMatchRoomManager
 import ext.mods.gameserver.data.manager.PcCafeManager
 import ext.mods.gameserver.data.manager.PetitionManager
 import ext.mods.gameserver.data.manager.RaidPointManager
+import ext.mods.gameserver.data.manager.RandomPvpZoneManager
 import ext.mods.gameserver.data.manager.SellBuffsManager
 import ext.mods.gameserver.data.manager.SevenSignsManager
 import ext.mods.gameserver.data.manager.SpawnManager
@@ -305,6 +306,7 @@ class GameServer : Runnable {
             DressMeData.getInstance()
             TourData.getInstance()
             ext.mods.levelupmaker.LevelUpMakerManager.getInstance().init()
+            RandomPvpZoneManager.getInstance().init()
             EmailDeliveryTask.getInstance().loadAllPending()
             FakePlayerManager.getInstance().initialise()
             if (Config.ALLOW_GUARD_SYSTEM) {
