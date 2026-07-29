@@ -1098,6 +1098,7 @@ public final class Config
 	public static boolean NEW_FOLLOW;
 	public static boolean ENABLE_MISSION;
 	public static boolean RANDOM_PVP_ZONE;
+	public static int RANDOM_PVP_ZONE_INTERVAL;
 	
 	public static boolean PTS_EMULATION_SPAWN;
 	public static int PTS_EMULATION_SPAWN_DURATION;
@@ -3055,6 +3056,7 @@ public final class Config
 		NEW_FOLLOW = rusacis.getProperty("NewFollow", false);
 		ENABLE_MISSION = rusacis.getProperty("EnableMission", false);
 		RANDOM_PVP_ZONE = rusacis.getProperty("RandomPvpZone", false);
+		RANDOM_PVP_ZONE_INTERVAL = rusacis.getProperty("RandomPvpZoneInterval", 30);
 		
 		PTS_EMULATION_SPAWN = rusacis.getProperty("PTSEmulationSpawn", true);
 		PTS_EMULATION_SPAWN_DURATION = rusacis.getProperty("PTSEmulationSpawnDuraion", 60);
