@@ -28,6 +28,29 @@ GAME_TEMPLATES = TEMPLATES_DIR / "game"
 DISTRIBUTION_DIR = PROJECT_ROOT / "build" / "distribution"
 
 # ============================================================
+# Colors (ANSI)
+# ============================================================
+
+class C:
+    """ANSI color codes for terminal output."""
+    RESET   = "\033[0m"
+    BOLD    = "\033[1m"
+    DIM     = "\033[2m"
+    # Text colors
+    RED     = "\033[1;31m"
+    GREEN   = "\033[1;32m"
+    YELLOW  = "\033[1;33m"
+    BLUE    = "\033[1;34m"
+    MAGENTA = "\033[1;35m"
+    CYAN    = "\033[1;36m"
+    WHITE   = "\033[1;37m"
+    GRAY    = "\033[2;37m"
+    # Backgrounds
+    BG_RED   = "\033[41m"
+    BG_GREEN = "\033[42m"
+    BG_BLUE  = "\033[44m"
+
+# ============================================================
 # Java Detection
 # ============================================================
 
@@ -401,43 +424,43 @@ def clear_screen():
 
 def print_header(title: str):
     clear_screen()
-    print("=" * 60)
-    print(f"  {title}")
-    print("=" * 60)
+    print(f"{C.CYAN}{'=' * 60}{C.RESET}")
+    print(f"  {C.WHITE}{C.BOLD}{title}{C.RESET}")
+    print(f"{C.CYAN}{'=' * 60}{C.RESET}")
     print()
 
 def choose_from_menu(title: str, options: list[str]) -> int:
     print_header(title)
     for i, option in enumerate(options, 1):
-        print(f"  [{i}] {option}")
+        print(f"  {C.CYAN}[{i}]{C.RESET} {option}")
     print()
     
     while True:
         try:
-            choice = input("  Selecione uma opcao: ").strip()
+            choice = input(f"  {C.YELLOW}Selecione uma opcao: {C.RESET}").strip()
             if choice.isdigit():
                 idx = int(choice) - 1
                 if 0 <= idx < len(options):
                     return idx
-            print("  Opcao invalida. Tente novamente.")
+            print(f"  {C.RED}Opcao invalida. Tente novamente.{C.RESET}")
         except (EOFError, KeyboardInterrupt):
-            print("\n  Operacao cancelada.")
+            print(f"\n  {C.RED}Operacao cancelada.{C.RESET}")
             return -1
 
 def confirm(message: str) -> bool:
     while True:
-        choice = input(f"  {message} (s/n): ").strip().lower()
+        choice = input(f"  {C.YELLOW}{message} (s/n): {C.RESET}").strip().lower()
         if choice in ('s', 'sim', 'y', 'yes'):
             return True
         if choice in ('n', 'nao', 'no'):
             return False
-        print("  Resposta invalida. Digite 's' ou 'n'.")
+        print(f"  {C.RED}Resposta invalida. Digite 's' ou 'n'.{C.RESET}")
 
 def prompt_property(config: PropertyConfig) -> str:
     if config.required:
-        prompt = f"  {config.label} [{config.default}]: "
+        prompt = f"  {C.CYAN}{config.label}{C.RESET} [{C.DIM}{config.default}{C.RESET}]: "
     else:
-        prompt = f"  {config.label} [{config.default}] (enter para padrao): "
+        prompt = f"  {C.CYAN}{config.label}{C.RESET} [{C.DIM}{config.default}{C.RESET}] (enter para padrao): "
     
     value = input(prompt).strip()
     
@@ -445,7 +468,7 @@ def prompt_property(config: PropertyConfig) -> str:
         return config.default
     
     if config.required and not value:
-        print(f"  ERRO: {config.label} e obrigatorio!")
+        print(f"  {C.RED}ERRO: {config.label} e obrigatorio!{C.RESET}")
         return prompt_property(config)
     
     return value
@@ -810,9 +833,10 @@ def list_servers():
         for line in result.stdout.strip().splitlines():
             parts = line.split("\t")
             if len(parts) == 2:
-                print(f"    {parts[0]}: {parts[1]}")
+                status_color = C.GREEN if "Up" in parts[1] else C.RED
+                print(f"    {parts[0]}: {status_color}{parts[1]}{C.RESET}")
     else:
-        print("    MariaDB LoginServer: nao iniciado")
+        print(f"    {C.DIM}MariaDB LoginServer: nao iniciado{C.RESET}")
     
     # Check LoginServer
     result = subprocess.run(
@@ -823,12 +847,13 @@ def list_servers():
         for line in result.stdout.strip().splitlines():
             parts = line.split("\t")
             if len(parts) == 2:
-                print(f"    {parts[0]}: {parts[1]}")
+                status_color = C.GREEN if "Up" in parts[1] else C.RED
+                print(f"    {parts[0]}: {status_color}{parts[1]}{C.RESET}")
     else:
-        print("    LoginServer: nao iniciado")
+        print(f"    {C.DIM}LoginServer: nao iniciado{C.RESET}")
     
     # Check gameservers
-    print("\n  --- GameServers ---")
+    print(f"\n  {C.CYAN}--- GameServers ---{C.RESET}")
     servers = list_existing_game_servers()
     if servers:
         for server in servers:
@@ -838,11 +863,12 @@ def list_servers():
                 ["docker", "ps", "-a", "--filter", f"name={mariadb_name}", "--format", "{{.Names}}\t{{.Status}}"],
                 capture_output=True, text=True
             )
-            mariadb_status = "nao iniciado"
+            mariadb_status = f"{C.DIM}nao iniciado{C.RESET}"
             if result.stdout.strip():
                 parts = result.stdout.strip().split("\t")
                 if len(parts) == 2:
-                    mariadb_status = parts[1]
+                    status_color = C.GREEN if "Up" in parts[1] else C.RED
+                    mariadb_status = f"{status_color}{parts[1]}{C.RESET}"
             
             # Check GameServer
             gs_name = f"lineternity-gameserver-{server.server_id}"
@@ -850,52 +876,53 @@ def list_servers():
                 ["docker", "ps", "-a", "--filter", f"name={gs_name}", "--format", "{{.Names}}\t{{.Status}}"],
                 capture_output=True, text=True
             )
-            gs_status = "nao iniciado"
+            gs_status = f"{C.DIM}nao iniciado{C.RESET}"
             if result.stdout.strip():
                 parts = result.stdout.strip().split("\t")
                 if len(parts) == 2:
-                    gs_status = parts[1]
+                    status_color = C.GREEN if "Up" in parts[1] else C.RED
+                    gs_status = f"{status_color}{parts[1]}{C.RESET}"
             
-            print(f"    GameServer #{server.server_id}: {server.hostname} (port {server.public_port})")
+            print(f"    {C.WHITE}GameServer #{server.server_id}{C.RESET}: {server.hostname} (port {server.public_port})")
             print(f"      MariaDB: {mariadb_status}")
             print(f"      GameServer: {gs_status}")
     else:
-        print("    Nenhum GameServer configurado.")
+        print(f"    {C.DIM}Nenhum GameServer configurado.{C.RESET}")
     
-    input("\n  Pressione Enter para continuar...")
+    input(f"\n  {C.DIM}Pressione Enter para continuar...{C.RESET}")
 
 def show_logs_menu():
     print_header("Logs")
     
     options = [
-        "Logs do MariaDB LoginServer",
-        "Logs do LoginServer",
-        "Logs do GameServer (selecionar)",
-        "Logs de todos os containers",
-        "Voltar",
+        f"{C.CYAN}Logs do MariaDB LoginServer{C.RESET}",
+        f"{C.CYAN}Logs do LoginServer{C.RESET}",
+        f"{C.CYAN}Logs do GameServer{C.RESET} (selecionar)",
+        f"{C.CYAN}Logs de todos os containers{C.RESET}",
+        f"{C.DIM}Voltar{C.RESET}",
     ]
     
     idx = choose_from_menu("Selecione o tipo de log", options)
     
     if idx == 0:
-        print("\n  Logs do MariaDB LoginServer (Ctrl+C para sair):")
+        print(f"\n  {C.YELLOW}Logs do MariaDB LoginServer (Ctrl+C para sair):{C.RESET}")
         subprocess.run(["docker", "logs", "-f", "lineternity-mariadb-login"])
     elif idx == 1:
-        print("\n  Logs do LoginServer (Ctrl+C para sair):")
+        print(f"\n  {C.YELLOW}Logs do LoginServer (Ctrl+C para sair):{C.RESET}")
         subprocess.run(["docker", "logs", "-f", "lineternity-loginserver"])
     elif idx == 2:
         servers = list_existing_game_servers()
         if not servers:
-            print("  Nenhum GameServer encontrado.")
+            print(f"  {C.RED}Nenhum GameServer encontrado.{C.RESET}")
         else:
-            options = [f"GameServer #{s.server_id}" for s in servers]
+            options = [f"{C.CYAN}GameServer #{s.server_id}{C.RESET}" for s in servers]
             idx = choose_from_menu("Selecione o GameServer", options)
             if 0 <= idx < len(servers):
                 server = servers[idx]
-                print(f"\n  Logs do GameServer #{server.server_id} (Ctrl+C para sair):")
+                print(f"\n  {C.YELLOW}Logs do GameServer #{server.server_id} (Ctrl+C para sair):{C.RESET}")
                 subprocess.run(["docker", "logs", "-f", f"lineternity-gameserver-{server.server_id}"])
     elif idx == 3:
-        print("\n  Logs de todos os containers (Ctrl+C para sair):")
+        print(f"\n  {C.YELLOW}Logs de todos os containers (Ctrl+C para sair):{C.RESET}")
         subprocess.run(["docker", "logs", "-f", "lineternity-mariadb-login", "lineternity-loginserver"])
     elif idx == 4:
         return
@@ -964,33 +991,24 @@ def update_container_data():
 
 
 def _update_gameserver_data(container_name: str):
-    """Atualiza dados de um GameServer específico"""
-    print(f"\n  Subdiretórios em game/data/ e game/config/:")
-    print(f"    [1] locale/          (16 MB) - HTML, sysstrings")
-    print(f"    [2] xml/             (37 MB) - XML data files")
-    print(f"    [3] custom/          (0 MB)  - Custom mods")
-    print(f"    [4] crests/          (0 MB)  - Imagens de crest")
-    print(f"    [5] serverNames.xml  (~0 MB)")
-    print(f"    [6] config/          (~2 MB) - Properties (//reload config)")
-    print(f"    [7] Todos (exceto geodata)")
+    """Atualiza dados de um GameServer específico via docker cp"""
+    print(f"\n  Itens atualizáveis:")
+    print(f"    [1] config/          (~2 MB) - Properties (//reload config)")
+    print(f"    [2] serverNames.xml  (~0 MB)")
+    print(f"    [3] Todos")
     
-    choice = input("\n  Selecionar (ex: 1,2,5): ").strip()
+    choice = input("\n  Selecionar (ex: 1,2): ").strip()
     if not choice:
         return
     
-    # Mapear opções para diretórios
     dir_map = {
-        "1": "locale",
-        "2": "xml",
-        "3": "custom",
-        "4": "crests",
-        "5": "serverNames.xml",
-        "6": "config",
+        "1": "config",
+        "2": "serverNames.xml",
     }
     
     selected = []
-    if choice == "7":
-        selected = ["locale", "xml", "custom", "crests", "serverNames.xml", "config"]
+    if choice == "3":
+        selected = ["config", "serverNames.xml"]
     else:
         for item in choice.split(","):
             item = item.strip()
@@ -998,37 +1016,33 @@ def _update_gameserver_data(container_name: str):
                 selected.append(dir_map[item])
     
     if not selected:
-        print("  Nenhum diretório selecionado.")
+        print("  Nenhum item selecionado.")
         return
     
     print(f"\n  Copiando para {container_name}...")
     for item in selected:
         if item == "config":
-            # Config fica em game/config/, não game/data/config/
             src = PROJECT_ROOT / "game" / "config"
-            dest = f"{container_name}:/lineternity/game/config"
+            dest_container = "/lineternity/game/config"
         else:
             src = PROJECT_ROOT / "game" / "data" / item
-            if item == "serverNames.xml":
-                dest = f"{container_name}:/lineternity/game/data/{item}"
-            else:
-                dest = f"{container_name}:/lineternity/game/data/{item}"
+            dest_container = f"/lineternity/game/data/{item}"
         
         if src.exists():
+            dest = f"{container_name}:{dest_container}"
             result = subprocess.run(
                 ["docker", "cp", str(src) + "/.", dest] if src.is_dir() else ["docker", "cp", str(src), dest],
                 capture_output=True, text=True
             )
             if result.returncode == 0:
-                print(f"    OK: {item}")
+                print(f"    {C.GREEN}OK:{C.RESET} {item}")
             else:
-                print(f"    ERRO: {item} - {result.stderr.strip()}")
+                print(f"    {C.RED}ERRO:{C.RESET} {item} - {result.stderr.strip()}")
         else:
-            print(f"    AVISO: {src} não existe, pulando...")
+            print(f"    {C.YELLOW}AVISO:{C.RESET} {src} nao existe, pulando...")
     
     print(f"\n  Copia concluída!")
     
-    # Perguntar se quer reiniciar
     if confirm("  Reiniciar GameServer para recarregar?"):
         _restart_game_server(container_name)
 
@@ -1703,17 +1717,94 @@ def stop_all_services():
     print("\n  Todos os servicos parados com sucesso!")
 
 def update_images():
-    print_header("Atualizar Imagens")
+    print_header("Atualizar Imagens (Build + Docker)")
     
-    if not check_distribution():
+    # ── PASSO 1: Compilar Java/Kotlin (gera server.jar + build/distribution/) ──
+    print(f"  {C.BLUE}[1/3]{C.RESET} {C.WHITE}Compilando projeto (Gradle build)...{C.RESET}")
+    print()
+    
+    java_home = detect_java_home()
+    if not java_home:
+        print(f"  {C.RED}ERRO: JAVA_HOME nao encontrado!{C.RESET}")
+        print(f"  {C.DIM}Instale o JDK 25 e configure JAVA_HOME no ambiente.{C.RESET}")
         return
+    
+    java_exe = Path(java_home) / "bin" / "java.exe"
+    if not java_exe.exists():
+        print(f"  {C.RED}ERRO: java.exe nao encontrado: {java_exe}{C.RESET}")
+        return
+    
+    wrapper_jar = PROJECT_ROOT / "gradle" / "wrapper" / "gradle-wrapper.jar"
+    if not wrapper_jar.exists():
+        print(f"  {C.RED}ERRO: gradle-wrapper.jar nao encontrado: {wrapper_jar}{C.RESET}")
+        return
+    
+    build_env = os.environ.copy()
+    build_env["JAVA_HOME"] = java_home
+    
+    server_jar = PROJECT_ROOT / "libs" / "server.jar"
+    
+    print(f"  {C.DIM}JAVA_HOME: {java_home}{C.RESET}")
+    print(f"  {C.DIM}Executando: java.exe ... GradleWrapperMain --no-daemon build distribution -x test{C.RESET}")
+    print(f"  {C.YELLOW}Aguarde...{C.RESET}")
+    print()
+    
+    gradle_cmd = [
+        str(java_exe), "-Xmx64m", "-Xms64m",
+        "-classpath", str(wrapper_jar),
+        "org.gradle.wrapper.GradleWrapperMain",
+        "--no-daemon", "--rerun-tasks",
+        "build", "distribution", "-x", "test"
+    ]
+    
+    try:
+        result = subprocess.run(
+            gradle_cmd,
+            cwd=str(PROJECT_ROOT),
+            env=build_env,
+            timeout=600
+        )
+    except subprocess.TimeoutExpired:
+        print(f"  {C.RED}ERRO: Build excedeu timeout de 10 minutos!{C.RESET}")
+        return
+    except FileNotFoundError:
+        print(f"  {C.RED}ERRO: Nao foi possivel executar: {java_exe}{C.RESET}")
+        return
+    
+    if result.returncode != 0:
+        print(f"\n  {C.RED}ERRO: Gradle build falhou (exit code: {result.returncode}){C.RESET}")
+        print(f"  {C.DIM}Corrija os erros antes de tentar novamente.{C.RESET}")
+        return
+    
+    if not server_jar.exists():
+        print(f"\n  {C.RED}ERRO: server.jar nao foi gerado apos o build!{C.RESET}")
+        return
+    
+    if not DISTRIBUTION_DIR.exists():
+        print(f"\n  {C.RED}ERRO: build/distribution/ nao foi criado apos o build!{C.RESET}")
+        return
+    
+    dist_files = [f for f in DISTRIBUTION_DIR.rglob("*") if f.is_file()]
+    if len(dist_files) == 0:
+        print(f"\n  {C.RED}ERRO: build/distribution/ existe mas esta VAZIO!{C.RESET}")
+        return
+    
+    import time
+    mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(server_jar.stat().st_mtime))
+    print(f"  {C.GREEN}Build Gradle OK:{C.RESET} server.jar {server_jar.stat().st_size:,} bytes ({mtime})")
+    print(f"  {C.DIM}build/distribution/: {len(dist_files)} arquivos{C.RESET}")
+    print()
+    
+    # ── PASSO 2: Selecionar servidores para atualizar ──
+    print(f"  {C.BLUE}[2/3]{C.RESET} {C.WHITE}Selecionar servidores...{C.RESET}")
+    print()
     
     # Verificar se Dockerfiles existem na distribution
     root_df = DISTRIBUTION_DIR / "Dockerfile"
     docker_df = DISTRIBUTION_DIR / "docker" / "Dockerfile"
     if not root_df.exists() or not docker_df.exists():
-        print("\n  AVISO: Dockerfiles nao encontrados em build/distribution/")
-        print("  Execute a opcao 'Compilar Projeto (Build)' primeiro para gerar a distribuicao completa.")
+        print(f"\n  {C.YELLOW}AVISO: Dockerfiles nao encontrados em build/distribution/{C.RESET}")
+        print(f"  {C.DIM}O build gerou a distribuicao mas os Dockerfiles estao faltando.{C.RESET}")
         return
     
     # Listar servidores disponiveis
@@ -1773,44 +1864,52 @@ def update_images():
         return
     
     # Confirmar
-    print(f"\n  Imagens que serao atualizadas:")
+    print(f"\n  {C.YELLOW}Imagens que serao atualizadas:{C.RESET}")
     for name, _ in to_update:
-        print(f"    - {name}")
+        print(f"    {C.CYAN}-{C.RESET} {name}")
+    
+    print(f"\n  {C.DIM}NOTA: Volumes de dados (MariaDB, xml, config, locale) NAO serao afetados.{C.RESET}")
+    print(f"  {C.DIM}O container sera recriado com a imagem atualizada.{C.RESET}")
     
     if not confirm("\n  Continuar?"):
-        print("  Operacao cancelada.")
+        print(f"  {C.RED}Operacao cancelada.{C.RESET}")
         return
     
-    # Executar build + recreate
+    # ── PASSO 3: Rebuild Docker + recreate containers ──
+    print()
+    print(f"  {C.BLUE}[3/3]{C.RESET} {C.WHITE}Reconstruindo imagens Docker e recriando containers...{C.RESET}")
+    
     success = 0
     fail = 0
     for name, compose_file in to_update:
-        print(f"\n  --- Atualizando {name} ---")
-        print(f"  Compose: {compose_file.name}")
+        print(f"\n  {C.CYAN}--- Atualizando {name} ---{C.RESET}")
+        print(f"  {C.DIM}Compose: {compose_file.name}{C.RESET}")
         
         env_file = compose_file.parent / ".env"
         if not env_file.exists():
             env_file = None
         
         # Build (forcar rebuild completo para garantir imagem atualizada)
-        print(f"  Reconstruindo imagem (build --no-cache)...")
+        print(f"  {C.YELLOW}Reconstruindo imagem (build --no-cache)...{C.RESET}")
         if not run_compose(compose_file, "build", "--no-cache", env_file=env_file):
-            print(f"  ERRO: Build falhou para {name}")
+            print(f"  {C.RED}ERRO: Build falhou para {name}{C.RESET}")
             fail += 1
             continue
         
         # Recreate
-        print(f"  Recriando container...")
+        print(f"  {C.YELLOW}Recriando container...{C.RESET}")
         if not run_compose(compose_file, "up", "-d", "--force-recreate", env_file=env_file):
-            print(f"  ERRO: Recreate falhou para {name}")
+            print(f"  {C.RED}ERRO: Recreate falhou para {name}{C.RESET}")
             fail += 1
             continue
         
-        print(f"  {name} atualizado com sucesso!")
+        print(f"  {C.GREEN}{name} atualizado com sucesso!{C.RESET}")
         success += 1
     
-    print(f"\n  {'=' * 40}")
-    print(f"  Atualizacao concluida: {success} ok, {fail} falha(s)")
+    print(f"\n  {C.CYAN}{'=' * 40}{C.RESET}")
+    print(f"  {C.GREEN}Atualizacao concluida: {success} ok, {fail} falha(s){C.RESET}")
+    print()
+    print(f"  {C.YELLOW}Proximo passo no jogo: //reload config{C.RESET}")
 
 def start_game_server():
     print_header("Iniciar GameServer")
@@ -2024,7 +2123,7 @@ def bulk_edit_config():
             return
         
         server = servers[idx]
-        config_dir = server.server_dir / "config"
+        config_dir = server.config_dir
         server_label = f"GameServer #{server.server_id}"
     elif tipo == "2":
         # LoginServer - listar arquivos de config
@@ -2064,46 +2163,180 @@ def bulk_edit_config():
     
     selected_file = props_files[idx]
     
-    # Ler propriedades atuais
     lines = selected_file.read_text(encoding='utf-8').splitlines()
     props = []
     for line in lines:
         stripped = line.strip()
-        if stripped and not stripped.startswith("#"):
-            if "=" in stripped:
-                key, value = stripped.split("=", 1)
-                props.append((key.strip(), value.strip(), line))
-            else:
-                props.append((None, None, line))
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key, value = stripped.split("=", 1)
+            props.append({
+                "key": key.strip(),
+                "value": value.strip(),
+                "original": line,
+                "new_value": value.strip(),
+                "modified": False,
+            })
         else:
-            props.append((None, None, line))
+            props.append({
+                "key": None, "value": None, "original": line,
+                "new_value": None, "modified": False,
+            })
     
-    print(f"\n  Editando: {selected_file.name}")
-    print("  Deixe em branco para manter valor atual.\n")
+    _edit_properties_interactive(selected_file, props, server_label)
+
+
+def _edit_properties_interactive(selected_file, props, server_label):
+    editable = [(i, p) for i, p in enumerate(props) if p["key"]]
+    if not editable:
+        print("\n  Nenhuma propriedade editavel encontrada.")
+        return
     
-    new_lines = []
-    modified = False
-    for key, value, original in props:
-        if key:
-            new_value = input(f"  {key} [{value}]: ").strip()
-            if new_value:
-                new_lines.append(f"{key} = {new_value}")
-                modified = True
+    history = []
+    
+    def show_props():
+        print(f"\n  {'=' * 55}")
+        print(f"  {selected_file.name} — Editando")
+        print(f"  {'=' * 55}")
+        for idx_e, (i, p) in enumerate(editable, 1):
+            marker = " *" if p["modified"] else ""
+            print(f"    [{idx_e:2d}] {p['key']} = {p['new_value']}{marker}")
+        print(f"  {'=' * 55}")
+        c_reset = "\033[0m"
+        c_cmd = "\033[1;33m"   # amarelo bold
+        c_green = "\033[1;32m" # verde bold
+        c_cyan = "\033[1;36m"  # ciano bold
+        c_dim = "\033[2m"      # cinza
+        print(f"  {c_dim}{'─' * 55}{c_reset}")
+        print(f"  {c_cmd}(<){c_reset} Desfazer   "
+              f"{c_cmd}(!){c_reset} Salvar+Sair   "
+              f"{c_cmd}(q){c_reset} Sair   "
+              f"{c_cmd}(enter){c_reset} Menu")
+        print(f"  {c_dim}{'─' * 55}{c_reset}")
+        print(f"  {c_cyan}Exemplos:{c_reset} 1,3,5  |  1-5  |  all")
+    
+    while True:
+        editable = [(i, p) for i, p in enumerate(props) if p["key"]]
+        show_props()
+        
+        choice = input("\n  Editar: ").strip().lower()
+        
+        if not choice:
+            break
+        
+        if choice == "!":
+            _save_and_copy(selected_file, props, server_label)
+            return
+        
+        if choice == "q":
+            if any(p["modified"] for p in props):
+                if confirm("  Alteracoes nao salvas. Sair sem salvar?"):
+                    print("  Alteracoes descartadas.")
+                    return
             else:
-                new_lines.append(original)
-        else:
-            new_lines.append(original)
+                return
+        
+        if choice == "<":
+            if history:
+                state = history.pop()
+                props[state["idx"]]["new_value"] = state["old_value"]
+                props[state["idx"]]["modified"] = state["was_modified"]
+                print(f"  Desfeito: {props[state['idx']]['key']}")
+            else:
+                print("  Nada para desfazer.")
+            continue
+        
+        indices = _parse_selection(choice, len(editable))
+        if not indices:
+            print("  Selecao invalida. Use numeros (1,3,5), faixas (1-5), ou 'all'.")
+            continue
+        
+        for idx_e in indices:
+            if idx_e < 1 or idx_e > len(editable):
+                continue
+            real_idx, prop = editable[idx_e - 1]
+            
+            print(f"\n  {prop['key']}:")
+            print(f"    Atual: {prop['new_value']}")
+            if prop["modified"]:
+                print(f"    Original: {prop['value']}")
+            
+            new_val = input(f"    Novo valor [{prop['new_value']}]: ").strip()
+            
+            if new_val == "<":
+                if history:
+                    state = history.pop()
+                    props[state["idx"]]["new_value"] = state["old_value"]
+                    props[state["idx"]]["modified"] = state["was_modified"]
+                    print(f"  Desfeito: {props[state['idx']]['key']}")
+                continue
+            
+            if new_val:
+                history.append({
+                    "idx": real_idx,
+                    "old_value": prop["new_value"],
+                    "was_modified": prop["modified"],
+                })
+                prop["new_value"] = new_val
+                prop["modified"] = True
+            else:
+                print("  (mantido)")
+
+
+def _parse_selection(text: str, max_val: int) -> list:
+    result = set()
+    text = text.strip().lower()
     
-    if not modified:
+    if text == "all":
+        return list(range(1, max_val + 1))
+    
+    for part in text.split(","):
+        part = part.strip()
+        if "-" in part:
+            try:
+                start, end = part.split("-", 1)
+                start, end = int(start.strip()), int(end.strip())
+                for i in range(start, end + 1):
+                    if 1 <= i <= max_val:
+                        result.add(i)
+            except ValueError:
+                continue
+        else:
+            try:
+                val = int(part)
+                if 1 <= val <= max_val:
+                    result.add(val)
+            except ValueError:
+                continue
+    
+    return sorted(result)
+
+
+def _save_and_copy(selected_file, props, server_label):
+    if not any(p["modified"] for p in props):
         print("\n  Nenhuma alteracao feita.")
         return
     
-    # Salvar
+    print(f"\n  Alteracoes em {selected_file.name}:")
+    for p in props:
+        if p["modified"]:
+            print(f"    {p['key']}: {p['value']} -> {p['new_value']}")
+    
+    if not confirm("\n  Confirmar alteracoes?"):
+        print("  Alteracoes canceladas.")
+        return
+    
+    new_lines = []
+    for p in props:
+        if p["key"] is None:
+            new_lines.append(p["original"])
+        elif p["modified"]:
+            new_lines.append(f"{p['key']} = {p['new_value']}")
+        else:
+            new_lines.append(p["original"])
+    
     selected_file.write_text("\n".join(new_lines) + "\n", encoding='utf-8')
     print(f"\n  {selected_file.name} atualizado com sucesso!")
-    print("  Use //reload config no jogo para aplicar as mudancas.")
     
-    # Copiar para container se estiver rodando
     containers = _find_running_containers(server_label)
     if containers:
         if confirm(f"  Copiar {selected_file.name} para container rodando?"):
@@ -2117,6 +2350,8 @@ def bulk_edit_config():
                     print(f"    OK: {container_name}")
                 else:
                     print(f"    ERRO: {container_name} - {result.stderr.strip()}")
+    
+    print("\n  Use //reload config no jogo para aplicar as mudancas.")
 
 
 def _find_running_containers(server_label: str):
@@ -2739,23 +2974,23 @@ def set_gm_access():
 def main_menu():
     while True:
         options = [
-            "1. Compilar Projeto (Build)",
-            "2. Criar Base (Setup Completo)",
-            "3. Iniciar LoginServer",
-            "4. Iniciar GameServer",
-            "5. Parar GameServer",
-            "6. Parar Todos os Serviços",
-            "7. Listar servidores ativos",
-            "8. Logs",
-            "9. Editar Config por Servidor",
-            "10. Gerenciar perfis de configuracao",
-            "11. Setar GM / Access Level",
-            "12. Atualizar Imagens",
-            "13. Atualizar Dados nos Containers",
-            "14. Sair",
+            f"{C.GREEN}1.{C.RESET} Compilar Projeto (Build)",
+            f"{C.GREEN}2.{C.RESET} Criar Base (Setup Completo)",
+            f"{C.GREEN}3.{C.RESET} Iniciar LoginServer",
+            f"{C.GREEN}4.{C.RESET} Iniciar GameServer",
+            f"{C.RED}5.{C.RESET} Parar GameServer",
+            f"{C.RED}6.{C.RESET} Parar Todos os Servicos",
+            f"{C.CYAN}7.{C.RESET} Listar servidores ativos",
+            f"{C.CYAN}8.{C.RESET} Logs",
+            f"{C.YELLOW}9.{C.RESET} Editar Config por Servidor",
+            f"{C.YELLOW}10.{C.RESET} Gerenciar perfis de configuracao",
+            f"{C.MAGENTA}11.{C.RESET} Setar GM / Access Level",
+            f"{C.BLUE}12.{C.RESET} Atualizar Imagens",
+            f"{C.BLUE}13.{C.RESET} Atualizar Dados nos Containers",
+            f"{C.RED}14.{C.RESET} Sair",
         ]
         
-        idx = choose_from_menu("Lineternity Stack Manager v2.3", options)
+        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.3{C.RESET}", options)
         
         if idx == 0:
             build_project()
@@ -2784,12 +3019,12 @@ def main_menu():
         elif idx == 12:
             update_container_data()
         elif idx == 13:
-            print("\n  Saindo...")
+            print(f"\n  {C.GREEN}Saindo...{C.RESET}")
             break
         else:
             continue
         
-        input("\n  Pressione Enter para continuar...")
+        input(f"\n  {C.DIM}Pressione Enter para continuar...{C.RESET}")
 
 # ============================================================
 # Entry Point
