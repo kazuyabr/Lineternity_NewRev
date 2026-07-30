@@ -410,24 +410,22 @@ tasks.register("distribution") {
             println("  game/data/prevention/crypta/ copiado")
         }
 
-        // 2. game/data/geodata/ (dados geographicos)
-        file("$distDir/game/data/geodata").mkdirs()
-        val geodataSrc = file("game/data/geodata")
-        if (geodataSrc.exists()) {
-            project.copy {
-                from(geodataSrc) {
-                    include("**/*.dat", "**/*.txt", "**/*.bin", "**/*.idx", "**/*.exe", "**/*.ini", "**/LICENSE")
-                }
-                into("$distDir/game/data/geodata")
-            }
-            println("  game/data/geodata/ copiado")
+        // 2. game/data/ completo (locale, xml, custom, crests, serverNames.xml, geodata, etc)
+        // Exclui cache, log (logs) e prevention (já tratado separadamente acima)
+        project.copy {
+            from("game/data")
+            into("$distDir/game/data")
+            exclude("cache/**")
+            exclude("log/**")
+            exclude("prevention/**")
         }
+        println("  game/data/ completo copiado")
 
-        // 3. game/config/ (configuracoes)
+        // 3. game/config/ (configuracoes + chatfilter.txt)
         project.copy {
             from("game/config")
             into("$distDir/game/config")
-            include("**/*.properties", "**/*.ini")
+            include("**/*.properties", "**/*.ini", "**/*.txt")
         }
         println("  game/config/ copiado")
 

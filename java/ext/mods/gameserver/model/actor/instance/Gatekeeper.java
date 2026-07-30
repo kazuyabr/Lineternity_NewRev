@@ -64,8 +64,10 @@ public final class Gatekeeper extends Folk
 		
 		String filename = getHtmlPath(player, getNpcId(), val);
 		
-		if (Config.RANDOM_PVP_ZONE && getNpcId() == 50010)
+		if (getNpcId() == 50010 && Config.RANDOM_PVP_ZONE)
 		{
+			// Feature ON: usar HTM com placeholders PvP e substituir valores
+			filename = filename.replace(".htm", "-pvp.htm");
 			RandomPvpZoneManager manager = RandomPvpZoneManager.getInstance();
 			NpcHtmlMessage html = new NpcHtmlMessage(getObjectId());
 			html.setFile(player.getLocale(), filename);
@@ -77,6 +79,7 @@ public final class Gatekeeper extends Folk
 			return;
 		}
 		
+		// Feature OFF ou outro NPC: HTM normal (sem linha PvP)
 		showChatWindow(player, filename);
 	}
 }
