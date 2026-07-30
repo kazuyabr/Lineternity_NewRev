@@ -336,7 +336,7 @@ tasks.register<JavaExec>("patchBytecode") {
         }
 
         // Compile PatchBytecode.java against server.jar + ASM
-        val patchSrc = file("docker/PatchBytecode.java")
+        val patchSrc = file("tools/bytecode-patch/PatchBytecode.java")
         val patchOut = file("build/patch-out")
         patchOut.mkdirs()
 
