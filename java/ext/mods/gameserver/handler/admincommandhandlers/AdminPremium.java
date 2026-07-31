@@ -66,13 +66,22 @@ public class AdminPremium implements IAdminCommandHandler
 			
 			final String action = st.nextToken();
 			
-			final Player targetPlayer = getTargetPlayer(player, true);
-			final String accName = targetPlayer != null ? targetPlayer.getAccountName() : st.hasMoreTokens() ? st.nextToken() : null;
+			final String accName = st.hasMoreTokens() ? st.nextToken() : null;
 			
-			if (accName == null)
+			if (accName == null || accName.isEmpty())
 			{
 				player.sendMessage(player.getSysString(10_094));
 				return;
+			}
+			
+			try
+			{
+				Integer.parseInt(accName);
+				player.sendMessage(player.getSysString(10_094));
+				return;
+			}
+			catch (NumberFormatException e)
+			{
 			}
 			
 			switch (action)
@@ -125,6 +134,22 @@ public class AdminPremium implements IAdminCommandHandler
 						player.sendMessage(player.getSysString(10_097));
 					}
 					break;
+				case "add4":
+					try
+					{
+						if (!st.hasMoreTokens())
+						{
+							player.sendMessage(player.getSysString(12_041));
+							return;
+						}
+						final int year = Integer.parseInt(st.nextToken());
+						addPremiumServices4(player, year, accName);
+					}
+					catch (NumberFormatException e)
+					{
+						player.sendMessage(player.getSysString(12_041));
+					}
+					break;
 				
 				default:
 				{
@@ -134,8 +159,7 @@ public class AdminPremium implements IAdminCommandHandler
 		}
 		else if (command.startsWith("admin_premium_remove"))
 		{
-			final Player targetPlayer = getTargetPlayer(player, true);
-			final String accName = targetPlayer != null ? targetPlayer.getAccountName() : st.hasMoreTokens() ? st.nextToken() : null;
+			final String accName = st.hasMoreTokens() ? st.nextToken() : null;
 			removePremiumServices(player, accName);
 		}
 	}
@@ -175,6 +199,11 @@ public class AdminPremium implements IAdminCommandHandler
 	private static void addPremiumServices3(Player player, int hourOfDay, String accName)
 	{
 		addPremiumServices(player, Calendar.HOUR_OF_DAY, hourOfDay, accName);
+	}
+	
+	private static void addPremiumServices4(Player player, int year, String accName)
+	{
+		addPremiumServices(player, Calendar.YEAR, year, accName);
 	}
 	
 	private static void removePremiumServices(Player player, String accName)

@@ -135,11 +135,12 @@
 	
 	<!-- gameserver.handler.admincommandhandlers.AdminPremium -->
 	<string key="10093">Enable UsePremiumServices config.</string>
-	<string key="10094">Invalid account!</string>
+	<string key="10094">Invalid account name!</string>
 	<string key="10095">Invalid month!</string>
 	<string key="10096">Invalid day!</string>
 	<string key="10097">Invalid hour!</string>
 	<string key="10098">The premium has been set until: %s for account: %s</string>
+	<string key="12041">Invalid year!</string>
 	
 	<!-- gameserver.model.actor.instance.SchemeBuffer -->
 	<string key="10099">Me</string>

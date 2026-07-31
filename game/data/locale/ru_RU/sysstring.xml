@@ -135,11 +135,12 @@
 
 	<!-- gameserver.handler.admincommandhandlers.AdminPremium -->
 	<string key="10093">Включите конфигурацию UsePremiumServices.</string>
-	<string key="10094">Неверная учетная запись!</string>
+	<string key="10094">Неверное имя учетной записи!</string>
 	<string key="10095">Неверный месяц!</string>
 	<string key="10096">Неверный день!</string>
 	<string key="10097">Неверный час!</string>
 	<string key="10098">Премиум установлен до: %s для учетной записи: %s</string>
+	<string key="12041">Неверный год!</string>
 
 	<!-- gameserver.model.actor.instance.SchemeBuffer -->
 	<string key="10099">Я</string>
