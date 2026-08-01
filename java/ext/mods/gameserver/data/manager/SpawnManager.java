@@ -76,15 +76,6 @@ public class SpawnManager implements IXmlReader
 	
 	private static void npcSearchLog(String format, Object... args)
 	{
-		if (Config.AUTOFARM_DEBUG_RETURN)
-		{
-			Object[] safeArgs = args != null ? new Object[args.length] : new Object[0];
-			for (int i = 0; i < safeArgs.length; i++)
-			{
-				safeArgs[i] = args[i] != null ? args[i] : "null";
-			}
-			LOGGER.info(format, safeArgs);
-		}
 	}
 	
 	private static final String OTHER_XML_FOLDER = Config.DATA_PATH.resolve("xml/spawnlist/custom").toString();

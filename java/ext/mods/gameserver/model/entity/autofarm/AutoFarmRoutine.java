@@ -188,16 +188,33 @@ public class AutoFarmRoutine
 		
 		if (player.isDead())
 		{
-			if (!_autoFarmProfile.isDeathReturnEnabled())
-				stop("Your character is dead sem Return");
+			stop("Your character is dead");
 			return;
 		}
 		
-		/*if (!_autoFarmProfile.canUseAutoFarm())
+		if (!Config.AUTOFARM_INFINITY)
 		{
-			stop("Daily autofarm time limit reached. Use items to extend time or become premium!");
-			return;
-		}*/
+			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
+			if (!isExempt)
+			{
+				_autoFarmProfile.tickActiveTime(400);
+				if (_autoFarmProfile.needsCostConsume())
+				{
+					ItemInstance item = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
+					if (item == null || item.getCount() < Config.AUTOFARM_COST_AMOUNT)
+					{
+						String itemName = item != null ? item.getName() : "Item";
+						stop(itemName + " insuficiente para AutoFarm! Desligando...");
+						return;
+					}
+					player.destroyItemByItemId(Config.AUTOFARM_COST_ITEM_ID, Config.AUTOFARM_COST_AMOUNT, true);
+					_autoFarmProfile.setCostRemainingMs(java.util.concurrent.TimeUnit.MINUTES.toMillis(Config.AUTOFARM_COST_INTERVAL_MINUTES));
+					AutoFarmData.getInstance().updatePlayerCostTime(player.getObjectId(), _autoFarmProfile.getCostRemainingMs());
+					String consumedName = item.getName();
+					player.sendMessage("AutoFarm: " + Config.AUTOFARM_COST_AMOUNT + "x " + consumedName + " consumido. Restante: " + AutoFarmManager.getInstance().formatAutoFarmTimePublic(_autoFarmProfile.getCostRemainingMs()));
+				}
+			}
+		}
 		
 		if (_skillAttackFailCount >= 20)
 		{
@@ -245,19 +262,8 @@ public class AutoFarmRoutine
 		
 		if (player.isDead() || player.isSleeping() || player.isStunned() || player.isImmobilized())
 		{
-			if (player.isDead() && !_autoFarmProfile.isDeathReturnEnabled())
+			if (player.isDead())
 				stop("Your character is dead");
-			return;
-		}
-		
-		final AutoFarmArea selectedArea = _autoFarmProfile.getSelectedArea();
-		if (selectedArea != null && selectedArea.isHandlingDeath())
-		{
-			if (Config.AUTOFARM_DEBUG_RETURN)
-				LOGGER.info("[AutoFarmRoutine][DeathReturn] run() skip: AutoFarmArea.isHandlingDeath() true, clearing Monster target and setting AI intention IDLE");
-			if (player.getTarget() instanceof Monster)
-				player.setTarget(null);
-			player.getAI().getCurrentIntention().updateAsIdle();
 			return;
 		}
 		
@@ -2478,10 +2484,6 @@ public class AutoFarmRoutine
 		
 		switch (_autoFarmProfile.getMacro())
 		{
-			case ESCAPE:
-				setIntention(player, IntentionType.CAST, player.getSkill(2099), player);
-				break;
-			
 			case LOGOUT:
 				player.logout(true);
 				break;

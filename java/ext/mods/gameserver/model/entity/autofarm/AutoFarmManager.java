@@ -88,7 +88,6 @@ public class AutoFarmManager
 	
 	public enum AutoFarmMacro
 	{
-		ESCAPE,
 		LOGOUT,
 		ITEM,
 		SKILL;
@@ -131,6 +130,8 @@ public class AutoFarmManager
 		autoFarmProfile.updatePlayer(player);
 		long timeUsed = AutoFarmData.getInstance().loadPlayerTimeUsage(player.getObjectId());
 		autoFarmProfile.setDailyTimeUsed(timeUsed);
+		long costTime = AutoFarmData.getInstance().loadPlayerCostTime(player.getObjectId());
+		autoFarmProfile.setCostRemainingMs(costTime);
 	}
 	
 	public void onPlayerLogout(Player player)
@@ -174,6 +175,11 @@ public class AutoFarmManager
 				AutoFarmData.getInstance().updatePlayerTimeUsage(player.getObjectId(), totalTimeUsed);
 			}
 			
+			if (autoFarmProfile.getCostRemainingMs() > 0)
+			{
+				AutoFarmData.getInstance().updatePlayerCostTime(player.getObjectId(), autoFarmProfile.getCostRemainingMs());
+			}
+			
 			autoFarmProfile.updatePlayer(null);
 			OfflineFarmManager.getInstance().onPlayerLogout(player);
 		}
@@ -192,10 +198,7 @@ public class AutoFarmManager
 				return;
 			
 			if (autoFarmProfile.isEnabled())
-			{
-				if (!autoFarmProfile.isDeathReturnEnabled())
-					stopPlayer(player, "You have died. Autofarm has been stopped.", false);
-			}
+				stopPlayer(player, "You have died. Autofarm has been stopped.", false);
 			
 			OfflineFarmManager.getInstance().onPlayerDeath(player);
 		}
@@ -311,7 +314,6 @@ public class AutoFarmManager
 			}
 			if (msg == null) autoFarmProfile.toggleItemPickup();	
 		}
-		else if (action.equals("return")) autoFarmProfile.toggleDeathReturn();
 		
 		showIndexWindow(player, msg);
 	}
@@ -961,6 +963,30 @@ public class AutoFarmManager
 		
 		html.replace("%autofarm_status_color%", isPremium ? "LEVEL" : "LEVEL");
 		
+		if (!Config.AUTOFARM_INFINITY)
+		{
+			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
+			if (isExempt)
+			{
+				html.replace("%cost_status%", "Premium (Isento)");
+			}
+			else
+			{
+				ItemInstance costItem = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
+				long count = costItem != null ? costItem.getCount() : 0;
+				String costItemName = costItem != null ? costItem.getName() : "Item";
+				long nextCostMs = autoFarmProfile.getTimeUntilNextCostConsume();
+				if (autoFarmProfile.isEnabled() && nextCostMs > 0)
+					html.replace("%cost_status%", count + "x " + costItemName + " (" + formatAutoFarmTime(nextCostMs) + ")");
+				else
+					html.replace("%cost_status%", count + "x " + costItemName);
+			}
+		}
+		else
+		{
+			html.replace("%cost_status%", "Gratis");
+		}
+		
 		String areaDisplay = "define";
 		if (autoFarmProfile.getSelectedAreaId() != 0) {
 			String name = StringUtil.trimAndDress(autoFarmProfile.getSelectedArea().getName(), 10);
@@ -986,7 +1012,6 @@ public class AutoFarmManager
 		
 		html.replace("%def_color%", autoFarmProfile.isDefensiveMode() ? "00FF00" : "LEVEL");
 		html.replace("%off_color%", autoFarmProfile.isOffensiveMode() ? "00FF00" : "LEVEL");
-		html.replace("%return%", autoFarmProfile.isDeathReturnEnabled() ? "checked" : "unchecked");
 		
 		html.replace("%alert%", msg != null ? HTMLData.getInstance().getHtm(player.getLocale(), HTML_PATH + "parts/index_alert.htm").replace("%msg%", escapeHtml(msg)) : "");
 		html.replace("%fix%", showingSkill ? "<img height=\"-6\">" : "");
@@ -1005,6 +1030,54 @@ public class AutoFarmManager
 		long minutes = (timeMs % (60 * 60 * 1000)) / (60 * 1000);
 		long seconds = (timeMs % (60 * 1000)) / 1000;
 		return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+	}
+	
+	public String formatAutoFarmTimePublic(long timeMs)
+	{
+		return formatAutoFarmTime(timeMs);
+	}
+	
+	public String getCostTimeMessage(Player player)
+	{
+		if (Config.AUTOFARM_INFINITY)
+			return "Gratis - Sem custo";
+		
+		if (Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0)
+			return "Premium - Sem custo";
+		
+		AutoFarmProfile profile = getProfile(player);
+		long remainingMs = profile.getTimeUntilNextCostConsume();
+		
+		if (remainingMs == 0)
+			return Config.AUTOFARM_COST_AMOUNT + "x " + getItemName(Config.AUTOFARM_COST_ITEM_ID) + " a cada " + Config.AUTOFARM_COST_INTERVAL_MINUTES + "min | Proximo consumo: agora";
+		
+		return Config.AUTOFARM_COST_AMOUNT + "x " + getItemName(Config.AUTOFARM_COST_ITEM_ID) + " | Restante: " + formatAutoFarmTime(remainingMs);
+	}
+	
+	private String getItemName(int itemId)
+	{
+		switch (itemId)
+		{
+			case 57: return "Adena";
+			case 1864: return "Spiritshot";
+			case 1865: return "Spiritshot";
+			case 1866: return "Spiritshot";
+			case 1867: return "Spiritshot";
+			case 1868: return "Spiritshot";
+			case 1869: return "Spiritshot";
+			case 1870: return "Spiritshot";
+			case 1871: return "Spiritshot";
+			case 3028: return "Blessed Spiritshot";
+			case 3029: return "Blessed Spiritshot";
+			case 3030: return "Blessed Spiritshot";
+			case 3031: return "Blessed Spiritshot";
+			case 3032: return "Blessed Spiritshot";
+			case 3033: return "Blessed Spiritshot";
+			case 3034: return "Blessed Spiritshot";
+			default:
+				ext.mods.gameserver.model.item.kind.Item item = ext.mods.gameserver.data.xml.ItemData.getInstance().getTemplate(itemId);
+				return item != null ? item.getName() : "Item";
+		}
 	}
 	
 	public void showZoneWindow(Player player)
@@ -1174,6 +1247,21 @@ public class AutoFarmManager
 			return;
 		}
 		
+		if (!Config.AUTOFARM_INFINITY)
+		{
+			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
+			if (!isExempt)
+			{
+				ItemInstance item = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
+				if (item == null || item.getCount() < Config.AUTOFARM_COST_AMOUNT)
+				{
+					String itemName = item != null ? item.getName() : "Item";
+					showIndexWindow(player, itemName + " insuficiente para AutoFarm!");
+					return;
+				}
+			}
+		}
+		
 		if (autoFarmProfile.getSelectedAreaId() == 0)
 		{
 			showIndexWindow(player, "It is necessary to select an area.");
@@ -1240,12 +1328,11 @@ public class AutoFarmManager
 		{
 			autoFarmProfile.getSelectedArea().getRouteZone().reset();
 		}
-		if (autoFarmProfile.getSelectedArea() != null)
-			autoFarmProfile.getSelectedArea().startDeathMonitor();
 		
 		autoFarmProfile.startTimeTracking();
 		
 		autoFarmProfile.setEnabled(true);
+		player.sendMessage("AutoFarm ativado. " + getCostTimeMessage(player));
 		autoFarmProfile.startRoutine();
 		
 		startTimeDisplay(player);

@@ -1058,7 +1058,6 @@ public final class Config
 	public static int[] AUTOFARM_HP_POTIONS;
 	public static int[] AUTOFARM_MP_POTIONS;
 	public static String AUTOFARM_PLAYER_NAME_COLOR;
-	public static boolean AUTOFARM_DEBUG_RETURN;
 	
 	public static boolean ENABLE_OFFLINE_FARM_COMMAND;
 	public static boolean OFFLINE_FARM_PREMIUM;
@@ -1075,6 +1074,11 @@ public final class Config
 	public static boolean IGNORE_RAID_MINIONS;
 	public static boolean IGNORE_AGATHIONS;
 	public static boolean IGNORE_CHESTS;
+	public static boolean AUTOFARM_INFINITY;
+	public static int AUTOFARM_COST_ITEM_ID;
+	public static int AUTOFARM_COST_INTERVAL_MINUTES;
+	public static int AUTOFARM_COST_AMOUNT;
+	public static boolean AUTOFARM_COST_EXEMPT_PREMIUM;
 	
 	public static boolean SELLBUFF_ENABLED;
 	public static int SELLBUFF_MP_MULTIPLER;
@@ -3016,7 +3020,6 @@ public final class Config
 		AUTOFARM_CHANGE_PLAYER_TITLE = rusacis.getProperty("ChangePlayerTitle", false);
 		AUTOFARM_CHANGE_PLAYER_NAME_COLOR = rusacis.getProperty("ChangePlayerNameColor", false);
 		AUTOFARM_PLAYER_NAME_COLOR = rusacis.getProperty("PlayerNameColor", "000000");
-		AUTOFARM_DEBUG_RETURN = rusacis.getProperty("DebugAutoFarmReturn", false);
 		
 		ENABLE_OFFLINE_FARM_COMMAND = rusacis.getProperty("EnableOfflineFarmCommand", true);
 		OFFLINE_FARM_PREMIUM = rusacis.getProperty("OfflineFarmPremium", false);
@@ -3033,6 +3036,11 @@ public final class Config
 		IGNORE_RAID_MINIONS = rusacis.getProperty("IgnoreRaidMinions", true);
 		IGNORE_AGATHIONS = rusacis.getProperty("IgnoreAgathions", true);
 		IGNORE_CHESTS = rusacis.getProperty("IgnoreChests", true);
+		AUTOFARM_INFINITY = rusacis.getProperty("AutoFarmInfinity", true);
+		AUTOFARM_COST_ITEM_ID = rusacis.getProperty("AutoFarmCostItemId", 57);
+		AUTOFARM_COST_INTERVAL_MINUTES = rusacis.getProperty("AutoFarmCostIntervalMinutes", 30);
+		AUTOFARM_COST_AMOUNT = rusacis.getProperty("AutoFarmCostAmount", 1);
+		AUTOFARM_COST_EXEMPT_PREMIUM = rusacis.getProperty("AutoFarmCostExemptPremium", true);
 		
 		SELLBUFF_ENABLED = rusacis.getProperty("SellBuffEnable", true);
 		SELLBUFF_MP_MULTIPLER = rusacis.getProperty("MpCostMultipler", 1);

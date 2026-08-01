@@ -74,9 +74,9 @@ public class AutoFarmProfile
 	
 	private long _dailyTimeUsed = 0;
 	private long _sessionStartTime = 0;
+	private long _costRemainingMs = 0;
 	
 	private boolean _useSpoilSweep = false;
-	private boolean _deathReturnEnabled = true;
 	
 	public AutoFarmProfile(Player player)
 	{
@@ -96,21 +96,6 @@ public class AutoFarmProfile
 	public void toggleSpoilSweep()
 	{
 		_useSpoilSweep = !_useSpoilSweep;
-	}
-	
-	public boolean isDeathReturnEnabled()
-	{
-		return _deathReturnEnabled;
-	}
-	
-	public void setDeathReturnEnabled(boolean enabled)
-	{
-		_deathReturnEnabled = enabled;
-	}
-	
-	public void toggleDeathReturn()
-	{
-		_deathReturnEnabled = !_deathReturnEnabled;
 	}
 	
 	public void updatePlayer(Player player)
@@ -638,6 +623,44 @@ public class AutoFarmProfile
 			AutoFarmData.getInstance().updatePlayerTimeUsage(_player.getObjectId(), _dailyTimeUsed);
 			_dailyTimeUsed = 0;
 		}
+	}
+	
+	public long getCostRemainingMs()
+	{
+		return _costRemainingMs;
+	}
+	
+	public void setCostRemainingMs(long ms)
+	{
+		_costRemainingMs = Math.max(0, ms);
+	}
+	
+	public void tickActiveTime(long deltaMs)
+	{
+		if (_costRemainingMs > 0)
+			_costRemainingMs = Math.max(0, _costRemainingMs - deltaMs);
+	}
+	
+	public boolean needsCostConsume()
+	{
+		if (Config.AUTOFARM_INFINITY)
+			return false;
+		
+		if (Config.AUTOFARM_COST_EXEMPT_PREMIUM && _player.getPremiumService() > 0)
+			return false;
+		
+		return _costRemainingMs <= 0;
+	}
+	
+	public long getTimeUntilNextCostConsume()
+	{
+		if (Config.AUTOFARM_INFINITY)
+			return -1;
+		
+		if (Config.AUTOFARM_COST_EXEMPT_PREMIUM && _player.getPremiumService() > 0)
+			return -1;
+		
+		return Math.max(0, _costRemainingMs);
 	}
 	
 	public Location getAnchorLocation()
