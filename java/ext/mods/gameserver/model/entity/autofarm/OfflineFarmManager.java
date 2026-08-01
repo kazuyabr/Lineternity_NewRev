@@ -65,10 +65,6 @@ public class OfflineFarmManager
 	{
 		if (player != null && player.isOfflineFarm())
 		{
-			final AutoFarmProfile profile = AutoFarmManager.getInstance().getPlayer(player.getObjectId());
-			if (profile != null && profile.isEnabled() && profile.isDeathReturnEnabled())
-				return;
-			
 			final OfflineFarmRoutine routine = _offlinePlayers.get(player);
 			if (routine != null)
 			{

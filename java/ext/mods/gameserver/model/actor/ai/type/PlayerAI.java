@@ -84,17 +84,6 @@ public class PlayerAI extends PlayableAI<Player>
     @Override
     protected void thinkIdle()
     {
-        final var profile = AutoFarmManager.getInstance().getPlayer(_actor.getObjectId());
-        if (profile != null)
-        {
-            final AutoFarmArea area = profile.getSelectedArea();
-            if (area != null && area.isHandlingDeath())
-            {
-                if (Config.AUTOFARM_DEBUG_RETURN)
-                    LOGGER.info("[PlayerAI][DeathReturn] thinkIdle() skip super.thinkIdle() (Creature.getMove().stop()): AutoFarmArea.isHandlingDeath() true");
-                return;
-            }
-        }
         super.thinkIdle();
     }
     
