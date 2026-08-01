@@ -391,9 +391,6 @@ public class AutoFarmRoutine
 		{
 			if (currentTarget != null)
 			{
-				final AutoFarmArea area = _autoFarmProfile.getSelectedArea();
-				if (area != null)
-					area.updateLastKilledMonsterLocation(currentTarget.getPosition());
 				player.setTarget(null);
 			}
 			

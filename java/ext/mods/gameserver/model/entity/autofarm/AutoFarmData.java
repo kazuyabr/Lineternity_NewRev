@@ -51,6 +51,8 @@ public class AutoFarmData
 	
 	private static final String LOAD_TIME_USAGE = "SELECT time_used FROM autofarm_player_data WHERE player_id = ?";
 	private static final String UPDATE_TIME_USAGE = "INSERT INTO autofarm_player_data (player_id, time_used) VALUES (?, ?) ON DUPLICATE KEY UPDATE time_used = ?";
+	private static final String UPDATE_COST_TIME = "INSERT INTO autofarm_player_data (player_id, cost_time) VALUES (?, ?) ON DUPLICATE KEY UPDATE cost_time = ?";
+	private static final String LOAD_COST_TIME = "SELECT cost_time FROM autofarm_player_data WHERE player_id = ?";
 	
 	public void restorePlayer(Player player)
 	{
@@ -282,6 +284,43 @@ public class AutoFarmData
         }
         return 0;
     }
+	
+	public void updatePlayerCostTime(int playerId, long costTime)
+	{
+		try (Connection con = ConnectionPool.getConnection();
+			PreparedStatement ps = con.prepareStatement(UPDATE_COST_TIME))
+		{
+			ps.setInt(1, playerId);
+			ps.setLong(2, costTime);
+			ps.setLong(3, costTime);
+			ps.execute();
+		}
+		catch (Exception e)
+		{
+			LOGGER.error("Erro ao salvar cost_time de autofarm: " + e.getMessage(), e);
+		}
+	}
+	
+	public long loadPlayerCostTime(int playerId)
+	{
+		try (Connection con = ConnectionPool.getConnection();
+			PreparedStatement ps = con.prepareStatement(LOAD_COST_TIME))
+		{
+			ps.setInt(1, playerId);
+			try (ResultSet rs = ps.executeQuery())
+			{
+				if (rs.next())
+				{
+					return rs.getLong("cost_time");
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			LOGGER.error("Erro ao carregar cost_time de autofarm: " + e.getMessage(), e);
+		}
+		return 0;
+	}
 	
 	public static final AutoFarmData getInstance()
 	{

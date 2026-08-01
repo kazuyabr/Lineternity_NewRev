@@ -66,35 +66,42 @@ public class AdminPremium implements IAdminCommandHandler
 			
 			final String action = st.nextToken();
 			
-			final String accName = st.hasMoreTokens() ? st.nextToken() : null;
+			// Salva posicao do tokenizer antes de resolver account name
+			// Se resolveAccountName consumir um token numerico (ex: "1" do mes),
+			// precisamos restaurar para que o switch case possa ler o mes
+			String remainingTokens = "";
+			while (st.hasMoreTokens())
+				remainingTokens += st.nextToken() + (st.hasMoreTokens() ? " " : "");
+			final String savedRemaining = remainingTokens;
 			
-			if (accName == null || accName.isEmpty())
+			StringTokenizer stResolve = new StringTokenizer(remainingTokens);
+			final String accName = resolveAccountName(player, stResolve);
+			
+			if (accName == null)
 			{
-				player.sendMessage(player.getSysString(10_094));
+				player.sendMessage("Impossible to add premium without account name or target.");
 				return;
 			}
 			
-			try
-			{
-				Integer.parseInt(accName);
-				player.sendMessage(player.getSysString(10_094));
-				return;
-			}
-			catch (NumberFormatException e)
-			{
-			}
+			// Se resolveAccountName consumiu um token numerico, restaura o tokenizer original
+			// para que o switch case possa ler o valor (mes/dia/hora/ano)
+			StringTokenizer stSwitch;
+			if (stResolve.hasMoreTokens())
+				stSwitch = stResolve;
+			else
+				stSwitch = new StringTokenizer(savedRemaining);
 			
 			switch (action)
 			{
 				case "add":
 					try
 					{
-						if (!st.hasMoreTokens())
+						if (!stSwitch.hasMoreTokens())
 						{
 							player.sendMessage(player.getSysString(10_095));
 							return;
 						}
-						final int month = Integer.parseInt(st.nextToken());
+						final int month = Integer.parseInt(stSwitch.nextToken());
 						addPremiumServices(player, month, accName);
 					}
 					catch (NumberFormatException e)
@@ -105,12 +112,12 @@ public class AdminPremium implements IAdminCommandHandler
 				case "add2":
 					try
 					{
-						if (!st.hasMoreTokens())
+						if (!stSwitch.hasMoreTokens())
 						{
 							player.sendMessage(player.getSysString(10_096));
 							return;
 						}
-						final int dayOfmonth = Integer.parseInt(st.nextToken());
+						final int dayOfmonth = Integer.parseInt(stSwitch.nextToken());
 						addPremiumServices2(player, dayOfmonth, accName);
 					}
 					catch (NumberFormatException e)
@@ -121,12 +128,12 @@ public class AdminPremium implements IAdminCommandHandler
 				case "add3":
 					try
 					{
-						if (!st.hasMoreTokens())
+						if (!stSwitch.hasMoreTokens())
 						{
 							player.sendMessage(player.getSysString(10_097));
 							return;
 						}
-						final int hourOfDay = Integer.parseInt(st.nextToken());
+						final int hourOfDay = Integer.parseInt(stSwitch.nextToken());
 						addPremiumServices3(player, hourOfDay, accName);
 					}
 					catch (NumberFormatException e)
@@ -137,12 +144,12 @@ public class AdminPremium implements IAdminCommandHandler
 				case "add4":
 					try
 					{
-						if (!st.hasMoreTokens())
+						if (!stSwitch.hasMoreTokens())
 						{
 							player.sendMessage(player.getSysString(12_041));
 							return;
 						}
-						final int year = Integer.parseInt(st.nextToken());
+						final int year = Integer.parseInt(stSwitch.nextToken());
 						addPremiumServices4(player, year, accName);
 					}
 					catch (NumberFormatException e)
@@ -159,9 +166,38 @@ public class AdminPremium implements IAdminCommandHandler
 		}
 		else if (command.startsWith("admin_premium_remove"))
 		{
-			final String accName = st.hasMoreTokens() ? st.nextToken() : null;
+			final String accName = resolveAccountName(player, st);
+			
+			if (accName == null)
+			{
+				player.sendMessage("Impossible to remove premium without account name or target.");
+				return;
+			}
+			
 			removePremiumServices(player, accName);
 		}
+	}
+	
+	private String resolveAccountName(Player player, StringTokenizer st)
+	{
+		String accName = st.hasMoreTokens() ? st.nextToken() : null;
+		
+		if (accName != null && !accName.isEmpty())
+		{
+			try
+			{
+				Integer.parseInt(accName);
+			}
+			catch (NumberFormatException e)
+			{
+				return accName;
+			}
+		}
+		
+		if (player.getTarget() instanceof Player target)
+			return target.getAccountName();
+		
+		return null;
 	}
 	
 	private static void addPremiumServices(Player player, int field, int value, String accName)

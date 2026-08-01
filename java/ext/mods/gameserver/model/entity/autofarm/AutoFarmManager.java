@@ -912,17 +912,21 @@ public class AutoFarmManager
 		
 		if (autoFarmProfile.isEnabled())
 		{
-			html.replace("%remaining_time%", autoFarmProfile.getEndTime() != 0 ? (TimeUnit.MILLISECONDS.toMinutes(autoFarmProfile.getFinalEndTime() - System.currentTimeMillis()) + " min") : "0 min");
-			html.replace("%end_time%", autoFarmProfile.getEndTime() != 0 ? new SimpleDateFormat("HH:mm:ss").format(autoFarmProfile.getFinalEndTime()) : "00:00:00");
-			html.replace("%start_time%", new SimpleDateFormat("HH:mm:ss").format(autoFarmProfile.getStartTime()));
+			if (!Config.AUTOFARM_INFINITY)
+			{
+				long nextCostMs = autoFarmProfile.getTimeUntilNextCostConsume();
+				html.replace("%cost_time_display%", nextCostMs > 0 ? formatAutoFarmTime(nextCostMs) : "00:00:00");
+			}
+			else
+			{
+				html.replace("%cost_time_display%", "--:--:--");
+			}
 			html.replace("%status_color%", "00FF00");
 			html.replace("%status%", "ON");
 		}
 		else
 		{
-			html.replace("%remaining_time%", "0 min");
-			html.replace("%end_time%", "00:00:00");
-			html.replace("%start_time%", "00:00:00");
+			html.replace("%cost_time_display%", "--:--:--");
 			html.replace("%status_color%", "FF0000");
 			html.replace("%status%", "OFF");
 		}
@@ -1403,8 +1407,6 @@ public class AutoFarmManager
 				}
 				
 				ZoneBuilder.getInstance().clearAllPreview(player);
-				if (autoFarmProfile.getSelectedArea() != null)
-					autoFarmProfile.getSelectedArea().stopDeathMonitor();
 				autoFarmProfile.setEnabled(false);
 			}
 			
