@@ -753,13 +753,7 @@ public class AutoFarmRoutine
 			.filter(m -> _autoFarmProfile.getTargets().isEmpty() || _autoFarmProfile.getTargets().contains(m.getName()))
 			.filter(m -> player.distance3D(m) <= range)
 			.sorted(Comparator.comparingDouble(m -> player.distance3D(m)))
-			.filter(monster -> {
-				if (!MovementIntegration.canSeeTargetForAutoFarm(player, monster))
-				{
-					return canReachTargetWithPathfinding(player, monster);
-				}
-				return true;
-			})
+			.filter(monster -> MovementIntegration.canSeeTargetForAutoFarm(player, monster))
 			.findFirst()
 			.orElse(null);
 	}
@@ -1451,15 +1445,6 @@ public class AutoFarmRoutine
 				{
 					boolean canSpoil = MovementIntegration.canSeeTargetForAutoFarm(player, target);
 					
-					if (!canSpoil && spoilDist2D < 150)
-					{
-						final int heightDiff = Math.abs(player.getZ() - target.getZ());
-						if (heightDiff < 150)
-						{
-							canSpoil = true;
-						}
-					}
-					
 					if (canSpoil)
 					{
 						setIntention(player, IntentionType.CAST, spoilSkill, target);
@@ -1699,7 +1684,7 @@ public class AutoFarmRoutine
 		{
 			player.getMove().stop();
 			
-			if (dist2D > 200 && !MovementIntegration.canSeeTarget(player, target))
+			if (!MovementIntegration.canSeeTarget(player, target))
 			{
 				if (tryPathfindingAroundObstacle(player, target))
 				{
@@ -1715,9 +1700,9 @@ public class AutoFarmRoutine
 					return;
 				}
 				
-				moveToAttackPosition(player, target, bowRange);
-				setIntention(player, IntentionType.ATTACK, target);
-				sendAdminMessage(player, "Bow: Cannot attack through obstacle, moving to attack position");
+				sendAdminMessage(player, "Bow: No LoS - marking unreachable");
+				markAsUnreachable(target.getObjectId());
+				player.setTarget(null);
 				return;
 			}
 			
@@ -2047,9 +2032,7 @@ public class AutoFarmRoutine
 		}
 		
 		player.getMove().stop();
-		final boolean canSee = dist2D > 200
-			? MovementIntegration.canSeeTarget(player, target)
-			: MovementIntegration.canSeeTargetForAutoFarm(player, target);
+		final boolean canSee = MovementIntegration.canSeeTarget(player, target);
 		
 		if (!canSee)
 		{
@@ -2067,9 +2050,9 @@ public class AutoFarmRoutine
 				return;
 			}
 			
-			moveToAttackPosition(player, target, attackRange);
-			setIntention(player, IntentionType.ATTACK, target);
-			sendAdminMessage(player, "Melee: Repositioning for LoS");
+			sendAdminMessage(player, "Melee: No LoS - marking unreachable");
+			markAsUnreachable(target.getObjectId());
+			player.setTarget(null);
 			return;
 		}
 		
@@ -4188,62 +4171,6 @@ public class AutoFarmRoutine
 	 */
 	private boolean checkLineOfSightForAttack(Player player, Creature target, double dist2D)
 	{
-		if (dist2D < 100)
-		{
-			boolean canSee = MovementIntegration.canSeeTargetForAutoFarm(player, target);
-			
-			if (!canSee)
-			{
-				final int heightDiff = Math.abs(player.getZ() - target.getZ());
-				final double dist3D = Math.sqrt(dist2D * dist2D + heightDiff * heightDiff);
-				
-				if (dist3D < 250 && heightDiff < 200)
-				{
-					if (MovementIntegration.canMoveToTargetForAutoFarm(
-						player.getX(), player.getY(), player.getZ(),
-						target.getX(), target.getY(), target.getZ()))
-					{
-						return true;
-					}
-				}
-			}
-			
-			if (!canSee && isMeleeDebug(player))
-			{
-				LOGGER.info("[MeleeDebug] LoS: blocked player={} target={} dist2D={}",
-					player.getObjectId(), target.getObjectId(), dist2D);
-			}
-			return canSee;
-		}
-		
-		if (dist2D < 200)
-		{
-			boolean canSee = MovementIntegration.canSeeTargetForAutoFarm(player, target);
-			
-			if (!canSee)
-			{
-				final int heightDiff = Math.abs(player.getZ() - target.getZ());
-				final double dist3D = Math.sqrt(dist2D * dist2D + heightDiff * heightDiff);
-				
-				if (dist3D < 250 && heightDiff < 200)
-				{
-					if (MovementIntegration.canMoveToTargetForAutoFarm(
-						player.getX(), player.getY(), player.getZ(),
-						target.getX(), target.getY(), target.getZ()))
-					{
-						return true;
-					}
-				}
-			}
-			
-			if (!canSee && isMeleeDebug(player))
-			{
-				LOGGER.info("[MeleeDebug] LoS: blocked player={} target={} dist2D={}",
-					player.getObjectId(), target.getObjectId(), dist2D);
-			}
-			return canSee;
-		}
-		
 		return MovementIntegration.canSeeTarget(player, target);
 	}
 	
