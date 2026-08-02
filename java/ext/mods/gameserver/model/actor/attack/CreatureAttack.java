@@ -103,7 +103,7 @@ public class CreatureAttack<T extends Creature> {
             return false;
         }
 
-        if (_actor instanceof Player && Config.SISTEMA_PATHFINDING) {
+        if (_actor instanceof Playable && Config.SISTEMA_PATHFINDING) {
             if (!MovementIntegration.canSeeTarget(_actor, target)) {
                 _actor.sendPacket(SystemMessage.getSystemMessage(SystemMessageId.CANT_SEE_TARGET));
                 return false;

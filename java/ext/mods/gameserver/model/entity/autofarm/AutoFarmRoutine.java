@@ -1457,8 +1457,11 @@ public class AutoFarmRoutine
 		
 		if (_autoFarmProfile.attackSummon() && player.getSummon() != null)
 		{
-			player.getSummon().setTarget(target);
-			player.getSummon().getAI().tryToAttack(target);
+			if (MovementIntegration.canSeeTarget(player.getSummon(), target))
+			{
+				player.getSummon().setTarget(target);
+				player.getSummon().getAI().tryToAttack(target);
+			}
 		}
 		
 		final double dist = player.distance3D(target);
