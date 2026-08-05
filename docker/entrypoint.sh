@@ -83,13 +83,17 @@ import_sql() {
     local sql_file=$6
     
     if [ ! -f "$sql_file" ]; then
-        echo "  AVISO: Arquivo SQL não encontrado: $sql_file"
+        echo "  ERRO: Arquivo SQL não encontrado: $sql_file"
         return 1
     fi
     
-    echo "  Importando: $sql_file -> $db_name"
-    mysql -h "$host" -P "$port" -u "$user" -p"$pass" --skip-ssl "$db_name" < "$sql_file"
-    echo "  Importação concluída!"
+    echo "  Importando: $(basename "$sql_file") -> $db_name"
+    if mysql -h "$host" -P "$port" -u "$user" -p"$pass" --skip-ssl "$db_name" < "$sql_file" 2>&1; then
+        echo "  OK: $(basename "$sql_file") importado!"
+    else
+        echo "  ERRO ao importar $sql_file"
+        return 1
+    fi
 }
 
 # --- Função para verificar se database tem tabelas ---
@@ -413,8 +417,11 @@ if [ "$START_TYPE" = "login" ]; then
     
     # Importar schema se database estiver vazio
     if ! database_has_tables "$DB_HOST_VAL" "$DB_PORT_VAL" "$DB_USER_VAL" "$DB_PASSWORD_VAL" "$LOGIN_DB"; then
-        echo "Database vazio, importando schema..."
-        import_sql "$DB_HOST_VAL" "$DB_PORT_VAL" "$DB_USER_VAL" "$DB_PASSWORD_VAL" "$LOGIN_DB" "/lineternity/sql/login.sql"
+        echo "Database vazio, importando schema de tools/sql/..."
+        for sql_file in accounts.sql gameservers.sql hwid.sql account_premium.sql; do
+            import_sql "$DB_HOST_VAL" "$DB_PORT_VAL" "$DB_USER_VAL" "$DB_PASSWORD_VAL" "$LOGIN_DB" "/lineternity/tools/sql/$sql_file"
+        done
+        echo "Schema login importado com sucesso!"
     else
         echo "Database já contém tabelas, pulando importação."
     fi

@@ -49,7 +49,7 @@ public final class ServerList extends L2LoginServerPacket
 		for (GameServerInfo gsi : GameServerManager.getInstance().getRegisteredGameServers().values())
 		{
 			final ServerType type = (account.getAccessLevel() < 0 || (gsi.getType() == ServerType.GM_ONLY && account.getAccessLevel() <= 0)) ? ServerType.DOWN : gsi.getType();
-			final String hostName = (isLocalIp(account.getClientIp()) && gsi.getGameServerThread() != null) ? gsi.getGameServerThread().getConnectionIp() : gsi.getHostName();
+			final String hostName = gsi.getHostName();
 			
 			if (Config.PROXY)
 			{
