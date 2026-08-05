@@ -197,22 +197,12 @@ public class AutoFarmRoutine
 			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
 			if (!isExempt)
 			{
-				_autoFarmProfile.tickActiveTime(400);
-				if (_autoFarmProfile.needsCostConsume())
-				{
-					ItemInstance item = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
-					if (item == null || item.getCount() < Config.AUTOFARM_COST_AMOUNT)
-					{
-						String itemName = item != null ? item.getName() : "Item";
-						stop(itemName + " insuficiente para AutoFarm! Desligando...");
-						return;
-					}
-					player.destroyItemByItemId(Config.AUTOFARM_COST_ITEM_ID, Config.AUTOFARM_COST_AMOUNT, true);
-					_autoFarmProfile.setCostRemainingMs(java.util.concurrent.TimeUnit.MINUTES.toMillis(Config.AUTOFARM_COST_INTERVAL_MINUTES));
-					AutoFarmData.getInstance().updatePlayerCostTime(player.getObjectId(), _autoFarmProfile.getCostRemainingMs());
-					String consumedName = item.getName();
-					player.sendMessage("AutoFarm: " + Config.AUTOFARM_COST_AMOUNT + "x " + consumedName + " consumido. Restante: " + AutoFarmManager.getInstance().formatAutoFarmTimePublic(_autoFarmProfile.getCostRemainingMs()));
-				}
+				_autoFarmProfile.setCostRemainingMs(Math.max(0, _autoFarmProfile.getCostRemainingMs() - 400));
+			}
+			if (!isExempt && _autoFarmProfile.getCostRemainingMs() <= 0)
+			{
+				stop("Tempo esgotado! Adicione tempo no menu.");
+				return;
 			}
 		}
 		

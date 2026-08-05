@@ -77,6 +77,7 @@ public class AutoFarmProfile
 	private long _costRemainingMs = 0;
 	
 	private boolean _useSpoilSweep = false;
+	private boolean _viewingIndex = false;
 	
 	public AutoFarmProfile(Player player)
 	{
@@ -96,6 +97,16 @@ public class AutoFarmProfile
 	public void toggleSpoilSweep()
 	{
 		_useSpoilSweep = !_useSpoilSweep;
+	}
+	
+	public boolean isViewingIndex()
+	{
+		return _viewingIndex;
+	}
+	
+	public void setViewingIndex(boolean viewing)
+	{
+		_viewingIndex = viewing;
 	}
 	
 	public void updatePlayer(Player player)
@@ -635,10 +646,9 @@ public class AutoFarmProfile
 		_costRemainingMs = Math.max(0, ms);
 	}
 	
-	public void tickActiveTime(long deltaMs)
+	public void addTime(long ms)
 	{
-		if (_costRemainingMs > 0)
-			_costRemainingMs = Math.max(0, _costRemainingMs - deltaMs);
+		_costRemainingMs = Math.max(0, _costRemainingMs + ms);
 	}
 	
 	public boolean needsCostConsume()
