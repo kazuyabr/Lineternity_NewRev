@@ -131,6 +131,12 @@ public class AutoFarmManager
 		long timeUsed = AutoFarmData.getInstance().loadPlayerTimeUsage(player.getObjectId());
 		autoFarmProfile.setDailyTimeUsed(timeUsed);
 		long costTime = AutoFarmData.getInstance().loadPlayerCostTime(player.getObjectId());
+		long maxValidMs = Config.AUTOFARM_COST_INTERVAL_MINUTES * 60L * 1000 * 2;
+		if (costTime > maxValidMs)
+		{
+			costTime = Config.AUTOFARM_COST_INTERVAL_MINUTES * 60L * 1000;
+			AutoFarmData.getInstance().updatePlayerCostTime(player.getObjectId(), costTime);
+		}
 		autoFarmProfile.setCostRemainingMs(costTime);
 	}
 	
@@ -142,13 +148,13 @@ public class AutoFarmManager
 			if (autoFarmProfile == null)
 				return;
 			
+			stopTimeDisplay(player);
 			long totalTimeUsed = autoFarmProfile.getDailyTimeUsed();
 			
 			if (autoFarmProfile.isEnabled())
 			{
 				autoFarmProfile.stopTimeTracking();
 				totalTimeUsed = autoFarmProfile.getCurrentSessionTime() + autoFarmProfile.getDailyTimeUsed();
-				stopTimeDisplay(player);
 				
 				if (player.isOnline())
 				{
@@ -231,9 +237,16 @@ public class AutoFarmManager
 			if (!bypass.startsWith("zb addnode") && !bypass.startsWith("zb lock_new_nodes"))
 				autoFarmProfile.setAddingLocation(false);
 			
+			if (!command.equals("index"))
+			{
+				autoFarmProfile.setViewingIndex(false);
+				stopTimeDisplay(player);
+			}
+			
 			if (command.equals("index"))
 			{
 				autoFarmProfile.checkLastClassId();
+				startTimeDisplay(player);
 				showIndexWindow(player, null);
 			}
 			else if (command.equals("list_areas"))
@@ -271,6 +284,10 @@ public class AutoFarmManager
 					stopPlayer(player, null);
 				else
 					startPlayer(player);
+			}
+			else if (command.equals("add_time"))
+			{
+				handleAddTimeBypass(player, autoFarmProfile);
 			}
 		}
 		catch (Exception e)
@@ -316,6 +333,40 @@ public class AutoFarmManager
 		}
 		
 		showIndexWindow(player, msg);
+	}
+	
+	private void handleAddTimeBypass(Player player, AutoFarmProfile autoFarmProfile)
+	{
+		if (Config.AUTOFARM_INFINITY)
+		{
+			showIndexWindow(player, null);
+			return;
+		}
+		
+		boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
+		if (isExempt)
+		{
+			showIndexWindow(player, null);
+			return;
+		}
+		
+		ItemInstance item = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
+		if (item == null || item.getCount() < Config.AUTOFARM_COST_AMOUNT)
+		{
+			String itemName = getItemName(Config.AUTOFARM_COST_ITEM_ID);
+			showIndexWindow(player, "Necessario " + Config.AUTOFARM_COST_AMOUNT + "x " + itemName);
+			return;
+		}
+		
+		player.destroyItemByItemId(Config.AUTOFARM_COST_ITEM_ID, Config.AUTOFARM_COST_AMOUNT, true);
+		
+		long addedMs = java.util.concurrent.TimeUnit.MINUTES.toMillis(Config.AUTOFARM_COST_INTERVAL_MINUTES);
+		autoFarmProfile.addTime(addedMs);
+		AutoFarmData.getInstance().updatePlayerCostTime(player.getObjectId(), autoFarmProfile.getCostRemainingMs());
+		
+		long totalMs = autoFarmProfile.getCostRemainingMs();
+		player.sendMessage("AutoFarm: +" + Config.AUTOFARM_COST_INTERVAL_MINUTES + " min adicionado! Tempo total: " + formatAutoFarmTimePublic(totalMs));
+		showIndexWindow(player, "+" + Config.AUTOFARM_COST_INTERVAL_MINUTES + " min adicionado!");
 	}
 	
 	
@@ -910,23 +961,24 @@ public class AutoFarmManager
 			}
 		}
 		
+		if (!Config.AUTOFARM_INFINITY)
+		{
+			long remainingMs = autoFarmProfile.getCostRemainingMs();
+			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
+			html.replace("%cost_time_display%", isExempt ? "Ilimitado" : formatAutoFarmTime(remainingMs));
+		}
+		else
+		{
+			html.replace("%cost_time_display%", "Ilimitado");
+		}
+		
 		if (autoFarmProfile.isEnabled())
 		{
-			if (!Config.AUTOFARM_INFINITY)
-			{
-				long nextCostMs = autoFarmProfile.getTimeUntilNextCostConsume();
-				html.replace("%cost_time_display%", nextCostMs > 0 ? formatAutoFarmTime(nextCostMs) : "00:00:00");
-			}
-			else
-			{
-				html.replace("%cost_time_display%", "--:--:--");
-			}
 			html.replace("%status_color%", "00FF00");
 			html.replace("%status%", "ON");
 		}
 		else
 		{
-			html.replace("%cost_time_display%", "--:--:--");
 			html.replace("%status_color%", "FF0000");
 			html.replace("%status%", "OFF");
 		}
@@ -972,23 +1024,22 @@ public class AutoFarmManager
 			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
 			if (isExempt)
 			{
-				html.replace("%cost_status%", "Premium (Isento)");
+				html.replace("%cost_status%", "<font color=\"LEVEL\">PREMIUM</font> <font color=\"00FF00\">ISENTO</font>");
+				html.replace("%add_time_button%", "");
 			}
 			else
 			{
 				ItemInstance costItem = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
 				long count = costItem != null ? costItem.getCount() : 0;
-				String costItemName = costItem != null ? costItem.getName() : "Item";
-				long nextCostMs = autoFarmProfile.getTimeUntilNextCostConsume();
-				if (autoFarmProfile.isEnabled() && nextCostMs > 0)
-					html.replace("%cost_status%", count + "x " + costItemName + " (" + formatAutoFarmTime(nextCostMs) + ")");
-				else
-					html.replace("%cost_status%", count + "x " + costItemName);
+				String costItemName = getItemName(Config.AUTOFARM_COST_ITEM_ID);
+				html.replace("%cost_status%", "<font color=\"LEVEL\">" + Config.AUTOFARM_COST_AMOUNT + "x " + costItemName + "</font> = +<font color=\"00FF00\">" + Config.AUTOFARM_COST_INTERVAL_MINUTES + " min</font>");
+				html.replace("%add_time_button%", "<button value=\"Add Time\" action=\"bypass autofarm add_time\" width=75 height=21 back=\"L2UI_ch3.Btn1_normalOn\" fore=\"L2UI_ch3.Btn1_normal\">");
 			}
 		}
 		else
 		{
 			html.replace("%cost_status%", "Gratis");
+			html.replace("%add_time_button%", "");
 		}
 		
 		String areaDisplay = "define";
@@ -1030,10 +1081,30 @@ public class AutoFarmManager
 		if (timeMs == Long.MAX_VALUE)
 			return "Ilimitado";
 		
-		long hours = timeMs / (60 * 60 * 1000);
+		if (timeMs <= 0)
+			return "0s";
+		
+		long years = timeMs / (365L * 24 * 60 * 60 * 1000);
+		long months = (timeMs % (365L * 24 * 60 * 60 * 1000)) / (30L * 24 * 60 * 60 * 1000);
+		long days = (timeMs % (30L * 24 * 60 * 60 * 1000)) / (24L * 60 * 60 * 1000);
+		long hours = (timeMs % (24L * 60 * 60 * 1000)) / (60 * 60 * 1000);
 		long minutes = (timeMs % (60 * 60 * 1000)) / (60 * 1000);
 		long seconds = (timeMs % (60 * 1000)) / 1000;
-		return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+		
+		boolean showSeconds = years == 0 && months == 0 && days == 0 && hours == 0;
+		
+		StringBuilder sb = new StringBuilder();
+		if (years > 0) sb.append(years).append("a ");
+		if (months > 0) sb.append(months).append("m ");
+		if (days > 0) sb.append(days).append("d ");
+		if (hours > 0) sb.append(hours).append("h ");
+		if (minutes > 0) sb.append(minutes).append("m ");
+		if (showSeconds && seconds > 0) sb.append(seconds).append("s");
+		
+		if (sb.length() == 0)
+			return "0s";
+		
+		return sb.toString().trim();
 	}
 	
 	public String formatAutoFarmTimePublic(long timeMs)
@@ -1050,12 +1121,12 @@ public class AutoFarmManager
 			return "Premium - Sem custo";
 		
 		AutoFarmProfile profile = getProfile(player);
-		long remainingMs = profile.getTimeUntilNextCostConsume();
+		long remainingMs = profile.getCostRemainingMs();
 		
-		if (remainingMs == 0)
-			return Config.AUTOFARM_COST_AMOUNT + "x " + getItemName(Config.AUTOFARM_COST_ITEM_ID) + " a cada " + Config.AUTOFARM_COST_INTERVAL_MINUTES + "min | Proximo consumo: agora";
+		if (remainingMs <= 0)
+			return "Sem tempo! Use Add Time para adicionar.";
 		
-		return Config.AUTOFARM_COST_AMOUNT + "x " + getItemName(Config.AUTOFARM_COST_ITEM_ID) + " | Restante: " + formatAutoFarmTime(remainingMs);
+		return "Restante: " + formatAutoFarmTime(remainingMs);
 	}
 	
 	private String getItemName(int itemId)
@@ -1254,15 +1325,10 @@ public class AutoFarmManager
 		if (!Config.AUTOFARM_INFINITY)
 		{
 			boolean isExempt = Config.AUTOFARM_COST_EXEMPT_PREMIUM && player.getPremiumService() > 0;
-			if (!isExempt)
+			if (!isExempt && autoFarmProfile.getCostRemainingMs() <= 0)
 			{
-				ItemInstance item = player.getInventory().getItemByItemId(Config.AUTOFARM_COST_ITEM_ID);
-				if (item == null || item.getCount() < Config.AUTOFARM_COST_AMOUNT)
-				{
-					String itemName = item != null ? item.getName() : "Item";
-					showIndexWindow(player, itemName + " insuficiente para AutoFarm!");
-					return;
-				}
+				showIndexWindow(player, "Adicione tempo primeiro! Clique em Add Time.");
+				return;
 			}
 		}
 		
@@ -1386,7 +1452,6 @@ public class AutoFarmManager
 			{
 				autoFarmProfile.stopTimeTracking();
 				totalTimeUsed = autoFarmProfile.getCurrentSessionTime() + autoFarmProfile.getDailyTimeUsed();
-				stopTimeDisplay(player);
 				
 				if (player.isOnline())
 				{
@@ -1462,20 +1527,16 @@ public class AutoFarmManager
 			if (player.isOnline())
 			{
 				final AutoFarmProfile profile = getProfile(player);
-				if (profile.isEnabled())
+				if (profile != null && profile.isViewingIndex())
 				{
-					showTimeRemaining(player);
-				}
-				else
-				{
-					stopTimeDisplay(player);
+					showIndexWindow(player, null);
 				}
 			}
 			else
 			{
 				stopTimeDisplay(player);
 			}
-		}, 1000, 1000);
+		}, 3000, 3000);
 		
 		_screenMessageTasks.put(player.getObjectId(), task);
 	}

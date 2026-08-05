@@ -20,17 +20,6 @@
 <br>
 <table>
     <tr>
-        <td width=40>
-            Стоимость
-        </td>
-        <td>
-            <font color="WHITE">%cost_status%</font>
-        </td>
-    </tr>
-</table>
-<br>
-<table>
-    <tr>
         <td width=5></td>
         <td>
             <img src="l2ui.SquareWhite" width=268 height=1>
@@ -38,16 +27,19 @@
     </tr>
 </table>
 <br>
-<table>
+<table width=270>
     <tr>
-        <td></td>
-        <td>
-            <button action="bypass -h autofarm index" width=14 height=16 back=L2UI_CH3.fishing_clockicon fore=L2UI_CH3.fishing_clockicon>
+        <td width=20 align=center>
+            <button action="bypass -h autofarm index" width=16 height=16 back=L2UI_CH3.fishing_clockicon fore=L2UI_CH3.fishing_clockicon>
         </td>
-        <td></td>
-        <td width=90>
-            Осталось: %cost_time_display%
-        </td>
+        <td width=250>Осталось: <font color="LEVEL">%cost_time_display%</font></td>
+    </tr>
+</table>
+<table width=270>
+    <tr>
+        <td width=40>Затраты:</td>
+        <td width=155>%cost_status%</td>
+        <td width=75>%add_time_button%</td>
     </tr>
 </table>
 %alert%
