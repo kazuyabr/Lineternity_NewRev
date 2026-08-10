@@ -52,6 +52,7 @@ import ext.mods.security.services.DatabaseManager;
 import ext.mods.commons.gui.services.ProcessManagerService;
 import ext.mods.commons.services.IRamAllocationService;
 import ext.mods.commons.services.RamAllocationService;
+import ext.mods.commons.util.JavaProcessInspector;
 import ext.mods.security.services.IRatesManager;
 import ext.mods.security.services.RatesManager;
 
@@ -135,6 +136,7 @@ public class MainFrame {
             showLoginPanel();
         }
 
+        warnAboutOrphanJavaProcesses();
         frame.setVisible(true);
     }
     
@@ -234,6 +236,31 @@ public class MainFrame {
         if (!icons.isEmpty()) frame.setIconImages(icons);
     }
     
+    private void warnAboutOrphanJavaProcesses() {
+        try {
+            java.util.List<JavaProcessInspector.JavaProcessInfo> zombies =
+                JavaProcessInspector.findBrProjectProcesses();
+            if (zombies.isEmpty()) return;
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("<html><body style='width:480px'>");
+            sb.append("<b>").append(zombies.size()).append(" processo(s) Java do BR Project ja estao em execucao:</b><br><br>");
+            for (JavaProcessInspector.JavaProcessInfo p : zombies) {
+                sb.append("&bull; PID ").append(p.pid)
+                  .append(" - ").append(p.type.getLabel()).append("<br>");
+            }
+            sb.append("<br>Isso pode impedir a inicializacao correta de novos servidores.<br>");
+            sb.append("Feche-os pelo Gerenciador de Tarefas ou execute no CMD:<br>");
+            sb.append("<code>taskkill /F /IM java.exe</code>");
+            sb.append("</body></html>");
+
+            JOptionPane.showMessageDialog(frame, sb.toString(),
+                "Processos Java em execucao", JOptionPane.WARNING_MESSAGE);
+        } catch (Exception ignored) {
+            // nunca quebra o startup por causa de inspecao de processos
+        }
+    }
+
     public void playServerLoadedSoundStart() { playSound("Start.wav"); }
     public void playServerLoadedSoundLogout() { playSound("Shutdown.wav"); }
 

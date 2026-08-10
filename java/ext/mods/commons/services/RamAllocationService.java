@@ -28,7 +28,7 @@ public class RamAllocationService implements IRamAllocationService {
 
     private static final Preferences prefs = Preferences.userRoot().node("ram_allocation_settings");
     
-    private static final int MIN_GS_MB = 1024;
+    private static final int MIN_GS_MB = 2048;  // GameServer requer minimo 2GB
     private static final int MIN_LS_MB = 128;
 
     private int currentGsMemoryMB; 

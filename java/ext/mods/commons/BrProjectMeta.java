@@ -26,8 +26,8 @@ public final class BrProjectMeta
 
 	public static final String TEAM = "LINETERNITY";
 	public static final String BRAND = "Lineternity";
-	public static final String DISTRIB_MODE = "MODO DISTRIBUICAO (build/distribution)";
+	public static final String DISTRIB_MODE = "PROIBIDO COMERCIALIZAR OU VENDER ESTE SERVIDOR, SEJA DE FORMA DIRETA OU INDIRETA.";
 	public static final String BUILD_LINE = "BUILD 2026 | 3.8 | Lineternity";
-	public static final String CORE_LINE = "CORE: Dhousefe-L2JBR | Agazes33 | Ban-L2jDev | Warman | SrEli | Dev < A.L.N/>";
-	public static final String SIGNATURE = "Dev < A.L.N/>";
+	public static final String CORE_LINE = "DEVS: Dhousefe-L2JBR | Agazes33 | Ban-NEXORA | Warman | SrEli | < A.L.N/>";
+	public static final String SIGNATURE = "< A.L.N/>";
 }

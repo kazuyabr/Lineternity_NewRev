@@ -156,21 +156,24 @@ public class ZoneBuilder
 	{
 		final int centerX = center.getX();
 		final int centerY = center.getY();
-		
 		final int centerZ = center.getZ(); 
 		
-		final int count = (int) (2 * Math.PI * radius / (radius / 5)); 
+		// Garantir um número mínimo de pontos para círculo suave
+		final int minCount = 36; // Mínimo para círculo razoavelmente suave
+		final int calculatedCount = radius > 0 ? (int) (2 * Math.PI * radius / Math.max(10, radius / 5)) : minCount;
+		final int count = Math.max(minCount, Math.min(72, calculatedCount)); // Entre 36 e 72 pontos
 		final double angle = 2 * Math.PI / count;
 		
+		// Ponto inicial com altura ajustada
 		int prevX = (int) (Math.cos(0) * radius) + centerX;
 		int prevY = (int) (Math.sin(0) * radius) + centerY;
-		int prevZ = GeoEngine.getInstance().getHeight(prevX, prevY, centerZ);
+		int prevZ = GeoEngine.getInstance().getHeight(prevX, prevY, centerZ) + 30; // +30 para ficar acima do chão
 		
 		for (int i = 1; i <= count; i++)
 		{
 			final int x = (int) (Math.cos(angle * i) * radius) + centerX;
 			final int y = (int) (Math.sin(angle * i) * radius) + centerY;
-			final int z = GeoEngine.getInstance().getHeight(x, y, centerZ);
+			final int z = GeoEngine.getInstance().getHeight(x, y, centerZ) + 30; // +30 para ficar acima do chão
 			
 			debug.addLine("", color, true, prevX, prevY, prevZ, x, y, z);
 			
@@ -178,6 +181,12 @@ public class ZoneBuilder
 			prevY = y;
 			prevZ = z;
 		}
+		
+		// Conectar o último ponto com o primeiro para fechar o círculo
+		int firstX = (int) (Math.cos(0) * radius) + centerX;
+		int firstY = (int) (Math.sin(0) * radius) + centerY;
+		int firstZ = GeoEngine.getInstance().getHeight(firstX, firstY, centerZ) + 30;
+		debug.addLine("", color, true, prevX, prevY, prevZ, firstX, firstY, firstZ);
 	}
 	
 	public void previewFinalArea(AutoFarmProfile autoFarmProfile, int areaId)

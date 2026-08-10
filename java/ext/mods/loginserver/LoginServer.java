@@ -27,6 +27,8 @@ import java.net.UnknownHostException;
 import java.util.logging.LogManager;
 
 import ext.mods.Config;
+import ext.mods.commons.AnsiConsole;
+import ext.mods.commons.ConsoleWindow;
 import ext.mods.commons.gui.InterfaceLS;
 import ext.mods.commons.lang.StringUtil;
 import ext.mods.commons.logging.CLogger;
@@ -54,12 +56,15 @@ public class LoginServer
 	private SelectorThread<LoginClient> _selectorThread;
 	
 	public static void main(String[] args) throws Exception
-	{
-		Team.infoLoginServer();
-		JvmOptimizer.initialize();
-		
-		_loginServer = new LoginServer();
-	}
+		{
+			// Habilita ANSI no console (cmd.exe) antes do banner ser impresso.
+			AnsiConsole.enable();
+
+			Team.infoLoginServer();
+			JvmOptimizer.initialize();
+
+			_loginServer = new LoginServer();
+		}
 	
 	/*
 	 * Create directories for logs
@@ -140,10 +145,12 @@ public class LoginServer
 		String os = System.getProperty("os.name").toLowerCase();
 		if ((os.contains("win") || os.contains("mac")) && !GraphicsEnvironment.isHeadless())
 		{
-			try 
+			try
 			{
 				System.out.println("Login: Running in Interface GUI (Windows).");
 				new InterfaceLS();
+				// Oculta o cmd.exe 6 segundos apos o GUI abrir.
+				ConsoleWindow.hideAfter(6000);
 			}
 			catch (Throwable t)
 			{

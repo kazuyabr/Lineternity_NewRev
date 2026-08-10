@@ -43,6 +43,7 @@ import java.util.regex.Pattern;
 
 import ext.mods.commons.config.ExProperties;
 import ext.mods.commons.logging.CLogger;
+import ext.mods.gameserver.data.manager.CountryLocaleManager;
 import ext.mods.gameserver.enums.GeoType;
 import ext.mods.gameserver.model.holder.IntIntHolder;
 import ext.mods.gameserver.model.olympiad.enums.OlympiadPeriod;
@@ -433,6 +434,14 @@ public final class Config
 	public static Locale DEFAULT_LOCALE = Locale.forLanguageTag("en-US");
 	public static Set<Locale> LOCALES = Set.of(DEFAULT_LOCALE);
 	public static Charset CHARSET = Charset.forName("utf-8");
+	
+	/** Pais pelo IP → locale (sysstring + setLocale no EnterWorld) */
+	public static boolean COUNTRY_LOCALE_ENABLE;
+	public static boolean COUNTRY_LOCALE_NOTIFY = true;
+	public static boolean COUNTRY_LOCALE_AUTO_SET = true;
+	public static String COUNTRY_LOCALE_API_URL = "http://ip-api.com/json/%s?fields=status,country,countryCode";
+	public static int COUNTRY_LOCALE_TIMEOUT_MS = 2500;
+	public static final Map<String, String> COUNTRY_LOCALE_MAP = new HashMap<>();
 	
 	
 	public static String LOGINSERVER_HOSTNAME;
@@ -1087,6 +1096,71 @@ public final class Config
 	public static long SELLBUFF_MAX_PRICE;
 	public static int SELLBUFF_MAX_BUFFS;
 	public static boolean CUSTOM_TIME_BUFF;
+	
+	/** Mod PIX / DonationManager — Dev A.L.N. */
+	public static boolean ENABLE_PIX_MOD;
+	public static boolean DONATION_ENABLED;
+	public static boolean ANNOUNCE_DONATOR_ITEM_GLOBAL;
+	public static int DONATION_PURCHASABLE_ITEM;
+	public static boolean DONATION_DELETE_INACTIVE;
+	public static boolean DONATION_DELETE_PAYMENT_DATA;
+	public static boolean DONATION_HIDE_ENDED;
+	public static boolean DONATION_CALCULATOR;
+	public static boolean DONATION_DROPDOWN;
+	public static boolean DONATION_REQUIRE_TERMS;
+	public static String[] DONATION_ALLOWED_EMAILS;
+	public static String DONATION_MP_TOKEN;
+	public static String DONATION_MP_PIX_PRICE;
+	public static boolean DONATION_MP_PIX;
+	public static int DONATION_MP_PIX_EXPIRATION_TIME;
+	public static boolean DONATION_MP_PIX_MAIL;
+	public static String DONATION_MP_PIX_ACCOUNT_OWNER;
+	public static String DONATION_MP_PIX_ACCOUNT_CPF;
+	public static String DONATION_MP_PIX_ACCOUNT_BANK;
+	public static int[] DONATION_MP_PIX_DROPDOWN;
+	public static String DONATION_MP_LINK_PRICE;
+	public static boolean DONATION_MP_LINK;
+	public static boolean DONATION_MP_LINK_MAIL;
+	public static String DONATION_MP_CURRENCY;
+	public static String[] DONATION_MP_CURRENCIES;
+	public static int DONATION_MP_LINK_EXPIRATION_TIME;
+	public static int[] DONATION_MP_LINK_DROPDOWN;
+	public static boolean DONATION_PAYPAL_LINK;
+	public static String DONATION_PAYPAL_CLIENT_ID;
+	public static String DONATION_PAYPAL_CLIENT_SECRET;
+	public static String DONATION_PAYPAL_PRICE;
+	public static boolean DONATION_PAYPAL_SANDBOX_ENABLED;
+	public static String DONATION_PAYPAL_ACCOUNT_EMAIL;
+	public static boolean DONATION_PAYPAL_MAIL;
+	public static int DONATION_PAYPAL_LINK_EXPIRATION_TIME;
+	public static String DONATION_PAYPAL_CURRENCY;
+	public static String[] DONATION_PAYPAL_CURRENCIES;
+	public static int[] DONATION_PAYPAL_DROPDOWN;
+	public static String DONATION_PAYPAL_WEBSITE;
+	public static String DONATION_PAYPAL_NOTE_MSG;
+	public static String DONATION_PAYPAL_LOGO_IMAGE;
+	public static String DONATION_PAYPAL_PHONE_CODE;
+	public static String DONATION_PAYPAL_PHONE_NUMBER;
+	public static boolean DONATION_BINANCE_PAY;
+	public static String DONATION_BINANCE_API_KEY;
+	public static String DONATION_BINANCE_SECRET_KEY;
+	public static String DONATION_BINANCE_PRICE;
+	public static String DONATION_BINANCE_FIAT_CURRENCY;
+	public static String[] DONATION_BINANCE_PAY_CURRENCY;
+	public static boolean DONATION_BINANCE_MAIL;
+	public static int DONATION_BINANCE_EXPIRATION_TIME;
+	public static int[] DONATION_BINANCE_DROPDOWN;
+	public static int DONATION_BINANCE_CURRENCY_TASK_INTERVAL;
+	public static String DONATION_CURRENCY_CB_API_KEY;
+	public static boolean DONATION_CURRENCY_AWESOMEAPI;
+	public static int DONATION_CURRENCY_TASK_INTERVAL;
+	public static String DONATION_MAILER_TOKEN;
+	public static String DONATION_MAILER_ADDRESS;
+	public static String DONATION_MAILER_TEMPLATE;
+	public static int DONATION_MAXIMUM_NUMBER_EMAILS;
+	public static String DONATION_SERVER_NAME;
+	public static int DONATION_PAY_TIME;
+	public static int DONATION_CHECK_TIME;
 	
 	public static boolean ENTER_ANAKAZEL;
 	
@@ -2243,6 +2317,13 @@ public final class Config
 		DEFAULT_LOCALE = Locale.forLanguageTag(language.getProperty("defaultLocale", "en-US"));
 		LOCALES = Set.copyOf(Stream.of(language.getProperty("locales", "en-US").split(",")).map(Locale::forLanguageTag).toList());
 		CHARSET = Charset.forName(language.getProperty("charset", "utf-8"));
+		
+		COUNTRY_LOCALE_ENABLE = language.getProperty("CountryLocaleEnable", true);
+		COUNTRY_LOCALE_NOTIFY = language.getProperty("CountryLocaleNotify", true);
+		COUNTRY_LOCALE_AUTO_SET = language.getProperty("CountryLocaleAutoSet", true);
+		COUNTRY_LOCALE_API_URL = language.getProperty("CountryLocaleApiUrl", COUNTRY_LOCALE_API_URL);
+		COUNTRY_LOCALE_TIMEOUT_MS = language.getProperty("CountryLocaleTimeoutMs", COUNTRY_LOCALE_TIMEOUT_MS);
+		CountryLocaleManager.reloadCountryMap(language.getProperty("CountryLocaleMap", ""));
 	}
 	
 	/**
@@ -3179,6 +3260,99 @@ public final class Config
 	    LOGGER.info("Loaded {} upgradeable boss jewels.", UPGRADEABLE_BOSS_JEWELS.size());
 	}
 	
+	private static int[] parseDonationIntArray(String value)
+	{
+		if (value == null || value.isBlank())
+			return new int[0];
+		
+		final String[] parts = value.split(",");
+		final int[] result = new int[parts.length];
+		for (int i = 0; i < parts.length; i++)
+			result[i] = Integer.parseInt(parts[i].trim());
+		return result;
+	}
+	
+	private static String[] parseDonationStringArray(String value)
+	{
+		if (value == null || value.isBlank())
+			return new String[]
+			{
+				""
+			};
+		return value.split(",");
+	}
+	
+	/** Carrega Pix.properties e donation.properties (overlay Dev A.L.N.). */
+	private static final void loadDonation()
+	{
+		final ExProperties pix = initProperties(CONFIG_PATH.resolve("Pix.properties").toString());
+		ENABLE_PIX_MOD = pix.getProperty("EnablePixMod", false);
+		ANNOUNCE_DONATOR_ITEM_GLOBAL = pix.getProperty("AnnounceDonatorItemGlobal", true);
+		
+		final ExProperties donation = initProperties(CONFIG_PATH.resolve("donation.properties").toString());
+		DONATION_ENABLED = donation.getProperty("EnableDonationManager", false) && ENABLE_PIX_MOD;
+		DONATION_PURCHASABLE_ITEM = donation.getProperty("PurchasableItem", 0);
+		DONATION_DELETE_INACTIVE = donation.getProperty("DeleteInactivePurchases", false);
+		DONATION_DELETE_PAYMENT_DATA = donation.getProperty("DeletePaymentData", true);
+		DONATION_HIDE_ENDED = donation.getProperty("HideEndedPurchases", true);
+		DONATION_SERVER_NAME = donation.getProperty("ServerName", "Brproject");
+		DONATION_CALCULATOR = donation.getProperty("Calculator", true);
+		DONATION_DROPDOWN = donation.getProperty("ShowDropdown", true);
+		DONATION_REQUIRE_TERMS = donation.getProperty("RequireTerms", true);
+		DONATION_ALLOWED_EMAILS = parseDonationStringArray(donation.getProperty("AllowedEmailAddresses", ""));
+		DONATION_MP_TOKEN = donation.getProperty("MercadoPagoApiToken", pix.getProperty("MercadoPagoApiToken", ""));
+		DONATION_MP_PIX_PRICE = donation.getProperty("MercadoPagoPixPrice", "1.00");
+		DONATION_MP_PIX = donation.getProperty("MercadoPagoPix", true);
+		DONATION_MP_PIX_EXPIRATION_TIME = donation.getProperty("MercadoPagoPixExpirationTime", 30);
+		DONATION_MP_PIX_MAIL = donation.getProperty("MercadoPagoPixMail", false);
+		DONATION_MP_PIX_ACCOUNT_OWNER = donation.getProperty("MercadoPagoPixAccountOwner", "");
+		DONATION_MP_PIX_ACCOUNT_CPF = donation.getProperty("MercadoPagoPixAccountCpf", "");
+		DONATION_MP_PIX_ACCOUNT_BANK = donation.getProperty("MercadoPagoPixAccountBank", "");
+		DONATION_MP_PIX_DROPDOWN = parseDonationIntArray(donation.getProperty("MercadoPagoPixDropdown", "5,10,15,20,25"));
+		DONATION_MP_LINK_PRICE = donation.getProperty("MercadoPagoLinkPrice", "1.00");
+		DONATION_MP_LINK = donation.getProperty("MercadoPagoLink", false);
+		DONATION_MP_LINK_MAIL = donation.getProperty("MercadoPagoLinkMail", true);
+		DONATION_MP_CURRENCY = donation.getProperty("MercadoPagoCurrency", "BRL");
+		DONATION_MP_CURRENCIES = parseDonationStringArray(donation.getProperty("MercadoPagoCurrencies", ""));
+		DONATION_MP_LINK_EXPIRATION_TIME = donation.getProperty("MercadoPagoLinkExpirationTime", 30);
+		DONATION_MP_LINK_DROPDOWN = parseDonationIntArray(donation.getProperty("MercadoPagoLinkDropdown", "5,10,15,20,25"));
+		DONATION_PAYPAL_LINK = donation.getProperty("PayPalLink", false);
+		DONATION_PAYPAL_CLIENT_ID = donation.getProperty("PayPalClientId", "");
+		DONATION_PAYPAL_CLIENT_SECRET = donation.getProperty("PayPalClientSecret", "");
+		DONATION_PAYPAL_PRICE = donation.getProperty("PayPalPrice", "2.00");
+		DONATION_PAYPAL_SANDBOX_ENABLED = donation.getProperty("PayPalSandboxEnabled", true);
+		DONATION_PAYPAL_ACCOUNT_EMAIL = donation.getProperty("PayPalAccountEmail", "");
+		DONATION_PAYPAL_MAIL = donation.getProperty("PayPalMail", true);
+		DONATION_PAYPAL_LINK_EXPIRATION_TIME = donation.getProperty("PayPalLinkExpirationTime", 30);
+		DONATION_PAYPAL_CURRENCY = donation.getProperty("PayPalCurrency", "BRL");
+		DONATION_PAYPAL_CURRENCIES = parseDonationStringArray(donation.getProperty("PayPalCurrencies", ""));
+		DONATION_PAYPAL_DROPDOWN = parseDonationIntArray(donation.getProperty("PayPalDropdown", "5,10,15,20,25"));
+		DONATION_PAYPAL_WEBSITE = donation.getProperty("PayPalWebSite", "");
+		DONATION_PAYPAL_NOTE_MSG = donation.getProperty("PayPalNoteMsg", "");
+		DONATION_PAYPAL_LOGO_IMAGE = donation.getProperty("PayPalLogoImage", "");
+		DONATION_PAYPAL_PHONE_CODE = donation.getProperty("PayPalPhoneCountryCode", "");
+		DONATION_PAYPAL_PHONE_NUMBER = donation.getProperty("PayPalPhoneNumber", "");
+		DONATION_BINANCE_PAY = donation.getProperty("BinancePay", false);
+		DONATION_BINANCE_API_KEY = donation.getProperty("BinanceApiKey", "");
+		DONATION_BINANCE_SECRET_KEY = donation.getProperty("BinanceSecretKey", "");
+		DONATION_BINANCE_PRICE = donation.getProperty("BinancePrice", "1.00");
+		DONATION_BINANCE_FIAT_CURRENCY = donation.getProperty("BinanceFiatCurrency", "BRL");
+		DONATION_BINANCE_PAY_CURRENCY = parseDonationStringArray(donation.getProperty("BinancePayCurrency", ""));
+		DONATION_BINANCE_MAIL = donation.getProperty("BinanceMail", true);
+		DONATION_BINANCE_EXPIRATION_TIME = donation.getProperty("BinanceExpirationTime", 30);
+		DONATION_BINANCE_DROPDOWN = parseDonationIntArray(donation.getProperty("BinanceDropdown", "5,10,15,20,25"));
+		DONATION_BINANCE_CURRENCY_TASK_INTERVAL = donation.getProperty("BinanceCurrencyTaskInterval", 5);
+		DONATION_CURRENCY_CB_API_KEY = donation.getProperty("CurrencyBeaconApiKey", "");
+		DONATION_CURRENCY_AWESOMEAPI = donation.getProperty("AwesomeApi", true);
+		DONATION_CURRENCY_TASK_INTERVAL = donation.getProperty("FiatCurrencyTaskInterval", 20);
+		DONATION_MAILER_TOKEN = donation.getProperty("MailerApiToken", "");
+		DONATION_MAILER_ADDRESS = donation.getProperty("MailerAddress", "");
+		DONATION_MAILER_TEMPLATE = donation.getProperty("MailerTemplateId", "");
+		DONATION_MAXIMUM_NUMBER_EMAILS = donation.getProperty("MaximumNumberEmails", 2);
+		DONATION_PAY_TIME = donation.getProperty("PayTime", pix.getProperty("PayTime", 10000));
+		DONATION_CHECK_TIME = donation.getProperty("CheckTime", pix.getProperty("CheckTime", 5000));
+	}
+	
 	public static final void loadGameServer()
 	{
 		LOGGER.info("Loading gameserver configuration files.");
@@ -3199,6 +3373,7 @@ public final class Config
 			loadServer();
 			loadRates();
 			loadRusAcis();
+			loadDonation();
 			loadTranslator();
 			loadBossJewelUpgrades();
 			loadBossHealConfigs();

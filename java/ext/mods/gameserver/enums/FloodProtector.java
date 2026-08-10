@@ -35,7 +35,9 @@ public enum FloodProtector
 	TRADE_CHAT(11, Config.TRADE_CHAT_TIME),
 	SOCIAL(12, Config.SOCIAL_TIME),
 	USE_ITEM(13, Config.ITEM_TIME),
-	ACTION(14, Config.ACTION_TIME);
+	ACTION(14, Config.ACTION_TIME),
+	DONATION_PAY(15, Config.DONATION_PAY_TIME),
+	DONATION_CHECK(16, Config.DONATION_CHECK_TIME);
 	
 	private final int _id;
 	private final int _reuseDelay;

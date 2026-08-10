@@ -1,0 +1,26 @@
+# =============================================================================
+# JavaProcessInspector — SUBSTITUIR O ARQUIVO INTEIRO
+# Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject.
+# =============================================================================
+#
+# Motivo: a versao antiga usava WMIC so em java.exe e ignorava javaw.exe.
+# O Start silencioso sobe com javaw → "Fechar tudo" nao matava o processo
+# e ficava "OpenJDK Platform binary" no Gerenciador de Tarefas.
+#
+# Acao:
+#   Copie ARQUIVOS_MOD/java/ext/mods/commons/util/JavaProcessInspector.java
+#   por cima do arquivo da sua source (mesmo caminho).
+#
+# O que a nova versao faz:
+#   - ProcessHandle.allProcesses() (java.exe + javaw.exe)
+#   - Filtra por main class BrProject (LicenseInit / LoginServer / GameServer)
+#   - taskkill /F /T no Windows + destroyForcibly
+#   - NAO mata Gradle/Cursor so porque o JDK esta numa pasta "Brproject"
+#
+# Assinatura publica usada pelo MainFrame:
+#   JavaProcessInspector.killBrProjectProcesses()
+#   JavaProcessInspector.findBrProjectProcesses()
+#
+# Autor: Dev ⩽ A.L.N/⩾
+# Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject.
+# =============================================================================

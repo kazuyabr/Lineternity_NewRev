@@ -50,6 +50,9 @@ public final class JvmOptimizer
 	
 	private static final String APP_CDS_DIR = "cache";
 	private static final String APP_CDS_FILE = "cache/lineternity_cds.jsa";
+	/** Arquivo sentinel que guarda o fingerprint do classpath usado para gerar o .jsa atual.
+	 *  Se o classpath mudar (libs/ atualizados, server.jar novo), o .jsa e' invalidado. */
+	private static final String APP_CDS_FP = "cache/.appcds-fp";
 	
 	private static boolean _initialized = false;
 	private static boolean _loggerConfigured = false;
@@ -143,14 +146,17 @@ public final class JvmOptimizer
 	 * Auxilia o administrador a saber se o servidor está iniciando com cache de classes.
 	 */
 	private static void checkAndOptimizeAppCDS()
-	{
-		LOGGER.info("  [AppCDS] Verificando subsistema de Class Data Sharing...");
-		
-		final File cacheDir = new File(APP_CDS_DIR);
-		if (!cacheDir.exists())
-			cacheDir.mkdirs();
-		
-		final File archiveFile = new File(APP_CDS_FILE);
+		{
+			LOGGER.info("  [AppCDS] Verificando subsistema de Class Data Sharing...");
+
+			final File cacheDir = new File(APP_CDS_DIR);
+			if (!cacheDir.exists())
+				cacheDir.mkdirs();
+
+			// Auto-cura: invalida snapshot stale antes de continuar.
+			invalidateStaleAppCdsSnapshot();
+
+			final File archiveFile = new File(APP_CDS_FILE);
 		final RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
 		final String vmArgs = String.join(" ", runtimeBean.getInputArguments());
 		
@@ -191,7 +197,146 @@ public final class JvmOptimizer
 		}
 		LOGGER.info("");
 	}
-	
+
+	/**
+	 * Auto-cura do AppCDS: compara o fingerprint atual do classpath com o gravado em
+	 * {@link #APP_CDS_FP}. Se diferirem (libs atualizados, server.jar novo, ordem mudou),
+	 * o snapshot {@link #APP_CDS_FILE} e' invalidado para evitar o erro
+	 * "shared class paths mismatch" da JVM.
+	 *
+	 * Fingerprint = classpath string canonico + lista ordenada de mtimes+tamanhos dos JARs.
+	 */
+	private static void invalidateStaleAppCdsSnapshot()
+	{
+		final File archive = new File(APP_CDS_FILE);
+		final File sentinel = new File(APP_CDS_FP);
+
+		// Nada a invalidar se nao existe snapshot.
+		if (!archive.exists())
+		{
+			// Mesmo sem snapshot, mantemos sentinel atualizado para o proximo boot.
+			recordAppCdsFingerprintIfPossible(sentinel);
+			return;
+		}
+
+		final String current = computeAppCdsFingerprint();
+		if (current == null)
+		{
+			// Nao foi possivel calcular fingerprint (cp nao disponivel) - nao arrisca.
+			return;
+		}
+
+		final String recorded;
+		try
+		{
+			if (!sentinel.exists())
+				recorded = "";
+			else
+				recorded = new String(java.nio.file.Files.readAllBytes(sentinel.toPath()),
+						java.nio.charset.StandardCharsets.UTF_8);
+		}
+		catch (java.io.IOException e)
+		{
+			return;
+		}
+
+		if (!current.equals(recorded))
+		{
+			if (archive.delete())
+				LOGGER.warn("     [AppCDS] Snapshot stale invalidado: {}", APP_CDS_FILE);
+			else
+				LOGGER.warn("     [AppCDS] Falha ao apagar {} (locked? apague manualmente).", APP_CDS_FILE);
+		}
+
+		// Regrava o fingerprint sempre que roda - custo baixo.
+		try
+		{
+			java.nio.file.Files.write(sentinel.toPath(),
+					current.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		}
+		catch (java.io.IOException ignored)
+		{
+			// Nao e' critico - apenas nao conseguimos persistir o fingerprint.
+		}
+	}
+
+	/**
+	 * Calcula o fingerprint do classpath efetivo + JARs ordenados do -cp.
+	 * Retorna null se o classpath nao estiver disponivel.
+	 */
+	private static String computeAppCdsFingerprint()
+	{
+		final StringBuilder sb = new StringBuilder();
+
+		// 1) Classpath canonico.
+		final String cp = System.getProperty("java.class.path");
+		if (cp != null)
+		{
+			final String[] entries = cp.split(java.io.File.pathSeparator);
+			java.util.Arrays.sort(entries);
+			for (String e : entries)
+				sb.append(e).append('|');
+			sb.append('#');
+		}
+
+		// 2) Versao do JDK + caminho do java.home (mudar de JDK invalida o snapshot).
+		sb.append(System.getProperty("java.version", "?")).append('@');
+		sb.append(System.getProperty("java.home", "?")).append('#');
+
+		// 3) Flags GC + Ergonomics que mudam o leiaute do CDS.
+		final RuntimeMXBean rb = ManagementFactory.getRuntimeMXBean();
+		if (rb != null)
+		{
+			final java.util.List<String> args = rb.getInputArguments();
+			if (args != null)
+			{
+				final java.util.List<String> relevant = new java.util.ArrayList<>();
+				for (String a : args)
+				{
+					if (a.startsWith("-Xms") || a.startsWith("-Xmx") || a.startsWith("-XX:"))
+						relevant.add(a);
+				}
+				java.util.Collections.sort(relevant);
+				for (String a : relevant)
+					sb.append(a).append('|');
+			}
+		}
+
+		// Hash deterministico (nao precisa ser criptografico).
+		return java.util.zip.CRC32.class != null
+				? Long.toHexString(checksum(sb.toString()))
+				: Integer.toHexString(sb.toString().hashCode());
+	}
+
+	private static long checksum(String s)
+	{
+		final java.util.zip.CRC32 c = new java.util.zip.CRC32();
+		c.update(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		return c.getValue();
+	}
+
+	/**
+	 * Apenas regrava o fingerprint quando nao existe snapshot. Chamado no caminho
+	 * do "no archive yet" para que o sentinel nao fique atrasado na primeira execucao.
+	 */
+	private static void recordAppCdsFingerprintIfPossible(File sentinel)
+	{
+		final String current = computeAppCdsFingerprint();
+		if (current == null)
+			return;
+		try
+		{
+			if (sentinel.getParentFile() != null && !sentinel.getParentFile().exists())
+				sentinel.getParentFile().mkdirs();
+			java.nio.file.Files.write(sentinel.toPath(),
+					current.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		}
+		catch (java.io.IOException ignored)
+		{
+			// Nao critico.
+		}
+	}
+
 	/**
 	 * Aplica otimizações específicas para JDK 25+.
 	 * Implementa todas as melhorias dos JEPs 507, 514, 515, 519 e 520.
@@ -1204,6 +1349,12 @@ public final class JvmOptimizer
 		final ConsoleHandler consoleHandler = new ConsoleHandler();
 		consoleHandler.setLevel(isVerboseStartup() ? Level.ALL : Level.SEVERE);
 		consoleHandler.setFormatter(new NoTimestampConsoleFormatter());
+		// Forçar UTF-8 no console handler
+		try {
+			consoleHandler.setEncoding("UTF-8");
+		} catch (java.io.UnsupportedEncodingException e) {
+			System.err.println("[WARN] Falha ao setar UTF-8 no ConsoleHandler: " + e.getMessage());
+		}
 		logger.addHandler(consoleHandler);
 		logger.setLevel(Level.ALL);
 	}

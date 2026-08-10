@@ -32,6 +32,8 @@ import ext.mods.gameserver.communitybbs.manager.MailBBSManager;
 import ext.mods.gameserver.custom.data.EquipGradeRestrictionData;
 import ext.mods.gameserver.data.SkillTable;
 import ext.mods.gameserver.data.SkillTable.FrequentSkill;
+import ext.mods.gameserver.data.manager.CountryLocaleManager;
+import ext.mods.PixMod.donationmanager.*;
 import ext.mods.gameserver.data.manager.CastleManager;
 import ext.mods.gameserver.data.manager.ClanHallManager;
 import ext.mods.gameserver.data.manager.CoupleManager;
@@ -360,6 +362,11 @@ public class EnterWorld extends L2GameClientPacket
 		player.onPlayerEnter();
 		
 		SafeDisconnectManager.getInstance().onEnterWorld(player);
+		
+		CountryLocaleManager.getInstance().onEnterWorld(player, getClient());
+		
+		if (Config.ENABLE_PIX_MOD && Config.DONATION_ENABLED)
+			DonationManager.getInstance().offlinePlayer(player);
 		
 		player.broadcastUserInfo();
 		

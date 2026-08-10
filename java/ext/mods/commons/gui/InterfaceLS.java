@@ -28,6 +28,7 @@ import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -68,6 +69,8 @@ public class InterfaceLS {
     public InterfaceLS() {
         ThemeManager.applyTheme();
         initialize();
+        // Oculta a janela do cmd.exe 6 segundos apos o GUI abrir.
+        ext.mods.commons.ConsoleWindow.hideAfter(6000);
     }
 
     private void initialize() {
@@ -238,8 +241,11 @@ public class InterfaceLS {
     }
 
     private void updateConsole(String text) {
+        String clean = AnsiFilter.strip(text);
+        if (clean.isEmpty())
+            return;
         SwingUtilities.invokeLater(() -> {
-            console.append(text);
+            console.append(clean);
             try {
                 console.setCaretPosition(console.getDocument().getLength());
             } catch (Exception e) {/* Ignora */}
@@ -249,12 +255,12 @@ public class InterfaceLS {
     private void redirectSystemStreams() {
         OutputStream out = new OutputStream() {
             @Override public void write(int b) { updateConsole(String.valueOf((char) b)); }
-            @Override public void write(byte[] b, int off, int len) { updateConsole(new String(b, off, len)); }
+            @Override public void write(byte[] b, int off, int len) { updateConsole(new String(b, off, len, StandardCharsets.UTF_8)); }
             @Override public void write(byte[] b) { write(b, 0, b.length); }
         };
-        System.setOut(new PrintStream(out, true));
-        System.setErr(new PrintStream(out, true));
-        
+        System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+        System.setErr(new PrintStream(out, true, StandardCharsets.UTF_8));
+
         installJavaUtilLoggingHandler();
     }
     

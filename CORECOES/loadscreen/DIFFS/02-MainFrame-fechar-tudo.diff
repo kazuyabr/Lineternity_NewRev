@@ -1,0 +1,58 @@
+--- a/java/ext/mods/security/gui/MainFrame.java
++++ b/java/ext/mods/security/gui/MainFrame.java
+@@
++import ext.mods.commons.util.JavaProcessInspector;
+@@
+-        // windowClosing antigo: so escondia ou System.exit sem matar filhos
++        frame.addWindowListener(new WindowAdapter() {
++            @Override
++            public void windowClosing(WindowEvent e) {
++                handleCloseAction();
++            }
++        });
+@@
+-        // botao X do CustomTopPanel tambem deve chamar handleCloseAction
++        Runnable closeAction = this::handleCloseAction;
+@@
++    /** Dialogo de saida — Dev ⩽ A.L.N/⩾ para o BrProject. */
++    private void handleCloseAction() {
++        String[] opcoes = {"Fechar tudo", "So esconder", "Cancelar"};
++        int escolha = JOptionPane.showOptionDialog(
++            frame,
++            "Fechar o painel e encerrar os processos Java do BrProject?",
++            "Sair do BrProject",
++            JOptionPane.DEFAULT_OPTION,
++            JOptionPane.QUESTION_MESSAGE,
++            null,
++            opcoes,
++            opcoes[0]);
++
++        if (escolha == 0) {
++            shutdownEverything();
++        } else if (escolha == 1) {
++            frame.setVisible(false);
++        }
++    }
++
++    /** Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject. */
++    private void shutdownEverything() {
++        frame.setVisible(false);
++        try {
++            playServerLoadedSoundLogout();
++        } catch (Exception ignored) {}
++        try {
++            processManagerService.stopAll();
++        } catch (Exception ignored) {}
++        try {
++            JavaProcessInspector.killBrProjectProcesses();
++        } catch (Exception ignored) {}
++        try {
++            frame.dispose();
++        } catch (Exception ignored) {}
++
++        try {
++            System.exit(0);
++        } finally {
++            Runtime.getRuntime().halt(0);
++        }
++    }

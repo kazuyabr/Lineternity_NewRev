@@ -113,7 +113,7 @@ object CoroutinePool {
             }
             
             virtualExecutor = Executors.newVirtualThreadPerTaskExecutor().apply {
-                LOGGER.info("Virtual Thread Executor inicializado")
+                // LOGGER.info("Virtual Thread Executor inicializado")  // oculto
             }
             
             val pathfindingThreads = Config.PATHFINDING_THREADS.let {
@@ -145,14 +145,15 @@ object CoroutinePool {
                 true
             )
             
-            LOGGER.info("=== Inicializado ===")
-            LOGGER.info("  - Scheduled: $scheduledPoolCount pools x $scheduledPoolCoreSize threads")
-            LOGGER.info("  - Instant: $instantPoolCount pools x core $instantPoolCoreSize max $instantPoolMaxSize")
-            LOGGER.info("  - Virtual Thread Executor: Ativo (I/O-bound tasks)")
-            LOGGER.info("  - Pathfinding Threads: $pathfindingThreads (CPU-bound)")
-            LOGGER.info("  - Smart Dispatcher: Ativo (Lento > ${SMART_SLOW_THRESHOLD_MS}ms)")
-            LOGGER.info("  - Global Profiler: ${if (ENABLE_PROFILER) "ATIVO" else "DESATIVADO"}")
-            LOGGER.info("  - JVM: ${System.getProperty("java.version")}")
+            // === Bloco de inicializacao do CoroutinePool oculto para manter logs limpos ===
+            // LOGGER.info("=== Inicializado ===")
+            // LOGGER.info("  - Scheduled: $scheduledPoolCount pools x $scheduledPoolCoreSize threads")
+            // LOGGER.info("  - Instant: $instantPoolCount pools x core $instantPoolCoreSize max $instantPoolMaxSize")
+            // LOGGER.info("  - Virtual Thread Executor: Ativo (I/O-bound tasks)")
+            // LOGGER.info("  - Pathfinding Threads: $pathfindingThreads (CPU-bound)")
+            // LOGGER.info("  - Smart Dispatcher: Ativo (Lento > ${SMART_SLOW_THRESHOLD_MS}ms)")
+            // LOGGER.info("  - Global Profiler: ${if (ENABLE_PROFILER) "ATIVO" else "DESATIVADO"}")
+            // LOGGER.info("  - JVM: ${System.getProperty("java.version")}")
             
         } catch (e: Exception) {
             LOGGER.severe("ERRO CRÍTICO ao inicializar CoroutinePool: ${e.message}")

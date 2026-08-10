@@ -35,6 +35,10 @@ public class ZoneCylinderZ extends ZoneCylinder
 		final int count = (int) (2 * Math.PI * _rad / STEP);
 	    final double angle = 2 * Math.PI / count;
 
+	    // Ajustar altura para ficar acima do terreno
+	    final int baseHeight = Math.max(_z1, _z2);
+	    final int circleHeight = baseHeight + 50; // +50 para ficar acima do chão
+
 	    int prevX = (int) (Math.cos(0) * _rad) + _x;
 	    int prevY = (int) (Math.sin(0) * _rad) + _y;
 
@@ -43,10 +47,15 @@ public class ZoneCylinderZ extends ZoneCylinder
 	        final int x = (int) (Math.cos(angle * i) * _rad) + _x;
 	        final int y = (int) (Math.sin(angle * i) * _rad) + _y;
 
-	        debug.addLine("", Color.YELLOW, true, prevX, prevY, _z1, x, y, _z1);
+	        debug.addLine("", Color.YELLOW, true, prevX, prevY, circleHeight, x, y, circleHeight);
 
 	        prevX = x;
 	        prevY = y;
 	    }
+	    
+	    // Conectar o último ponto com o primeiro para fechar o círculo
+	    int firstX = (int) (Math.cos(0) * _rad) + _x;
+	    int firstY = (int) (Math.sin(0) * _rad) + _y;
+	    debug.addLine("", Color.YELLOW, true, prevX, prevY, circleHeight, firstX, firstY, circleHeight);
 	}
 }

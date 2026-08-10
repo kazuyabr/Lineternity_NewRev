@@ -138,6 +138,7 @@ dependencies {
     // Usamos fileTree para evitar problemas de dependência de tasks
     implementation(fileTree("libs") {
         include("DeepL.jar")
+        include("ApiPix.jar")
         include("license.jar")
         include("mariadb.jar")
         include("c3p0-0.9.5-pre5.jar")
@@ -227,6 +228,7 @@ tasks.register<Copy>("copyDependencies") {
         // Apenas copia JARs do Maven, não os JARs locais já existentes
         val fileName = it.name
         !fileName.contains("DeepL.jar") &&
+        !fileName.contains("ApiPix.jar") &&
         !fileName.contains("license.jar") &&
         !fileName.contains("mariadb.jar") &&
         !fileName.contains("c3p0") &&

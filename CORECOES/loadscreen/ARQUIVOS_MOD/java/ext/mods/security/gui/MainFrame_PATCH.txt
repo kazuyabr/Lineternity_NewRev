@@ -1,0 +1,71 @@
+================================================================================
+MainFrame.java — trechos para colar (Fechar tudo)
+Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject.
+================================================================================
+
+1) IMPORT (junto dos outros imports):
+
+    import ext.mods.commons.util.JavaProcessInspector;
+
+
+2) No construtor / init da janela — X da janela e botao fechar do topo:
+
+    frame.addWindowListener(new WindowAdapter() {
+        @Override
+        public void windowClosing(WindowEvent e) {
+            handleCloseAction();
+        }
+    });
+
+    Runnable closeAction = this::handleCloseAction;
+    // passe closeAction ao CustomTopPanel (no lugar do Runnable antigo)
+
+
+3) Metodos novos (cole perto do final da classe):
+
+    /** Dialogo de saida — Dev ⩽ A.L.N/⩾ para o BrProject. */
+    private void handleCloseAction() {
+        String[] opcoes = {"Fechar tudo", "So esconder", "Cancelar"};
+        int escolha = JOptionPane.showOptionDialog(
+            frame,
+            "Fechar o painel e encerrar os processos Java do BrProject?",
+            "Sair do BrProject",
+            JOptionPane.DEFAULT_OPTION,
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            opcoes,
+            opcoes[0]);
+
+        if (escolha == 0) {
+            shutdownEverything();
+        } else if (escolha == 1) {
+            frame.setVisible(false);
+        }
+    }
+
+    /** Para Login/Game e encerra a JVM. Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject. */
+    private void shutdownEverything() {
+        frame.setVisible(false);
+        try {
+            playServerLoadedSoundLogout();
+        } catch (Exception ignored) {}
+        try {
+            processManagerService.stopAll();
+        } catch (Exception ignored) {}
+        try {
+            JavaProcessInspector.killBrProjectProcesses();
+        } catch (Exception ignored) {}
+        try {
+            frame.dispose();
+        } catch (Exception ignored) {}
+
+        try {
+            System.exit(0);
+        } finally {
+            Runtime.getRuntime().halt(0);
+        }
+    }
+
+================================================================================
+Fim — Dev ⩽ A.L.N/⩾ | BrProject
+================================================================================

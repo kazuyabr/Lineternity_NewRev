@@ -111,6 +111,9 @@ public final class RequestBypassToServer extends L2GameClientPacket
 		if (BypassCommandManager.getInstance().notify(player, _command))
 			return;
 		
+		if (ext.mods.PixMod.donation.DonationBypassAdapter.tryHandle(player, _command))
+			return;
+		
 		if (_command.startsWith("admin_"))
 		{
 			String command = _command.split(" ")[0];

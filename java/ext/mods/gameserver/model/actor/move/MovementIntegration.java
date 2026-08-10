@@ -29,6 +29,7 @@ import ext.mods.commons.pool.ThreadPool;
 import ext.mods.gameserver.geoengine.GeoEngine;
 import ext.mods.gameserver.geoengine.geodata.IGeoObject;
 import ext.mods.gameserver.model.WorldObject;
+import ext.mods.gameserver.model.actor.move.MovementConfig;
 import ext.mods.gameserver.model.actor.Creature;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.model.entity.autofarm.AutoFarmManager;
@@ -153,18 +154,23 @@ public class MovementIntegration
         int pointCount = 40;
         double angleSlice = 2 * Math.PI / pointCount;
         
+        // Usar a altura do terreno para cada ponto, não uma altura fixa
         int prevX = (int) (center.getX() + radius * Math.cos(0));
         int prevY = (int) (center.getY() + radius * Math.sin(0));
-        int z = center.getZ() + 10;
+        int prevZ = GeoEngine.getInstance().getHeight(prevX, prevY, center.getZ()) + 50; // +50 para ficar acima do chão
 
         for (int i = 1; i <= pointCount; i++)
         {
             double angle = i * angleSlice;
             int curX = (int) (center.getX() + radius * Math.cos(angle));
             int curY = (int) (center.getY() + radius * Math.sin(angle));
-            packet.addLine(Color.RED, prevX, prevY, z, curX, curY, z);
+            int curZ = GeoEngine.getInstance().getHeight(curX, curY, center.getZ()) + 50; // +50 para ficar acima do chão
+            
+            packet.addLine(Color.YELLOW, prevX, prevY, prevZ, curX, curY, curZ);
+            
             prevX = curX;
             prevY = curY;
+            prevZ = curZ;
         }
         player.sendPacket(packet);
     }

@@ -1,0 +1,61 @@
+--- a/java/ext/mods/security/LicenseInit.java
++++ b/java/ext/mods/security/LicenseInit.java
+@@
+-import ext.mods.commons.ConsoleWindow;
+-import ext.mods.commons.logging.CLogger;
+-import ext.mods.security.gui.MainFrame;
++import java.awt.GraphicsEnvironment;
++import java.io.OutputStream;
++import java.io.PrintStream;
++import java.nio.charset.StandardCharsets;
++
++import javax.swing.SwingUtilities;
++
++import ext.mods.commons.ConsoleWindow;
++import ext.mods.commons.logging.CLogger;
++import ext.mods.security.gui.BootSplash;
++import ext.mods.security.gui.MainFrame;
+@@
+ 	public static void main(String[] args)
+ 	{
+-		// (versao antiga: abre console / MainFrame direto)
+-		new MainFrame();
++		System.setProperty("sun.java2d.opengl", "false");
++		System.setProperty("sun.java2d.d3d", "false");
++		System.setProperty("sun.java2d.pmoffscreen", "false");
++		System.setProperty("brproject.quiet.console", "true");
++
++		ConsoleWindow.hide();
++		muteConsoleStreams();
++
++		if (GraphicsEnvironment.isHeadless())
++			return;
++
++		SwingUtilities.invokeLater(() -> {
++			final BootSplash splash = new BootSplash();
++			splash.openAndWait(() -> {
++				try
++				{
++					new MainFrame();
++				}
++				finally
++				{
++					splash.closeSplash();
++					ConsoleWindow.hide();
++				}
++			});
++		});
+ 	}
++
++	private static void muteConsoleStreams()
++	{
++		try
++		{
++			OutputStream nullOut = OutputStream.nullOutputStream();
++			System.setOut(new PrintStream(nullOut, true, StandardCharsets.UTF_8));
++			System.setErr(new PrintStream(nullOut, true, StandardCharsets.UTF_8));
++		}
++		catch (Throwable ignored) {}
++	}
++
++# Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject.

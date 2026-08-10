@@ -1,0 +1,114 @@
+### AUTOR
+### Dev ⩽ A.L.N/⩾
+### Desenvolvido por Dev ⩽ A.L.N/⩾ para o BrProject.
+### Todos os direitos reservados.
+
+================================================================================
+  LOADSCREEN BrProject — splash moderno + Start silencioso + Fechar tudo
+================================================================================
+
+Para quem tem a MESMA source BrProject (ext.mods.security / LicenseInit).
+
+O que este pack faz:
+  1) Tela de loading roxa (BootSplash) antes do painel
+  2) Assinatura Dev ⩽ A.L.N/⩾ com o nome em destaque
+  3) Start.exe SEM janela preta de CMD (usa javaw)
+  4) "Fechar tudo" encerra Login/Game + javaw do launcher (nao deixa OpenJDK zumbi)
+
+--------------------------------------------------------------------------------
+COMO ADICIONAR (passo a passo)
+--------------------------------------------------------------------------------
+
+A) ARQUIVOS NOVOS / SUBSTITUIR (pasta ARQUIVOS_MOD)
+
+  Copie mantendo o caminho relativo da source:
+
+  1. java/ext/mods/security/gui/BootSplash.java
+       → NOVO (se nao existir) ou SUBSTITUIR
+
+  2. java/ext/mods/security/LicenseInit.java
+       → SUBSTITUIR (ou aplique o DIFFS/01-LicenseInit.diff)
+
+  3. java/ext/mods/commons/util/JavaProcessInspector.java
+       → SUBSTITUIR (detecta java.exe E javaw.exe; mata so BrProject)
+
+  4. images/brproject-gear-crisp.png  (e/ou brproject-gear-128.png)
+       → coloque na pasta images/ da sua DISTRIBUTION (onde roda o Start)
+       Ex.: Brproject_Distribution/images/
+
+  5. tools/StartSilent.cs
+       → copie para tools/ da source (opcional; so para gerar Start.exe)
+
+B) PATCH NO MainFrame (Fechar tudo)
+
+  No arquivo:
+    java/ext/mods/security/gui/MainFrame.java
+
+  Aplique DIFFS/02-MainFrame-fechar-tudo.diff
+  OU copie o bloco de:
+    ARQUIVOS_MOD/java/ext/mods/security/gui/MainFrame_PATCH.txt
+
+  Precisa:
+    - import ext.mods.commons.util.JavaProcessInspector;
+    - handleCloseAction() com opcoes Fechar tudo / So esconder / Cancelar
+    - shutdownEverything() chamando stopAll + killBrProjectProcesses + System.exit/halt
+
+C) COMPILAR JAVA
+
+  Na raiz da source:
+    gradlew.bat jar
+  (ou o comando que voce ja usa)
+
+  Depois copie o jar gerado para a pasta de runtime, ex.:
+    libs/server.jar  →  Brproject_Distribution/libs/server.jar
+
+D) GERAR Start.exe SILENCIOSO (sem CMD preto)
+
+  Precisa do .NET Framework (csc.exe ja vem no Windows):
+
+    C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe ^
+      /nologo /target:winexe /optimize+ ^
+      /r:System.Windows.Forms.dll ^
+      /out:Brproject_Distribution\Start.exe ^
+      tools\StartSilent.cs
+
+  Ou rode o bat:
+    ARQUIVOS_MOD\tools\compilar-StartSilent.bat
+    (ajuste o caminho OUT= para a sua pasta Distribution)
+
+  Dica: faca backup do Start.exe antigo antes (Start.native.bak.exe).
+
+E) TESTAR
+
+  1. Abra Start.exe → deve aparecer o splash → depois o painel (sem CMD)
+  2. Feche com "Fechar tudo" → nao deve ficar "OpenJDK Platform binary" no Task Manager
+
+--------------------------------------------------------------------------------
+DIFFS (referencia)
+--------------------------------------------------------------------------------
+
+  DIFFS/01-LicenseInit.diff          — liga o BootSplash no main
+  DIFFS/02-MainFrame-fechar-tudo.diff — dialogo Fechar tudo + halt
+  DIFFS/03-JavaProcessInspector.diff — nota: arquivo completo (substituir)
+
+  Se o patch falhar por diferenca de linha, use os .java prontos em ARQUIVOS_MOD.
+
+--------------------------------------------------------------------------------
+REQUISITOS
+--------------------------------------------------------------------------------
+
+  - JDK 25 (ou o mesmo da sua BrProject) com javaw.exe
+  - Pasta de runtime com libs/* e images/
+  - Pacote/classe: ext.mods.security.LicenseInit (padrao BrProject)
+
+--------------------------------------------------------------------------------
+ASSINATURA NO SPLASH
+--------------------------------------------------------------------------------
+
+  Texto: Dev ⩽ A.L.N/⩾
+  O nome A.L.N fica maior e com brilho.
+  Para mudar: edite paintSignature() em BootSplash.java
+
+================================================================================
+Fim — Dev ⩽ A.L.N/⩾
+================================================================================

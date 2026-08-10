@@ -289,6 +289,8 @@ class GameServer : Runnable {
             AutoFarmTask.getInstance()
             if (Config.SELLBUFF_ENABLED) SellBuffsManager.getInstance()
             DonateData.getInstance()
+            if (Config.ENABLE_PIX_MOD && Config.DONATION_ENABLED)
+                ext.mods.PixMod.donationmanager.DonationManager.getInstance()
             MissionData.getInstance()
             PvPData.getInstance()
             AgathionData.getInstance()
