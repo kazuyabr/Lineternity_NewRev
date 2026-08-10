@@ -3283,14 +3283,12 @@ public final class Config
 		return value.split(",");
 	}
 	
-	/** Carrega Pix.properties e donation.properties (overlay Dev A.L.N.). */
+	/** Carrega donation.properties (substitui Pix.properties removido — ver CLAUDE.md). */
 	private static final void loadDonation()
 	{
-		final ExProperties pix = initProperties(CONFIG_PATH.resolve("Pix.properties").toString());
-		ENABLE_PIX_MOD = pix.getProperty("EnablePixMod", false);
-		ANNOUNCE_DONATOR_ITEM_GLOBAL = pix.getProperty("AnnounceDonatorItemGlobal", true);
-		
 		final ExProperties donation = initProperties(CONFIG_PATH.resolve("donation.properties").toString());
+		ENABLE_PIX_MOD = donation.getProperty("EnablePixMod", false);
+		ANNOUNCE_DONATOR_ITEM_GLOBAL = donation.getProperty("AnnounceDonatorItemGlobal", true);
 		DONATION_ENABLED = donation.getProperty("EnableDonationManager", false) && ENABLE_PIX_MOD;
 		DONATION_PURCHASABLE_ITEM = donation.getProperty("PurchasableItem", 0);
 		DONATION_DELETE_INACTIVE = donation.getProperty("DeleteInactivePurchases", false);
@@ -3301,7 +3299,7 @@ public final class Config
 		DONATION_DROPDOWN = donation.getProperty("ShowDropdown", true);
 		DONATION_REQUIRE_TERMS = donation.getProperty("RequireTerms", true);
 		DONATION_ALLOWED_EMAILS = parseDonationStringArray(donation.getProperty("AllowedEmailAddresses", ""));
-		DONATION_MP_TOKEN = donation.getProperty("MercadoPagoApiToken", pix.getProperty("MercadoPagoApiToken", ""));
+		DONATION_MP_TOKEN = donation.getProperty("MercadoPagoApiToken", "");
 		DONATION_MP_PIX_PRICE = donation.getProperty("MercadoPagoPixPrice", "1.00");
 		DONATION_MP_PIX = donation.getProperty("MercadoPagoPix", true);
 		DONATION_MP_PIX_EXPIRATION_TIME = donation.getProperty("MercadoPagoPixExpirationTime", 30);
@@ -3350,8 +3348,8 @@ public final class Config
 		DONATION_MAILER_ADDRESS = donation.getProperty("MailerAddress", "");
 		DONATION_MAILER_TEMPLATE = donation.getProperty("MailerTemplateId", "");
 		DONATION_MAXIMUM_NUMBER_EMAILS = donation.getProperty("MaximumNumberEmails", 2);
-		DONATION_PAY_TIME = donation.getProperty("PayTime", pix.getProperty("PayTime", 10000));
-		DONATION_CHECK_TIME = donation.getProperty("CheckTime", pix.getProperty("CheckTime", 5000));
+		DONATION_PAY_TIME = donation.getProperty("PayTime", 10000);
+		DONATION_CHECK_TIME = donation.getProperty("CheckTime", 5000);
 	}
 	
 	public static final void loadGameServer()
