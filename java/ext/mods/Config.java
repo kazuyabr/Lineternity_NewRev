@@ -43,6 +43,7 @@ import java.util.regex.Pattern;
 
 import ext.mods.commons.config.ExProperties;
 import ext.mods.commons.logging.CLogger;
+import ext.mods.commons.BrProjectMeta;
 import ext.mods.gameserver.data.manager.CountryLocaleManager;
 import ext.mods.gameserver.enums.GeoType;
 import ext.mods.gameserver.model.holder.IntIntHolder;
@@ -3295,7 +3296,7 @@ public final class Config
 		DONATION_DELETE_INACTIVE = donation.getProperty("DeleteInactivePurchases", false);
 		DONATION_DELETE_PAYMENT_DATA = donation.getProperty("DeletePaymentData", true);
 		DONATION_HIDE_ENDED = donation.getProperty("HideEndedPurchases", true);
-		DONATION_SERVER_NAME = donation.getProperty("ServerName", "Brproject");
+		DONATION_SERVER_NAME = donation.getProperty("ServerName", BrProjectMeta.BRAND);
 		DONATION_CALCULATOR = donation.getProperty("Calculator", true);
 		DONATION_DROPDOWN = donation.getProperty("ShowDropdown", true);
 		DONATION_REQUIRE_TERMS = donation.getProperty("RequireTerms", true);
