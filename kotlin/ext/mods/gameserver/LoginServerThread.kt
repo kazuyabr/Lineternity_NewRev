@@ -23,6 +23,7 @@
  */
 package ext.mods.gameserver
 import ext.mods.Config
+import ext.mods.commons.BrProjectMeta
 import ext.mods.commons.logging.CLogger
 import ext.mods.commons.network.AttributeType
 import ext.mods.commons.network.ServerType
@@ -98,7 +99,7 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
         }
         priority = MAX_PRIORITY
     }
-    fun getServerName(): String = _serverName ?: "BrProject"
+    fun getServerName(): String = _serverName ?: BrProjectMeta.BRAND
     @JvmName("setMaxPlayer")
     fun setMaxPlayer(num: Int) {
         maxPlayers = num

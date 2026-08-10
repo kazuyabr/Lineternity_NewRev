@@ -43,6 +43,8 @@ import javax.swing.JSeparator;
 import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
+import ext.mods.commons.BrProjectMeta;
+
 public class InterfaceAbout {
 
 	private JFrame frmCredits;
@@ -95,7 +97,7 @@ public class InterfaceAbout {
 			System.err.println("Error loading logo image: " + e.getMessage());
 		}
 
-		JLabel lblTitle = new JLabel("BR PROJECT - Créditos");
+		JLabel lblTitle = new JLabel(BrProjectMeta.BRAND + " - Créditos");
 		lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
 		lblTitle.setForeground(HEADER_COLOR);
 		lblTitle.setHorizontalAlignment(SwingConstants.CENTER);

@@ -17,17 +17,51 @@
  */
 package ext.mods.commons;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Properties;
+
 /**
- * Identidade do projeto — edite aqui (banner console, painel Equipe, team.html).
+ * Identidade do projeto — carrega de brand.properties (game/config/).
+ * Edite brand.properties para rebrandar o servidor.
  */
 public final class BrProjectMeta
 {
 	private BrProjectMeta() {}
 
-	public static final String TEAM = "LINETERNITY";
-	public static final String BRAND = "Lineternity";
-	public static final String DISTRIB_MODE = "PROIBIDO COMERCIALIZAR OU VENDER ESTE SERVIDOR, SEJA DE FORMA DIRETA OU INDIRETA.";
-	public static final String BUILD_LINE = "BUILD 2026 | 3.8 | Lineternity";
-	public static final String CORE_LINE = "DEVS: Dhousefe-L2JBR | Agazes33 | Ban-NEXORA | Warman | SrEli | < A.L.N/>";
-	public static final String SIGNATURE = "< A.L.N/>";
+	// Defaults (used if brand.properties is missing or incomplete)
+	private static final String DEF_TEAM = "LINETERNITY";
+	private static final String DEF_BRAND = "Lineternity";
+	private static final String DEF_DISTRIB = "PROIBIDO COMERCIALIZAR OU VENDER ESTE SERVIDOR, SEJA DE FORMA DIRETA OU INDIRETA.";
+	private static final String DEF_BUILD = "BUILD 2026 | 3.8 | Lineternity";
+	private static final String DEF_CORE = "DEVS: Dhousefe-L2JBR | Agazes33 | Ban-NEXORA | Warman | SrEli | < A.L.N/>";
+	private static final String DEF_SIGN = "< A.L.N/>";
+
+	// Loaded values (public for access from Team.java, GUI, etc.)
+	public static final String TEAM;
+	public static final String BRAND;
+	public static final String DISTRIB_MODE;
+	public static final String BUILD_LINE;
+	public static final String CORE_LINE;
+	public static final String SIGNATURE;
+
+	static
+	{
+		Properties p = new Properties();
+		String path = "game/config/brand.properties";
+		try (FileInputStream fis = new FileInputStream(path))
+		{
+			p.load(fis);
+		}
+		catch (IOException e)
+		{
+			// File not found — use defaults silently
+		}
+		TEAM = p.getProperty("team", DEF_TEAM);
+		BRAND = p.getProperty("brand", DEF_BRAND);
+		DISTRIB_MODE = p.getProperty("distrib_mode", DEF_DISTRIB);
+		BUILD_LINE = p.getProperty("build_line", DEF_BUILD);
+		CORE_LINE = p.getProperty("core_line", DEF_CORE);
+		SIGNATURE = p.getProperty("signature", DEF_SIGN);
+	}
 }

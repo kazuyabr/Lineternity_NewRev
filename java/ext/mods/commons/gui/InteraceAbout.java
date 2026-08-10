@@ -32,6 +32,8 @@ import javax.swing.JLabel;
 import javax.swing.SwingConstants;
 import javax.swing.WindowConstants;
 
+import ext.mods.commons.BrProjectMeta;
+
 public class InteraceAbout
 {
 	private JFrame frmCredits;
@@ -55,7 +57,7 @@ public class InteraceAbout
 		frmCredits.setType(Type.UTILITY);
 		frmCredits.getContentPane().setLayout(null);
 		
-		JLabel lblTitle = new JLabel("[BR] PROJECT - Créditos");
+		JLabel lblTitle = new JLabel(BrProjectMeta.BRAND + " - Créditos");
 		lblTitle.setFont(new Font("Tahoma", Font.BOLD, 22));
 		lblTitle.setHorizontalAlignment(SwingConstants.CENTER);
 		lblTitle.setBounds(10, 10, 364, 40);
