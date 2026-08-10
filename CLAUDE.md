@@ -104,6 +104,56 @@ lineternity-gameserver-2 # GameServer canal 2 (opcional)
 | `DeleteExpiredPurchases` | `DeleteInactivePurchases` |
 | `HideCompletedPurchases` | `HideEndedPurchases` |
 
+## Estratégia de Merge com CORE
+
+### Branches
+- `origin/main` = upstream (aCis/RusaCis)
+- `main` = espelho do upstream
+- `MERGE-VERSION-CORE-v{versão}` = branch documentada do merge
+- `develop` = nosso trabalho
+- `feature/*` = features
+
+### Arquivos que NUNCA aceitar do upstream
+| Arquivo | Ação |
+|---------|------|
+| `game/config/Pix.properties` | REMOVER (consolidado em donation.properties) |
+| `game/config/brproject.properties` | REMOVER (usamos brand.properties) |
+| `BrProjectMeta.java` | Manter LINETERNITY branding |
+| `Team.java` | Manter L2Lineternity header |
+| `JvmOptimizer.java` | Manter paths lineternity |
+| `libs/server.jar` | Remover e rebuildar |
+| `StartBrproject.bat` | Remover |
+| `cache/brproject-java.inc.bat` | Remover |
+
+### Arquivos que precisam de merge cuidadoso
+| Arquivo | O que verificar |
+|---------|-----------------|
+| `Config.java` | Novas configs → migrar para nossos arquivos |
+| `players.properties` | Migrar augmentation → augmented.properties |
+
+### `augmented.properties` — NÃO substituir por merge
+Este arquivo é específico do Lineternity. Se o upstream criar `augmented.properties`:
+1. Manter nossa versão
+2. Verificar se há novas configs do upstream → adicionar
+3. Documentar mudança em CLAUDE.md
+
+### `brand.properties` — NÃO substituir por merge
+Mesmo caso de augmented.properties.
+
+## Augmentation Settings (`augmented.properties`)
+| Config | Descrição | Padrão |
+|--------|-----------|--------|
+| `AllowAugmentedTrade` | Permite trade de itens augmented | False |
+| `AugmentationNGGlowChance` | Chance de glow (No-Grade) | 0 |
+| `AugmentationMidGlowChance` | Chance de glow (Mid-Grade) | 40 |
+| `AugmentationHighGlowChance` | Chance de glow (High-Grade) | 70 |
+| `AugmentationTopGlowChance` | Chance de glow (Top-Grade) | 100 |
+| `AugmentationNGSkillChance` | Chance de skill (No-Grade) | 15 |
+| `AugmentationMidSkillChance` | Chance de skill (Mid-Grade) | 30 |
+| `AugmentationHighSkillChance` | Chance de skill (High-Grade) | 45 |
+| `AugmentationTopSkillChance` | Chance de skill (Top-Grade) | 60 |
+| `AugmentationBaseStatChance` | Chance de stat base | 1 |
+
 ## Variáveis de Ambiente
 | Variável | Descrição | Padrão |
 |----------|-----------|--------|

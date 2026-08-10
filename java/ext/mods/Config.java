@@ -615,6 +615,7 @@ public final class Config
 	public static int FREIGHT_PRICE;
 	
 	/** Augmentations */
+	public static boolean ALLOW_AUGMENTED_TRADE;
 	public static int AUGMENTATION_NG_SKILL_CHANCE;
 	public static int AUGMENTATION_NG_GLOW_CHANCE;
 	public static int AUGMENTATION_MID_SKILL_CHANCE;
@@ -2542,15 +2543,6 @@ public final class Config
 
 		SUBCLASS_REQUIRE_MIMIR = players.getProperty("SubclassRequireMimir", true);
 		SUBCLASS_REQUIRE_FATE = players.getProperty("SubclassRequireFate", true);
-		AUGMENTATION_NG_SKILL_CHANCE = players.getProperty("AugmentationNGSkillChance", 15);
-		AUGMENTATION_NG_GLOW_CHANCE = players.getProperty("AugmentationNGGlowChance", 0);
-		AUGMENTATION_MID_SKILL_CHANCE = players.getProperty("AugmentationMidSkillChance", 30);
-		AUGMENTATION_MID_GLOW_CHANCE = players.getProperty("AugmentationMidGlowChance", 40);
-		AUGMENTATION_HIGH_SKILL_CHANCE = players.getProperty("AugmentationHighSkillChance", 45);
-		AUGMENTATION_HIGH_GLOW_CHANCE = players.getProperty("AugmentationHighGlowChance", 70);
-		AUGMENTATION_TOP_SKILL_CHANCE = players.getProperty("AugmentationTopSkillChance", 60);
-		AUGMENTATION_TOP_GLOW_CHANCE = players.getProperty("AugmentationTopGlowChance", 100);
-		AUGMENTATION_BASESTAT_CHANCE = players.getProperty("AugmentationBaseStatChance", 1);
 		
 		KARMA_PLAYER_CAN_SHOP = players.getProperty("KarmaPlayerCanShop", false);
 		KARMA_PLAYER_CAN_USE_GK = players.getProperty("KarmaPlayerCanUseGK", false);
@@ -2624,6 +2616,25 @@ public final class Config
 		MAX_BUFFS_AMOUNT = players.getProperty("MaxBuffsAmount", 20);
 		STORE_SKILL_COOLTIME = players.getProperty("StoreSkillCooltime", true);
 		EXPERTISE_PENALTY = players.getProperty("ExpertisePenalty", true);
+	}
+	
+	/**
+	 * Loads augmentation settings from augmented.properties.
+	 */
+	private static final void loadAugmentation()
+	{
+		final ExProperties aug = initProperties("config/augmented.properties");
+		
+		ALLOW_AUGMENTED_TRADE = aug.getProperty("AllowAugmentedTrade", false);
+		AUGMENTATION_NG_GLOW_CHANCE = aug.getProperty("AugmentationNGGlowChance", 0);
+		AUGMENTATION_MID_GLOW_CHANCE = aug.getProperty("AugmentationMidGlowChance", 40);
+		AUGMENTATION_HIGH_GLOW_CHANCE = aug.getProperty("AugmentationHighGlowChance", 70);
+		AUGMENTATION_TOP_GLOW_CHANCE = aug.getProperty("AugmentationTopGlowChance", 100);
+		AUGMENTATION_NG_SKILL_CHANCE = aug.getProperty("AugmentationNGSkillChance", 15);
+		AUGMENTATION_MID_SKILL_CHANCE = aug.getProperty("AugmentationMidSkillChance", 30);
+		AUGMENTATION_HIGH_SKILL_CHANCE = aug.getProperty("AugmentationHighSkillChance", 45);
+		AUGMENTATION_TOP_SKILL_CHANCE = aug.getProperty("AugmentationTopSkillChance", 60);
+		AUGMENTATION_BASESTAT_CHANCE = aug.getProperty("AugmentationBaseStatChance", 1);
 	}
 	
 	/**
@@ -3368,6 +3379,7 @@ public final class Config
 			loadProtection();
 			loadNpcs();
 			loadPlayers();
+			loadAugmentation();
 			loadSieges();
 			loadServer();
 			loadRates();

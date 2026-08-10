@@ -27,6 +27,8 @@ import java.util.concurrent.ScheduledFuture;
 import ext.mods.commons.pool.ConnectionPool;
 import ext.mods.commons.pool.ThreadPool;
 
+import ext.mods.Config;
+
 import ext.mods.gameserver.data.manager.CastleManager;
 import ext.mods.gameserver.data.xml.ItemData;
 import ext.mods.gameserver.enums.items.EtcItemType;
@@ -532,11 +534,11 @@ public final class ItemInstance extends WorldObject implements Runnable, Compara
 	 */
 	public boolean isDropable()
 	{
-		return !isAugmented() && _item.isDropable();
+		return (!isAugmented() || Config.ALLOW_AUGMENTED_TRADE) && _item.isDropable();
 	}
 	
 	/**
-	 * @return True if this {@link ItemInstance} is dropable, or false otherwise.
+	 * @return True if this {@link ItemInstance} is destroyable, or false otherwise.
 	 */
 	public boolean isDestroyable()
 	{
@@ -548,7 +550,7 @@ public final class ItemInstance extends WorldObject implements Runnable, Compara
 	 */
 	public boolean isTradable()
 	{
-		return !isAugmented() && _item.isTradable();
+		return (!isAugmented() || Config.ALLOW_AUGMENTED_TRADE) && _item.isTradable();
 	}
 	
 	/**
@@ -559,7 +561,7 @@ public final class ItemInstance extends WorldObject implements Runnable, Compara
 		if (_item.getType2() == Item.TYPE2_QUEST)
 			return false;
 		
-		return !isAugmented() && _item.isSellable();
+		return (!isAugmented() || Config.ALLOW_AUGMENTED_TRADE) && _item.isSellable();
 	}
 	
 	/**
