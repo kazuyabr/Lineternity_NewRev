@@ -616,6 +616,8 @@ public final class Config
 	
 	/** Augmentations */
 	public static boolean ALLOW_AUGMENTED_TRADE;
+	public static boolean ALLOW_AUGMENTED_DROP;
+	public static boolean ALLOW_AUGMENTED_PET_ITEM;
 	public static int AUGMENTATION_NG_SKILL_CHANCE;
 	public static int AUGMENTATION_NG_GLOW_CHANCE;
 	public static int AUGMENTATION_MID_SKILL_CHANCE;
@@ -2626,6 +2628,8 @@ public final class Config
 		final ExProperties aug = initProperties("config/augmented.properties");
 		
 		ALLOW_AUGMENTED_TRADE = aug.getProperty("AllowAugmentedTrade", false);
+		ALLOW_AUGMENTED_DROP = aug.getProperty("AllowAugmentedDrop", false);
+		ALLOW_AUGMENTED_PET_ITEM = aug.getProperty("AllowAugmentedPetItem", false);
 		AUGMENTATION_NG_GLOW_CHANCE = aug.getProperty("AugmentationNGGlowChance", 0);
 		AUGMENTATION_MID_GLOW_CHANCE = aug.getProperty("AugmentationMidGlowChance", 40);
 		AUGMENTATION_HIGH_GLOW_CHANCE = aug.getProperty("AugmentationHighGlowChance", 70);

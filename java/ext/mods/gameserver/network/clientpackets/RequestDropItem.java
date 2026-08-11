@@ -93,7 +93,7 @@ public final class RequestDropItem extends L2GameClientPacket
 			return;
 		}
 		
-		if (item.isAugmented())
+		if (item.isAugmented() && !Config.ALLOW_AUGMENTED_DROP)
 		{
 			player.sendPacket(SystemMessageId.AUGMENTED_ITEM_CANNOT_BE_DISCARDED);
 			return;

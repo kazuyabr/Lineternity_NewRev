@@ -66,7 +66,7 @@ public final class RequestGiveItemToPet extends L2GameClientPacket
 		}
 		
 		final ItemInstance item = player.getInventory().getItemByObjectId(_objectId);
-		if (item == null || item.isAugmented())
+		if (item == null || (item.isAugmented() && !Config.ALLOW_AUGMENTED_PET_ITEM))
 			return;
 		
 		if (item.isHeroItem() || !item.isDropable() || !item.isDestroyable() || !item.isTradable() || item.getItem().getItemType() == EtcItemType.ARROW || item.getItem().getItemType() == EtcItemType.SHOT)
