@@ -668,6 +668,8 @@ public final class ItemInstance extends WorldObject implements Runnable, Compara
 			return false;
 		
 		_augmentation = augmentation;
+		_type1 = augmentation.getId() & 0xFFFF;
+		_type2 = (augmentation.getId() >> 16) & 0xFFFF;
 		
 		ItemInstanceTaskManager.getInstance().add(this);
 		
@@ -686,6 +688,8 @@ public final class ItemInstance extends WorldObject implements Runnable, Compara
 			return;
 		
 		_augmentation = null;
+		_type1 = 0;
+		_type2 = 0;
 		
 		ItemInstanceTaskManager.getInstance().add(this);
 		
@@ -702,7 +706,14 @@ public final class ItemInstance extends WorldObject implements Runnable, Compara
 			try (ResultSet rs = ps.executeQuery())
 			{
 				if (rs.next())
+				{
 					_augmentation = new Augmentation(rs.getInt("attributes"), rs.getInt("skill_id"), rs.getInt("skill_level"));
+					if (_type1 == 0 && _type2 == 0)
+					{
+						_type1 = _augmentation.getId() & 0xFFFF;
+						_type2 = (_augmentation.getId() >> 16) & 0xFFFF;
+					}
+				}
 			}
 		}
 		catch (Exception e)
