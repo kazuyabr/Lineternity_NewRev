@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS `autofarm_player_data`;
 CREATE TABLE `autofarm_player_data` (
   `player_id` int(11) NOT NULL,
   `time_used` bigint(20) DEFAULT 0,
+  `cost_time` bigint(20) DEFAULT 0,
   PRIMARY KEY (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 
