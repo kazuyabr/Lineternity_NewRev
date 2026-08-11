@@ -69,10 +69,10 @@ public class TradeItemUpdate extends L2GameServerPacket
 			writeD(item.getItem().getItemId());
 			writeD(availableCount);
 			writeH(item.getItem().getType2());
-			writeH(0x00);
+			writeH(item.getCustomType1());
 			writeD(item.getItem().getBodyPart());
 			writeH(item.getEnchant());
-			writeH(0x00);
+			writeH(item.getCustomType2());
 			writeH(0x00);
 		}
 	}
