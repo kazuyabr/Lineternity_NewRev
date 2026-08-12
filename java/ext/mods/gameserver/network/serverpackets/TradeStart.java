@@ -56,7 +56,7 @@ public class TradeStart extends L2GameServerPacket
 			writeD(item.getBodyPart());
 			writeH(temp.getEnchantLevel());
 			writeH(temp.getCustomType2());
-			writeH(0x00);
+			writeH(temp.isAugmented() ? 0x01 : 0x00);
 		}
 	}
 }
