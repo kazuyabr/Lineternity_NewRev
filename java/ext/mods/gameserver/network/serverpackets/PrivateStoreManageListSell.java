@@ -60,6 +60,7 @@ public class PrivateStoreManageListSell extends L2GameServerPacket
 			writeH(item.getCustomType1());
 			writeH(item.getEnchant());
 			writeH(item.getCustomType2());
+			writeH(item.isAugmented() ? 0x01 : 0x00);
 			writeD(item.getItem().getBodyPart());
 			writeD(item.getPrice());
 		}
@@ -74,6 +75,7 @@ public class PrivateStoreManageListSell extends L2GameServerPacket
 			writeH(item.getCustomType1());
 			writeH(item.getEnchant());
 			writeH(item.getCustomType2());
+			writeH(item.isAugmented() ? 0x01 : 0x00);
 			writeD(item.getItem().getBodyPart());
 			writeD(item.getPrice());
 			writeD(item.getItem().getReferencePrice());

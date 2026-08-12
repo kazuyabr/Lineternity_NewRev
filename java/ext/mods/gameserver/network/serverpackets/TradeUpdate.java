@@ -46,6 +46,6 @@ public class TradeUpdate extends L2GameServerPacket
 		writeD(_item.getItem().getBodyPart());
 		writeH(_item.getEnchant());
 		writeH(_item.getCustomType2());
-		writeH(0x00);
+		writeH(_item.isAugmented() ? 0x01 : 0x00);
 	}
 }

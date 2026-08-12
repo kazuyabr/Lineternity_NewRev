@@ -26,6 +26,7 @@ public class TradeItem extends ItemRequest
 	private int _quantity;
 	private int _customType1;
 	private int _customType2;
+	private boolean _augmented;
 	
 	public TradeItem(ItemInstance item, int count, int price)
 	{
@@ -35,6 +36,7 @@ public class TradeItem extends ItemRequest
 		_quantity = count;
 		_customType1 = item.getCustomType1();
 		_customType2 = item.getCustomType2();
+		_augmented = item.isAugmented();
 	}
 	
 	public TradeItem(Item item, int count, int price, int enchant)
@@ -55,6 +57,7 @@ public class TradeItem extends ItemRequest
 		_quantity = count;
 		_customType1 = item.getCustomType1();
 		_customType2 = item.getCustomType2();
+		_augmented = item.isAugmented();
 	}
 	
 	@Override
@@ -76,6 +79,11 @@ public class TradeItem extends ItemRequest
 	public int getCustomType2()
 	{
 		return _customType2;
+	}
+	
+	public boolean isAugmented()
+	{
+		return _augmented;
 	}
 	
 	public int getQuantity()
