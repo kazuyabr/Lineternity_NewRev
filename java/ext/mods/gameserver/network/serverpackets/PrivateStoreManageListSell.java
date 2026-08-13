@@ -18,6 +18,7 @@
 package ext.mods.gameserver.network.serverpackets;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.model.trade.TradeItem;
@@ -38,7 +39,9 @@ public class PrivateStoreManageListSell extends L2GameServerPacket
 		_objectId = player.getObjectId();
 		_playerAdena = player.getAdena();
 		_packageSale = (player.getSellList().isPackaged()) ? true : isPackageSale;
-		_itemList = player.getInventory().getItemsToSell();
+		_itemList = player.getInventory().getItemsToSell().stream()
+			.filter(item -> !item.isAugmented())
+			.collect(Collectors.toList());
 		_sellList = player.getSellList();
 	}
 	
