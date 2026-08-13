@@ -429,10 +429,12 @@ public class AuctionBBSManager extends BaseBBSManager
 		{
 			final Item items = ItemData.getInstance().getTemplate(item.getItemId());
 			String name = item.getName();
+			if (item.isAugmented() && Config.ALLOW_AUGMENTED_TRADE)
+				name += " (Augmented)";
 			if (name.length() >= 44)
 				name = name.substring(0, 42) + "..";
-			if (item.isEquipable() && name.contains(" - "))
-				name = item.getName().replace(" - ", "</font> - <font color=LEVEL>") + "</font>";
+		if (item.isEquipable() && name.contains(" - "))
+			name = name.replace(" - ", "</font> - <font color=LEVEL>") + "</font>";
 			
 			String content = getContent(player, "inventory-item.htm");
 			
