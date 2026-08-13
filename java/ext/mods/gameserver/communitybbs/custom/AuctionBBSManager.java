@@ -366,7 +366,7 @@ public class AuctionBBSManager extends BaseBBSManager
 			name = name.substring(0, 42) + "..";
 		
 		if (auction.getItem().isEquipable() && name.contains(" - "))
-			name = auction.getItem().getName().replace(" - ", "</font> - <font color=LEVEL>") + "</font>";
+			name = name.replace(" - ", "</font> - <font color=LEVEL>") + "</font>";
 		
 		if (auction.getItem().isStackable())
 			name += " (" + StringUtil.formatNumber(auction.getItemCount()) + ")";
@@ -375,7 +375,7 @@ public class AuctionBBSManager extends BaseBBSManager
 			name += " <font color=B09B79>+" + auction.getItemEnchant() + "</font>";
 		
 		if (auction.isAugmented())
-			name += " <font color=augmented>(Augmented)</font>";
+			name += " (Augmented)";
 		
 		return name;
 	}
