@@ -62,6 +62,7 @@ public class PrivateStoreManageListSell extends L2GameServerPacket
 			writeH(item.getCustomType2());
 			writeD(item.getItem().getBodyPart());
 			writeD(item.getPrice());
+			writeH(item.isAugmented() ? 0x01 : 0x00);
 		}
 		
 		writeD(_sellList.size());
@@ -77,6 +78,7 @@ public class PrivateStoreManageListSell extends L2GameServerPacket
 			writeD(item.getItem().getBodyPart());
 			writeD(item.getPrice());
 			writeD(item.getItem().getReferencePrice());
+			writeH(item.isAugmented() ? 0x01 : 0x00);
 		}
 	}
 }
