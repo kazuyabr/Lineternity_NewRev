@@ -2964,6 +2964,146 @@ def run_sql_on_mariadb(container_name: str, database: str, sql: str, fetch: bool
         return result.returncode == 0, result.stdout.strip()
     return result.returncode == 0, result.stdout.strip()
 
+# ============================================================
+# SQL Migrations
+# ============================================================
+
+MIGRATIONS_DIR = PROJECT_ROOT / "tools" / "sql" / "migrations"
+
+def _ensure_schema_migrations_table(container_name: str, database: str):
+    """Cria a tabela schema_migrations se nao existir"""
+    sql = """
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+        id INT(10) NOT NULL AUTO_INCREMENT,
+        filename VARCHAR(255) NOT NULL,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_filename (filename)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """
+    run_sql_on_mariadb(container_name, database, sql)
+
+def _get_applied_migrations(container_name: str, database: str) -> set:
+    """Retorna conjunto de migracoes ja aplicadas"""
+    ok, output = run_sql_on_mariadb(
+        container_name, database,
+        "SELECT filename FROM schema_migrations ORDER BY id;",
+        fetch=True
+    )
+    if not ok or not output:
+        return set()
+    return set(output.splitlines())
+
+def _apply_migration(container_name: str, database: str, migration_file: Path):
+    """Aplica um arquivo de migracao e registra na tabela schema_migrations"""
+    sql_content = migration_file.read_text(encoding="utf-8")
+    
+    # Executar cada statement separadamente (para ALTER TABLE multiplas colunas)
+    for statement in sql_content.split(";"):
+        statement = statement.strip()
+        if not statement or statement.startswith("--"):
+            continue
+        ok, err = run_sql_on_mariadb(container_name, database, statement)
+        if not ok:
+            print(f"    ERRO ao executar: {statement[:60]}...")
+            print(f"    Detalhe: {err}")
+            return False
+    
+    # Registrar migracao aplicada
+    run_sql_on_mariadb(
+        container_name, database,
+        f"INSERT IGNORE INTO schema_migrations (filename) VALUES ('{migration_file.name}');"
+    )
+    return True
+
+def apply_migrations():
+    """Menu para aplicar migracoes SQL pendentes em GameServers"""
+    print_header("Aplicar Migrations SQL")
+    
+    if not MIGRATIONS_DIR.exists():
+        print(f"  Pasta de migracoes nao encontrada: {MIGRATIONS_DIR}")
+        return
+    
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    if not migration_files:
+        print("  Nenhuma migracao encontrada em tools/sql/migrations/")
+        return
+    
+    # Listar GameServers ativos
+    containers = get_running_gameserver_containers()
+    if not containers:
+        print("  Nenhum GameServer ativo encontrado.")
+        print("  Inicie um GameServer primeiro (opcao 4 do menu).")
+        return
+    
+    options = [f"GameServer #{c['server_id']} ({c['name']}) - {c['status']}" for c in containers]
+    options.append("Aplicar em TODOS")
+    options.append("Voltar")
+    
+    idx = choose_from_menu("Selecione o GameServer", options)
+    if idx == len(options) - 1:
+        return
+    
+    if idx < 0 or idx >= len(options):
+        return
+    
+    # Determinar alvos
+    if idx == len(containers):
+        targets = containers
+    else:
+        targets = [containers[idx]]
+    
+    total_applied = 0
+    total_errors = 0
+    
+    for target in targets:
+        server_id = target['server_id']
+        container_name = target['name']
+        game_db = f"l2jdb_gs{server_id}"
+        mariadb_container = get_mariadb_container_for_gameserver(server_id)
+        
+        print(f"\n  GameServer #{server_id} ({game_db}):")
+        
+        # Verificar se MariaDB esta rodando
+        check = subprocess.run(
+            ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
+            capture_output=True, text=True
+        )
+        if mariadb_container not in check.stdout:
+            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            continue
+        
+        # Criar tabela schema_migrations se necessario
+        _ensure_schema_migrations_table(mariadb_container, game_db)
+        
+        # Obter migracoes ja aplicadas
+        applied = _get_applied_migrations(mariadb_container, game_db)
+        
+        # Filtrar pendentes
+        pending = [f for f in migration_files if f.name not in applied]
+        
+        if not pending:
+            print(f"    Nenhuma migracao pendente. Todas ja foram aplicadas.")
+            continue
+        
+        print(f"    {len(pending)} migracao(oes) pendente(s):")
+        for f in pending:
+            print(f"      - {f.name}")
+        
+        if not confirm(f"    Aplicar migracoes no GameServer #{server_id}?"):
+            continue
+        
+        for migration_file in pending:
+            print(f"    Aplicando {migration_file.name}...", end=" ")
+            if _apply_migration(mariadb_container, game_db, migration_file):
+                print("OK")
+                total_applied += 1
+            else:
+                print("FALHOU")
+                total_errors += 1
+    
+    print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+
 def set_gm_access():
     """Funcao para setar nivel de acesso de um personagem"""
     print_header("Setar GM / Access Level")
@@ -3134,10 +3274,11 @@ def main_menu():
             f"{C.MAGENTA}11.{C.RESET} Setar GM / Access Level",
             f"{C.BLUE}12.{C.RESET} Atualizar Imagens",
             f"{C.BLUE}13.{C.RESET} Atualizar Dados nos Containers",
-            f"{C.RED}14.{C.RESET} Sair",
+            f"{C.BLUE}14.{C.RESET} Aplicar Migrations SQL",
+            f"{C.RED}15.{C.RESET} Sair",
         ]
         
-        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.3{C.RESET}", options)
+        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.4{C.RESET}", options)
         
         if idx == 0:
             build_project()
@@ -3166,6 +3307,8 @@ def main_menu():
         elif idx == 12:
             update_container_data()
         elif idx == 13:
+            apply_migrations()
+        elif idx == 14:
             print(f"\n  {C.GREEN}Saindo...{C.RESET}")
             break
         else:

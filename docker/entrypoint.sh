@@ -458,6 +458,53 @@ elif [ "$START_TYPE" = "gameserver" ]; then
         echo "Database já contém tabelas, pulando importação."
     fi
     
+    # Criar tabela schema_migrations se nao existir
+    mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -e "
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+        id INT(10) NOT NULL AUTO_INCREMENT,
+        filename VARCHAR(255) NOT NULL,
+        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uk_filename (filename)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    " 2>/dev/null
+    
+    # Aplicar migrations pendentes
+    if [ -d "/lineternity/tools/sql/migrations" ]; then
+        echo "Verificando migrations pendentes..."
+        APPLIED=$(mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -N -e "SELECT filename FROM schema_migrations ORDER BY id;" 2>/dev/null)
+        
+        MIGRATIONS_APPLIED=0
+        for migration_file in /lineternity/tools/sql/migrations/*.sql; do
+            [ -f "$migration_file" ] || continue
+            FILENAME=$(basename "$migration_file")
+            
+            # Verificar se ja foi aplicada
+            if echo "$APPLIED" | grep -q "^${FILENAME}$"; then
+                continue
+            fi
+            
+            echo "Aplicando migration: $FILENAME"
+            
+            # Cada statement separado
+            while IFS= read -r statement; do
+                statement=$(echo "$statement" | sed 's/--.*//g' | xargs)
+                [ -z "$statement" ] && continue
+                mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -e "$statement" 2>/dev/null
+            done < "$migration_file"
+            
+            # Registrar migration aplicada
+            mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -e "INSERT IGNORE INTO schema_migrations (filename) VALUES ('$FILENAME');" 2>/dev/null
+            MIGRATIONS_APPLIED=$((MIGRATIONS_APPLIED + 1))
+        done
+        
+        if [ $MIGRATIONS_APPLIED -gt 0 ]; then
+            echo "$MIGRATIONS_APPLIED migration(s) aplicada(s) com sucesso!"
+        else
+            echo "Nenhuma migration pendente."
+        fi
+    fi
+    
     # Aguardar MariaDB do LOGIN estar pronto (remoto)
     wait_for_mysql "$LOGIN_DB_HOST" "$LOGIN_DB_PORT" "$LOGIN_DB_USER" "$LOGIN_DB_PASSWORD" "login (remoto)"
     
