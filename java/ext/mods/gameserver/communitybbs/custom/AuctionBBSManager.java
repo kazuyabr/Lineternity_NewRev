@@ -374,6 +374,9 @@ public class AuctionBBSManager extends BaseBBSManager
 		if (auction.getItemEnchant() > 0)
 			name += " <font color=B09B79>+" + auction.getItemEnchant() + "</font>";
 		
+		if (auction.isAugmented())
+			name += " <font color=augmented>(Augmented)</font>";
+		
 		return name;
 	}
 	
@@ -493,6 +496,12 @@ public class AuctionBBSManager extends BaseBBSManager
 			return true;
 		}
 		
+		if (item.isAugmented() && !Config.ALLOW_AUGMENTED_TRADE)
+		{
+			player.sendMessage(player.getSysString(10_205, item.getName()));
+			return true;
+		}
+		
 		function.setItemId(item.getObjectId());
 		sendIndexMine(player, 1, function);
 		
@@ -505,6 +514,12 @@ public class AuctionBBSManager extends BaseBBSManager
 		if (item == null)
 		{
 			player.sendMessage(player.getSysString(10_206));
+			return;
+		}
+		
+		if (item.isAugmented() && !Config.ALLOW_AUGMENTED_TRADE)
+		{
+			player.sendMessage(player.getSysString(10_205, item.getName()));
 			return;
 		}
 		
@@ -539,7 +554,7 @@ public class AuctionBBSManager extends BaseBBSManager
 			return;
 		}
 		
-		final Auction auction = new Auction(player.getObjectId(), item.getItemId(), quantity, item.getEnchantLevel(), costId, price);
+		final Auction auction = new Auction(player.getObjectId(), item.getItemId(), quantity, item.getEnchantLevel(), costId, price, item.isAugmented(), item.isAugmented() ? item.getAugmentation().getId() : 0);
 		_auctions.put(auction.getId(), auction);
 		auction.store();
 		

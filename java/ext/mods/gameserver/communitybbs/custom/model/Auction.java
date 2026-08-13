@@ -37,6 +37,7 @@ import ext.mods.gameserver.enums.items.CrystalType;
 import ext.mods.gameserver.idfactory.IdFactory;
 import ext.mods.gameserver.model.World;
 import ext.mods.gameserver.model.actor.Player;
+import ext.mods.gameserver.model.Augmentation;
 import ext.mods.gameserver.model.item.instance.ItemInstance;
 import ext.mods.gameserver.model.item.kind.Armor;
 import ext.mods.gameserver.model.item.kind.EtcItem;
@@ -48,7 +49,8 @@ public class Auction
 {
 	protected static final CLogger LOGGER = new CLogger(Auction.class.getName());
 	
-	private static final String INSERT_AUCTION = "INSERT INTO bbs_auction (id,obj_Id,item_id,item_count,item_enchant,price_id,price_count,duration) VALUES (?,?,?,?,?,?,?,?)";
+	private static final String INSERT_AUCTION = "INSERT INTO bbs_auction (id,obj_Id,item_id,item_count,item_enchant,price_id,price_count,duration,is_augmented,augment_id) VALUES (?,?,?,?,?,?,?,?,?,?)";
+	private static final String INSERT_AUCTION_LEGACY = "INSERT INTO bbs_auction (id,obj_Id,item_id,item_count,item_enchant,price_id,price_count,duration) VALUES (?,?,?,?,?,?,?,?)";
 	private static final String DELETE_AUCTION = "DELETE FROM bbs_auction WHERE id=?";
 	private static final String UPDATE_AUCTION_ITEMCOUNT = "UPDATE bbs_auction SET item_count=? WHERE id=?";
 	private static final String UPDATE_AUCTION_DURATION = "UPDATE bbs_auction SET duration=? WHERE id=?";
@@ -68,6 +70,9 @@ public class Auction
 	private int _itemCount;
 	private long _duration;
 	
+	private boolean _isAugmented;
+	private int _augmentId;
+	
 	public Auction(ResultSet rs) throws SQLException
 	{
 		_id = rs.getInt("id");
@@ -79,9 +84,25 @@ public class Auction
 		_priceId = rs.getInt("price_id");
 		_priceCount = rs.getInt("price_count");
 		_duration = rs.getLong("duration");
+		
+		try
+		{
+			_isAugmented = rs.getBoolean("is_augmented");
+			_augmentId = rs.getInt("augment_id");
+		}
+		catch (SQLException e)
+		{
+			_isAugmented = false;
+			_augmentId = 0;
+		}
 	}
 	
 	public Auction(int objId, int itemId, int itemCount, int itemEnchant, int priceId, int priceCount)
+	{
+		this(objId, itemId, itemCount, itemEnchant, priceId, priceCount, false, 0);
+	}
+	
+	public Auction(int objId, int itemId, int itemCount, int itemEnchant, int priceId, int priceCount, boolean isAugmented, int augmentId)
 	{
 		_id = AuctionBBSManager.getInstance().nextId();
 		_objId = objId;
@@ -92,6 +113,9 @@ public class Auction
 		_priceId = priceId;
 		_priceCount = priceCount;
 		_duration = System.currentTimeMillis() + TimeUnit.DAYS.toMillis(7);
+		
+		_isAugmented = isAugmented;
+		_augmentId = augmentId;
 	}
 	
 	public final int getId()
@@ -152,6 +176,16 @@ public class Auction
 	public final long getDuration()
 	{
 		return _duration;
+	}
+	
+	public final boolean isAugmented()
+	{
+		return _isAugmented;
+	}
+	
+	public final int getAugmentId()
+	{
+		return _augmentId;
 	}
 	
 	public final boolean hasExpire()
@@ -297,6 +331,19 @@ public class Auction
 		final ItemInstance item = player.addItem(_itemId, count, true);
 		item.setEnchantLevel(_itemEnchant, null);
 		
+		if (_isAugmented && _augmentId > 0)
+		{
+			try
+			{
+				final Augmentation aug = new Augmentation(_augmentId, 0, 0);
+				item.setAugmentation(aug, player);
+			}
+			catch (Exception e)
+			{
+				LOGGER.warn("Couldn't restore augmentation {} for auction item '{}'.", e, _augmentId, _id);
+			}
+		}
+		
 		try (Connection con = ConnectionPool.getConnection())
 		{
 			final Player owner = World.getInstance().getPlayer(_objId);
@@ -393,6 +440,19 @@ public class Auction
 		final ItemInstance item = player.addItem(_itemId, _itemCount, true);
 		item.setEnchantLevel(_itemEnchant, null);
 		
+		if (_isAugmented && _augmentId > 0)
+		{
+			try
+			{
+				final Augmentation aug = new Augmentation(_augmentId, 0, 0);
+				item.setAugmentation(aug, player);
+			}
+			catch (Exception e)
+			{
+				LOGGER.warn("Couldn't restore augmentation {} for auction refund '{}'.", e, _augmentId, _id);
+			}
+		}
+		
 		_itemCount = 0;
 	}
 	
@@ -409,11 +469,29 @@ public class Auction
 			ps.setInt(6, _priceId);
 			ps.setInt(7, _priceCount);
 			ps.setLong(8, _duration);
+			ps.setBoolean(9, _isAugmented);
+			ps.setInt(10, _augmentId);
 			ps.execute();
 		}
 		catch (Exception e)
 		{
-			LOGGER.warn("Couldn't store auction house item '{}'.", e, _id);
+			try (Connection con = ConnectionPool.getConnection();
+				PreparedStatement ps = con.prepareStatement(INSERT_AUCTION_LEGACY))
+			{
+				ps.setInt(1, _id);
+				ps.setInt(2, _objId);
+				ps.setInt(3, _itemId);
+				ps.setInt(4, _itemCount);
+				ps.setInt(5, _itemEnchant);
+				ps.setInt(6, _priceId);
+				ps.setInt(7, _priceCount);
+				ps.setLong(8, _duration);
+				ps.execute();
+			}
+			catch (Exception e2)
+			{
+				LOGGER.warn("Couldn't store auction house item '{}'.", e, _id);
+			}
 		}
 	}
 }
