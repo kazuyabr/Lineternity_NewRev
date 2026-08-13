@@ -50,7 +50,7 @@ public class PrivateStoreListBuy extends L2GameServerPacket
 			writeH(item.getEnchant());
 			writeD(item.getCount());
 			writeD(item.getItem().getReferencePrice());
-			writeD(item.isAugmented() ? 0x00000001 : 0x00000000);
+			writeH(0x00);
 			writeD(item.getItem().getBodyPart());
 			writeH(item.getItem().getType2());
 			writeD(item.getPrice());
