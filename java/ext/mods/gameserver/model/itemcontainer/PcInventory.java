@@ -672,7 +672,7 @@ public class PcInventory extends Inventory
 				return false;
 			
 			final ItemInstance item = getItemByObjectId(itemToCheck.getObjectId());
-			if (item == null || item.getCount() < itemToCheck.getCount())
+			if (item == null || item.getCount() < itemToCheck.getCount() || item.isAugmented())
 				return false;
 		}
 		return true;

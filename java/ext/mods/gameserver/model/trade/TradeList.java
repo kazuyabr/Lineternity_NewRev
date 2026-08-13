@@ -423,9 +423,9 @@ public class TradeList extends CopyOnWriteArrayList<TradeItem>
 			if (template == null)
 				return false;
 			
-			final ItemInstance oldItem = _owner.checkItemManipulation(item.getObjectId(), item.getCount());
-			if (oldItem == null || !oldItem.isTradable())
-				return false;
+		final ItemInstance oldItem = _owner.checkItemManipulation(item.getObjectId(), item.getCount());
+		if (oldItem == null || !oldItem.isTradable() || oldItem.isAugmented())
+			return false;
 			
 			if ((Integer.MAX_VALUE / item.getCount()) < item.getPrice())
 				return false;
@@ -530,7 +530,7 @@ public class TradeList extends CopyOnWriteArrayList<TradeItem>
 				return false;
 			
 			final ItemInstance oldItem = player.checkItemManipulation(item.getObjectId(), item.getCount());
-			if (oldItem == null || !oldItem.isTradable() || oldItem.getItemId() != item.getItemId() || oldItem.getEnchantLevel() != item.getEnchant())
+			if (oldItem == null || !oldItem.isTradable() || oldItem.getItemId() != item.getItemId() || oldItem.getEnchantLevel() != item.getEnchant() || oldItem.isAugmented())
 				return false;
 			
 			if ((Integer.MAX_VALUE / item.getCount()) < item.getPrice())
