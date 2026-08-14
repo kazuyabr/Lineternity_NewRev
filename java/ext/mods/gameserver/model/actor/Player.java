@@ -6349,7 +6349,7 @@ public class Player extends Playable
 		
 		if (StatusPointConfig.STATUS_POINTS_ENABLED)
 		{
-			if (!getMemos().containsKey("status_points.available"))
+			if (!getMemos().containsKey("status_points.initialized"))
 			{
 				getMemos().set("status_points.initialized", true);
 				

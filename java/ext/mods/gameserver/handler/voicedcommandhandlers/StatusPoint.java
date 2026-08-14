@@ -106,11 +106,11 @@ public class StatusPoint implements IVoicedCommandHandler
 			boolean showPlus = (available > 0) && !isMaxed(stat, dist);
 			boolean showMinus = (dist > 0) && hasPreview;
 			
-			String buttons = "";
-			if (showPlus)
-				buttons += "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=20 height=20 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>";
-			if (showMinus)
-				buttons += "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=20 height=20 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>";
+		String buttons = "";
+		if (showPlus)
+			buttons += "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=18 height=18 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>&nbsp;";
+		if (showMinus)
+			buttons += "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=18 height=18 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>";
 			
 			htm.replace("%" + stat.toLowerCase() + "_buttons%", buttons);
 		}
