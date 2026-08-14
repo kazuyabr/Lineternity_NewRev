@@ -28,6 +28,7 @@ import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.scripting.Quest;
 import ext.mods.gameserver.scripting.QuestState;
 import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.gameserver.StatusPointOwner;
 import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.commons.logging.CLogger;
 
@@ -36,7 +37,7 @@ public class QuestRewardConfig
 	private static final CLogger LOGGER = new CLogger(QuestRewardConfig.class.getName());
 	private static final Path QUEST_CONFIG_DIR = Paths.get("game/config/quest");
 	
-	public static void applyQuestRewards(Player player, Quest quest)
+	public static void applyQuestRewards(Player player, Quest quest, QuestState st)
 	{
 		if (!StatusPointConfig.STATUS_POINTS_ENABLED)
 			return;
@@ -45,10 +46,6 @@ public class QuestRewardConfig
 		Path questFile = findQuestConfig(questName);
 		
 		if (questFile == null || !Files.exists(questFile))
-			return;
-		
-		String rewardKey = "quest_rewarded." + questName;
-		if (player.getMemos().containsKey(rewardKey))
 			return;
 		
 		ExProperties props = new ExProperties();
@@ -62,11 +59,27 @@ public class QuestRewardConfig
 			return;
 		}
 		
+		boolean repeatable = props.getProperty("Repeatable", false);
+		
+		if (!repeatable)
+		{
+			String rewardKey = "quest_rewarded." + questName;
+			if (player.getMemos().containsKey(rewardKey))
+				return;
+		}
+		
 		int spReward = props.getProperty("StatusPointReward", 0);
-		if (spReward > 0)
+		if (spReward > 0 && !repeatable)
 		{
 			int current = player.getMemos().getInteger("status_points.available", 0);
 			player.getMemos().set("status_points.available", current + spReward);
+		}
+		
+		int repeatableSpReward = props.getProperty("RepeatableStatusPointReward", 0);
+		if (repeatableSpReward > 0 && repeatable)
+		{
+			int current = player.getMemos().getInteger("status_points.available", 0);
+			player.getMemos().set("status_points.available", current + repeatableSpReward);
 		}
 		
 		int pdefReward = props.getProperty("PDefReward", 0);
@@ -90,7 +103,8 @@ public class QuestRewardConfig
 				Quest.giveItems(player, itemId, count);
 		}
 		
-		player.getMemos().set(rewardKey, true);
+		if (!repeatable)
+			player.getMemos().set("quest_rewarded." + questName, true);
 	}
 	
 	private static Path findQuestConfig(String questName)
@@ -113,8 +127,8 @@ public class QuestRewardConfig
 		int pdef = player.getMemos().getInteger("status_points.pdef", 0);
 		if (pdef > 0)
 		{
-			player.removeStatsByOwner(StatusPointConfig.class);
-			player.addStatFunc(new FuncStatusPoint(player, Stats.POWER_DEFENCE, pdef * StatusPointConfig.PDEF_PER_POINT));
+			player.removeStatsByOwner(StatusPointOwner.PDEF);
+			player.addStatFunc(new FuncStatusPoint(player, Stats.POWER_DEFENCE, pdef * StatusPointConfig.PDEF_PER_POINT, StatusPointOwner.PDEF));
 			player.broadcastUserInfo();
 		}
 	}

@@ -62,6 +62,9 @@ import ext.mods.extensions.listener.manager.CreatureListenerManager;
 import ext.mods.extensions.listener.manager.InventoryListenerManager;
 import ext.mods.extensions.listener.manager.PlayerListenerManager;
 import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.gameserver.StatusPointPvP;
+import ext.mods.gameserver.StatusPointPK;
+import ext.mods.gameserver.StatusPointOwner;
 import ext.mods.gameserver.LoginServerThread;
 import ext.mods.gameserver.communitybbs.CommunityBoard;
 import ext.mods.gameserver.communitybbs.model.Forum;
@@ -2909,6 +2912,9 @@ public class Player extends Playable
 		AntiFeedManager.getInstance().setLastDeathTime(getObjectId());
 		_missionList.update(MissionType.DEATHS);
 		
+		if (StatusPointConfig.STATUS_POINTS_ENABLED && getKarma() > 0)
+			StatusPointPK.onDeath(this);
+		
 		return true;
 	}
 	
@@ -2985,7 +2991,11 @@ public class Player extends Playable
 		{
 			final int karmaLost = Formulas.calculateKarmaLost(getStatus().getLevel(), exp);
 			if (karmaLost > 0)
+			{
+				int oldKarma = getKarma();
 				setKarma(getKarma() - karmaLost);
+				StatusPointPK.onKarmaRemoved(this, oldKarma - getKarma());
+			}
 		}
 	}
 	
@@ -3043,9 +3053,12 @@ public class Player extends Playable
 			{
 				RandomManager.getInstance().onPvPKill(this, (Player) target);
 				
-				setPvpKills(getPvpKills() + 1);
-				
-				for (RewardSystem kills : PvPData.getInstance().getReward())
+			setPvpKills(getPvpKills() + 1);
+			
+			if (StatusPointConfig.PVP_REWARD_ENABLED)
+				StatusPointPvP.onPvPKill(this);
+			
+			for (RewardSystem kills : PvPData.getInstance().getReward())
 				{
 					for (IntIntHolder reward : kills.reward())
 					{
@@ -6334,13 +6347,26 @@ public class Player extends Playable
 		RelationManager.getInstance().notifyFriends(this, true);
 		AutoFarmManager.getInstance().onPlayerLogin(this);
 		
-		if (StatusPointConfig.STATUS_POINTS_ENABLED && !getMemos().containsKey("status_points.initialized"))
+		if (StatusPointConfig.STATUS_POINTS_ENABLED)
 		{
-			getMemos().set("status_points.available", StatusPointConfig.STARTING_STATUS_POINTS);
-			getMemos().set("status_points.initialized", true);
+			if (!getMemos().containsKey("status_points.available"))
+			{
+				getMemos().set("status_points.initialized", true);
+				
+				if (StatusPointConfig.STARTING_STATUS_POINTS_FROM_HENNA)
+				{
+					int hennaSum = ext.mods.gameserver.StatusPointHennaSum.calculate(getClassId());
+					int levelBonus = getStatus().getLevel();
+					getMemos().set("status_points.available", hennaSum + levelBonus);
+				}
+				else
+				{
+					getMemos().set("status_points.available", 0);
+				}
+			}
 			
-			if (StatusPointConfig.STATUS_POINTS_ON_CHARACTER_CREATION && getMemos().getInteger("status_points.pdef", 0) == 0)
-				getMemos().set("status_points.pdef", 0);
+			StatusPointPvP.applyBonuses(this);
+			ext.mods.gameserver.quest.QuestRewardConfig.applyPDefBonus(this);
 		}
 		
 		PlayerListenerManager.getInstance().notifyPlayerEnter(this);

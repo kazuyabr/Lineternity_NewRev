@@ -16,31 +16,13 @@
  * SonecaL2, Eduardo.SilvaL2J, biLL, xpower, xTech, kakuzo, Tiagorosendo, Schuster, LucasStark, damedd
  * as a contribution for the forum L2JBrasil.com
  */
-package ext.mods.gameserver.skills.funcs;
+package ext.mods.gameserver;
 
-import ext.mods.gameserver.enums.skills.Stats;
-import ext.mods.gameserver.model.actor.Creature;
-import ext.mods.gameserver.model.actor.Player;
-import ext.mods.gameserver.skills.L2Skill;
-import ext.mods.gameserver.skills.basefuncs.Func;
-
-public class FuncStatusPoint extends Func
+public final class StatusPointOwner
 {
-	public FuncStatusPoint(Player owner, Stats stat, int value)
-	{
-		super(StatusPointOwner.DISTRIBUTED, stat, 2, value, null);
-	}
+	public static final Object DISTRIBUTED = new Object();
+	public static final Object PVP = new Object();
+	public static final Object PDEF = new Object();
 	
-	public FuncStatusPoint(Player owner, Stats stat, int value, Object ownerMarker)
-	{
-		super(ownerMarker, stat, 2, value, null);
-	}
-	
-	@Override
-	public double calc(Creature effector, Creature effected, L2Skill skill, double base, double value)
-	{
-		if (effector instanceof Player player)
-			return value + getValue();
-		return value;
-	}
+	private StatusPointOwner() {}
 }

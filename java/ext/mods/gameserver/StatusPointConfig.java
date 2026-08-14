@@ -28,8 +28,7 @@ public class StatusPointConfig
 	private static final CLogger LOGGER = new CLogger(StatusPointConfig.class.getName());
 	
 	public static boolean STATUS_POINTS_ENABLED;
-	public static int STARTING_STATUS_POINTS;
-	public static boolean STATUS_POINTS_ON_CHARACTER_CREATION;
+	public static boolean STARTING_STATUS_POINTS_FROM_HENNA;
 	public static int PDEF_PER_POINT;
 	public static int MAX_DEX_POINTS;
 	public static int MAX_WIT_POINTS;
@@ -41,15 +40,26 @@ public class StatusPointConfig
 	public static int RESET_ADENA;
 	public static boolean PREMIUM_EXEMPT_FROM_RESET_COST;
 	
+	public static boolean PK_REWARD_ENABLED;
+	public static int PK_REWARD_POINTS_PER_KARMA;
+	public static int PK_MIN_KARMA_FOR_DEATH_PENALTY;
+	public static int PK_DEATH_KARMA_LOSS;
+	
+	public static boolean PVP_REWARD_ENABLED;
+	public static int PVP_MILESTONE_KILLS;
+	public static String[] PVP_BONUS_STATS;
+	public static int PVP_BONUS_PER_MILESTONE;
+	
 	private static final String STATUS_POINTS_FILE = Config.CONFIG_PATH.resolve("statuspoints.properties").toString();
+	private static final String PK_REWARDS_FILE = Config.CONFIG_PATH.resolve("pkrewards.properties").toString();
+	private static final String PVP_REWARDS_FILE = Config.CONFIG_PATH.resolve("pvprewards.properties").toString();
 	
 	public static void load()
 	{
 		final ExProperties statusPoints = Config.initProperties(STATUS_POINTS_FILE);
 		
 		STATUS_POINTS_ENABLED = statusPoints.getProperty("StatusPointsEnabled", false);
-		STARTING_STATUS_POINTS = statusPoints.getProperty("StartingStatusPoints", 100);
-		STATUS_POINTS_ON_CHARACTER_CREATION = statusPoints.getProperty("StatusPointsOnCharacterCreation", false);
+		STARTING_STATUS_POINTS_FROM_HENNA = statusPoints.getProperty("StartingStatusPointsFromHenna", true);
 		PDEF_PER_POINT = statusPoints.getProperty("PDefPerPoint", 1);
 		MAX_DEX_POINTS = statusPoints.getProperty("MaxDexPoints", 8);
 		MAX_WIT_POINTS = statusPoints.getProperty("MaxWitPoints", 8);
@@ -61,6 +71,22 @@ public class StatusPointConfig
 		RESET_ADENA = statusPoints.getProperty("ResetAdena", 100000);
 		PREMIUM_EXEMPT_FROM_RESET_COST = statusPoints.getProperty("PremiumExemptFromResetCost", false);
 		
+		final ExProperties pkRewards = Config.initProperties(PK_REWARDS_FILE);
+		
+		PK_REWARD_ENABLED = pkRewards.getProperty("PKRewardEnabled", true);
+		PK_REWARD_POINTS_PER_KARMA = pkRewards.getProperty("PKRewardPointsPerKarma", 100);
+		PK_MIN_KARMA_FOR_DEATH_PENALTY = pkRewards.getProperty("PKMinKarmaForDeathPenalty", 1000);
+		PK_DEATH_KARMA_LOSS = pkRewards.getProperty("PKDeathKarmaLoss", 500);
+		
+		final ExProperties pvpRewards = Config.initProperties(PVP_REWARDS_FILE);
+		
+		PVP_REWARD_ENABLED = pvpRewards.getProperty("PVPRewardEnabled", true);
+		PVP_MILESTONE_KILLS = pvpRewards.getProperty("PVPMilestoneKills", 50);
+		PVP_BONUS_PER_MILESTONE = pvpRewards.getProperty("PVPBonusPerMilestone", 1);
+		PVP_BONUS_STATS = pvpRewards.getProperty("PVPBonusStats", "STR,CON,INT,MEN").split(",");
+		
 		LOGGER.info("Loaded " + STATUS_POINTS_FILE);
+		LOGGER.info("Loaded " + PK_REWARDS_FILE);
+		LOGGER.info("Loaded " + PVP_REWARDS_FILE);
 	}
 }

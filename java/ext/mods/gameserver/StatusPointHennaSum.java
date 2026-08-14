@@ -16,31 +16,37 @@
  * SonecaL2, Eduardo.SilvaL2J, biLL, xpower, xTech, kakuzo, Tiagorosendo, Schuster, LucasStark, damedd
  * as a contribution for the forum L2JBrasil.com
  */
-package ext.mods.gameserver.skills.funcs;
+package ext.mods.gameserver;
 
-import ext.mods.gameserver.enums.skills.Stats;
-import ext.mods.gameserver.model.actor.Creature;
-import ext.mods.gameserver.model.actor.Player;
-import ext.mods.gameserver.skills.L2Skill;
-import ext.mods.gameserver.skills.basefuncs.Func;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
-public class FuncStatusPoint extends Func
+import ext.mods.gameserver.data.xml.HennaData;
+import ext.mods.gameserver.enums.actors.ClassId;
+import ext.mods.gameserver.model.records.Henna;
+import ext.mods.commons.util.ArraysUtil;
+import ext.mods.commons.logging.CLogger;
+
+public class StatusPointHennaSum
 {
-	public FuncStatusPoint(Player owner, Stats stat, int value)
-	{
-		super(StatusPointOwner.DISTRIBUTED, stat, 2, value, null);
-	}
+	private static final CLogger LOGGER = new CLogger(StatusPointHennaSum.class.getName());
 	
-	public FuncStatusPoint(Player owner, Stats stat, int value, Object ownerMarker)
+	public static int calculate(ClassId classId)
 	{
-		super(ownerMarker, stat, 2, value, null);
-	}
-	
-	@Override
-	public double calc(Creature effector, Creature effected, L2Skill skill, double base, double value)
-	{
-		if (effector instanceof Player player)
-			return value + getValue();
-		return value;
+		if (classId == null || classId == ClassId.NONE)
+			return 0;
+		
+		int sum = 0;
+		for (Henna henna : HennaData.getInstance().getHennas())
+		{
+			if (!ArraysUtil.contains(henna.classes(), classId.getId()))
+				continue;
+			
+			sum += Stream.of(henna.INT(), henna.STR(), henna.CON(), henna.MEN(), henna.DEX(), henna.WIT())
+				.mapToInt(Integer::intValue)
+				.sum();
+		}
+		
+		return Math.max(sum, 0);
 	}
 }

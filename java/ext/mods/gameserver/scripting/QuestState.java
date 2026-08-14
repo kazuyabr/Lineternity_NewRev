@@ -340,7 +340,7 @@ public final class QuestState extends MemoSet
 		}
 		
 		if (!repeatable && _quest.isRealQuest())
-			QuestRewardConfig.applyQuestRewards(_player, _quest);
+			QuestRewardConfig.applyQuestRewards(_player, _quest, this);
 	}
 	
 	/**

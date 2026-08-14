@@ -635,6 +635,13 @@ public class PlayerStatus extends PlayableStatus<Player>
 			_actor.sendPacket(SystemMessageId.YOU_INCREASED_YOUR_LEVEL);
 			
 			ClassMaster.showQuestionMark(_actor);
+			
+			if (ext.mods.gameserver.StatusPointConfig.STATUS_POINTS_ENABLED && _actor.getMemos().containsKey("status_points.initialized"))
+			{
+				int available = _actor.getMemos().getInteger("status_points.available", 0);
+				_actor.getMemos().set("status_points.available", available + 1);
+				_actor.sendMessage("You gained 1 status point from level up.");
+			}
 		}
 		
 		_actor.giveSkills();

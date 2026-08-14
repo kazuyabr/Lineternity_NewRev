@@ -22,6 +22,10 @@ import ext.mods.gameserver.handler.IVoicedCommandHandler;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.network.serverpackets.NpcHtmlMessage;
 import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.gameserver.StatusPointOwner;
+import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
+import ext.mods.gameserver.enums.skills.Stats;
+import ext.mods.gameserver.StatusPointOwner;
 
 public class StatusPoint implements IVoicedCommandHandler
 {
@@ -39,7 +43,9 @@ public class StatusPoint implements IVoicedCommandHandler
 			return false;
 		}
 		
-		if (target == null || target.isEmpty())
+		if (target != null && !target.isEmpty())
+			handleBypass(player, target);
+		else
 			showHtml(player);
 		
 		return true;
@@ -47,6 +53,8 @@ public class StatusPoint implements IVoicedCommandHandler
 	
 	public void showHtml(Player player)
 	{
+		player.getMemos().unset("status_points.preview");
+		
 		NpcHtmlMessage htm = new NpcHtmlMessage(0);
 		htm.setFile(player.getLocale(), "html/mods/statuspoint/statuspoint.htm");
 		
@@ -82,6 +90,10 @@ public class StatusPoint implements IVoicedCommandHandler
 		htm.replace("%matk_spd%", player.getMemos().getInteger("status_points.MAGIC_ATTACK", 0));
 		htm.replace("%mspd%", player.getMemos().getInteger("status_points.MOVEMENT_SPEED", 0));
 		
+		htm.replace("%pvp_kills%", player.getMemos().getInteger("pvp_kills", 0));
+		htm.replace("%pvp_milestone%", player.getMemos().getInteger("pvp_milestone", 0));
+		htm.replace("%pk_karma_removed%", player.getMemos().getInteger("pk_karma_removed", 0));
+		
 		boolean hasPreview = player.getMemos().getBool("status_points.preview", false);
 		boolean canConfirm = available > 0 && hasPreview;
 		
@@ -104,6 +116,116 @@ public class StatusPoint implements IVoicedCommandHandler
 		}
 		
 		player.sendPacket(htm);
+	}
+	
+	private void handleBypass(Player player, String target)
+	{
+		String[] parts = target.split(" ", 3);
+		String action = parts.length > 1 ? parts[1] : "show";
+		String stat = parts.length > 2 ? parts[2] : "";
+		
+		switch (action)
+		{
+			case "add":
+			{
+				int available = player.getMemos().getInteger("status_points.available", 0);
+				if (available <= 0)
+					break;
+				
+				int current = player.getMemos().getInteger("status_points." + stat, 0);
+				if (isMaxed(stat, current))
+					break;
+				
+				player.getMemos().set("status_points." + stat, current + 1);
+				player.getMemos().set("status_points.available", available - 1);
+				player.getMemos().set("status_points.preview", true);
+				break;
+			}
+			case "remove":
+			{
+				int current = player.getMemos().getInteger("status_points." + stat, 0);
+				if (current <= 0)
+					break;
+				
+				int available = player.getMemos().getInteger("status_points.available", 0);
+				player.getMemos().set("status_points." + stat, current - 1);
+				player.getMemos().set("status_points.available", available + 1);
+				
+				if (countDistributedPoints(player) == 0)
+					player.getMemos().unset("status_points.preview");
+				break;
+			}
+			case "confirm":
+			{
+				if (!player.getMemos().getBool("status_points.preview", false))
+					break;
+				
+				player.getMemos().unset("status_points.preview");
+				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+				
+				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+				for (String stat : stats)
+				{
+					int points = player.getMemos().getInteger("status_points." + stat, 0);
+					if (points > 0)
+					{
+						try
+						{
+							Stats enumStat = Stats.valueOf("STAT_" + stat);
+							player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.DISTRIBUTED));
+						}
+						catch (IllegalArgumentException e)
+						{
+						}
+					}
+				}
+				
+				player.broadcastUserInfo();
+				break;
+			}
+			case "reset":
+			{
+				int totalDistributed = countDistributedPoints(player);
+				if (totalDistributed <= 0)
+				{
+					player.sendMessage("You have no distributed status points to reset.");
+					break;
+				}
+				
+				if (!StatusPointConfig.PREMIUM_EXEMPT_FROM_RESET_COST || player.getPremiumService() == 0)
+				{
+					if (player.getInventory().getItemCount(StatusPointConfig.RESET_ITEM_ID) < StatusPointConfig.RESET_ITEM_COUNT)
+					{
+						player.sendMessage("You need " + StatusPointConfig.RESET_ITEM_COUNT + " item(s) to reset status points.");
+						break;
+					}
+					
+					if (!player.reduceAdena(StatusPointConfig.RESET_ADENA, true))
+					{
+						player.sendMessage("You need " + StatusPointConfig.RESET_ADENA + " adena to reset status points.");
+						break;
+					}
+					
+					player.destroyItemByItemId(StatusPointConfig.RESET_ITEM_ID, StatusPointConfig.RESET_ITEM_COUNT, true);
+				}
+				
+				int available = player.getMemos().getInteger("status_points.available", 0);
+				player.getMemos().set("status_points.available", available + totalDistributed);
+				
+				String[] resetStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+				for (String stat : resetStats)
+					player.getMemos().unset("status_points." + stat);
+				
+				player.getMemos().unset("status_points.preview");
+				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+				player.broadcastUserInfo();
+				
+				player.sendMessage("Status points reset successfully. " + totalDistributed + " points returned.");
+				break;
+			}
+		}
+		
+		showHtml(player);
 	}
 	
 	private int countDistributedPoints(Player player)

@@ -22,6 +22,7 @@ import ext.mods.gameserver.handler.IBypassHandler;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.model.actor.Creature;
 import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.gameserver.StatusPointOwner;
 import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.gameserver.enums.skills.Stats;
 import ext.mods.commons.logging.CLogger;
@@ -106,7 +107,7 @@ public class StatusPoint implements IBypassHandler
 		
 		player.getMemos().unset("status_points.preview");
 		
-		player.removeStatsByOwner(StatusPointConfig.class);
+		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		
 		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
 		for (String stat : stats)
@@ -117,7 +118,7 @@ public class StatusPoint implements IBypassHandler
 				try
 				{
 					Stats enumStat = Stats.valueOf("STAT_" + stat);
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points));
+					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.DISTRIBUTED));
 				}
 				catch (IllegalArgumentException e)
 				{
@@ -165,7 +166,7 @@ public class StatusPoint implements IBypassHandler
 		
 		player.getMemos().unset("status_points.preview");
 		
-		player.removeStatsByOwner(StatusPointConfig.class);
+		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		player.broadcastUserInfo();
 		
 		player.sendMessage("Status points reset successfully. " + totalDistributed + " points returned.");
