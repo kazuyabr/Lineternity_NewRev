@@ -1,0 +1,66 @@
+/*
+ * Copyleft © 2024-2026 L2Lineternity
+ * * This file is part of L2Lineternity derived from aCis409/RusaCis3.8
+ * * L2Lineternity is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * * L2Lineternity is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * Our main Developers, Dhousefe-L2JBR, Agazes33, Ban-L2jDev, Warman, SrEli.
+ * Our special thanks, Nattan Felipe, Diego Fonseca, Junin, ColdPlay, Denky, MecBew, Localhost, MundvayneHELLBOY,
+ * SonecaL2, Eduardo.SilvaL2J, biLL, xpower, xTech, kakuzo, Tiagorosendo, Schuster, LucasStark, damedd
+ * as a contribution for the forum L2JBrasil.com
+ */
+package ext.mods.gameserver;
+
+import ext.mods.Config;
+import ext.mods.commons.config.ExProperties;
+import ext.mods.commons.logging.CLogger;
+import java.nio.file.Path;
+
+public class StatusPointConfig
+{
+	private static final CLogger LOGGER = new CLogger(StatusPointConfig.class.getName());
+	
+	public static boolean STATUS_POINTS_ENABLED;
+	public static int STARTING_STATUS_POINTS;
+	public static boolean STATUS_POINTS_ON_CHARACTER_CREATION;
+	public static int PDEF_PER_POINT;
+	public static int MAX_DEX_POINTS;
+	public static int MAX_WIT_POINTS;
+	public static int MAX_ATTACK_SPEED_POINTS;
+	public static int MAX_MAGIC_ATTACK_SPEED_POINTS;
+	public static int MAX_MOVEMENT_SPEED_POINTS;
+	public static int RESET_ITEM_ID;
+	public static int RESET_ITEM_COUNT;
+	public static int RESET_ADENA;
+	public static boolean PREMIUM_EXEMPT_FROM_RESET_COST;
+	
+	private static final String STATUS_POINTS_FILE = Config.CONFIG_PATH.resolve("statuspoints.properties").toString();
+	
+	public static void load()
+	{
+		final ExProperties statusPoints = Config.initProperties(STATUS_POINTS_FILE);
+		
+		STATUS_POINTS_ENABLED = statusPoints.getProperty("StatusPointsEnabled", false);
+		STARTING_STATUS_POINTS = statusPoints.getProperty("StartingStatusPoints", 100);
+		STATUS_POINTS_ON_CHARACTER_CREATION = statusPoints.getProperty("StatusPointsOnCharacterCreation", false);
+		PDEF_PER_POINT = statusPoints.getProperty("PDefPerPoint", 1);
+		MAX_DEX_POINTS = statusPoints.getProperty("MaxDexPoints", 8);
+		MAX_WIT_POINTS = statusPoints.getProperty("MaxWitPoints", 8);
+		MAX_ATTACK_SPEED_POINTS = statusPoints.getProperty("MaxAttackSpeedPoints", 8);
+		MAX_MAGIC_ATTACK_SPEED_POINTS = statusPoints.getProperty("MaxMagicAttackSpeedPoints", 8);
+		MAX_MOVEMENT_SPEED_POINTS = statusPoints.getProperty("MaxMovementSpeedPoints", 8);
+		RESET_ITEM_ID = statusPoints.getProperty("ResetItemId", 9143);
+		RESET_ITEM_COUNT = statusPoints.getProperty("ResetItemCount", 1);
+		RESET_ADENA = statusPoints.getProperty("ResetAdena", 100000);
+		PREMIUM_EXEMPT_FROM_RESET_COST = statusPoints.getProperty("PremiumExemptFromResetCost", false);
+		
+		LOGGER.info("Loaded " + STATUS_POINTS_FILE);
+	}
+}

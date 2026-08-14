@@ -32,6 +32,7 @@ import ext.mods.gameserver.enums.actors.MissionType;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.network.serverpackets.ExShowQuestMark;
 import ext.mods.gameserver.network.serverpackets.QuestList;
+import ext.mods.gameserver.quest.QuestRewardConfig;
 
 /**
  * A container holding one {@link Player}'s {@link Quest} progress. It extends {@link MemoSet}.<br>
@@ -337,6 +338,9 @@ public final class QuestState extends MemoSet
 		{
 			LOGGER.error("Couldn't delete quest.", e);
 		}
+		
+		if (!repeatable && _quest.isRealQuest())
+			QuestRewardConfig.applyQuestRewards(_player, _quest);
 	}
 	
 	/**

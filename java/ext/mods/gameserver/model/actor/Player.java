@@ -61,6 +61,7 @@ import ext.mods.dungeon.Dungeon;
 import ext.mods.extensions.listener.manager.CreatureListenerManager;
 import ext.mods.extensions.listener.manager.InventoryListenerManager;
 import ext.mods.extensions.listener.manager.PlayerListenerManager;
+import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.gameserver.LoginServerThread;
 import ext.mods.gameserver.communitybbs.CommunityBoard;
 import ext.mods.gameserver.communitybbs.model.Forum;
@@ -6332,6 +6333,16 @@ public class Player extends Playable
 		
 		RelationManager.getInstance().notifyFriends(this, true);
 		AutoFarmManager.getInstance().onPlayerLogin(this);
+		
+		if (StatusPointConfig.STATUS_POINTS_ENABLED && !getMemos().containsKey("status_points.initialized"))
+		{
+			getMemos().set("status_points.available", StatusPointConfig.STARTING_STATUS_POINTS);
+			getMemos().set("status_points.initialized", true);
+			
+			if (StatusPointConfig.STATUS_POINTS_ON_CHARACTER_CREATION && getMemos().getInteger("status_points.pdef", 0) == 0)
+				getMemos().set("status_points.pdef", 0);
+		}
+		
 		PlayerListenerManager.getInstance().notifyPlayerEnter(this);
 		loadQuestKillCounts();
 		
