@@ -23,6 +23,7 @@ import ext.mods.gameserver.model.actor.Creature;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.skills.L2Skill;
 import ext.mods.gameserver.skills.basefuncs.Func;
+import ext.mods.gameserver.StatusPointOwner;
 
 public class FuncStatusPoint extends Func
 {

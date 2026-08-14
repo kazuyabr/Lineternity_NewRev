@@ -122,7 +122,7 @@ public class QuestRewardConfig
 		}
 	}
 	
-	private static void applyPDefBonus(Player player)
+	public static void applyPDefBonus(Player player)
 	{
 		int pdef = player.getMemos().getInteger("status_points.pdef", 0);
 		if (pdef > 0)

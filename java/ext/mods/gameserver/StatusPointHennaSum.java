@@ -33,7 +33,7 @@ public class StatusPointHennaSum
 	
 	public static int calculate(ClassId classId)
 	{
-		if (classId == null || classId == ClassId.NONE)
+		if (classId == null)
 			return 0;
 		
 		int sum = 0;

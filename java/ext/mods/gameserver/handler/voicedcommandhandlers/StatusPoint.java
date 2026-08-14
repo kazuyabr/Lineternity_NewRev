@@ -163,22 +163,22 @@ public class StatusPoint implements IVoicedCommandHandler
 				player.getMemos().unset("status_points.preview");
 				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 				
-				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
-				for (String stat : stats)
+			String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+			for (String s : stats)
+			{
+				int points = player.getMemos().getInteger("status_points." + s, 0);
+				if (points > 0)
 				{
-					int points = player.getMemos().getInteger("status_points." + stat, 0);
-					if (points > 0)
+					try
 					{
-						try
-						{
-							Stats enumStat = Stats.valueOf("STAT_" + stat);
-							player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.DISTRIBUTED));
-						}
-						catch (IllegalArgumentException e)
-						{
-						}
+						Stats enumStat = Stats.valueOf("STAT_" + s);
+						player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.DISTRIBUTED));
+					}
+					catch (IllegalArgumentException e)
+					{
 					}
 				}
+			}
 				
 				player.broadcastUserInfo();
 				break;
@@ -213,8 +213,8 @@ public class StatusPoint implements IVoicedCommandHandler
 				player.getMemos().set("status_points.available", available + totalDistributed);
 				
 				String[] resetStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
-				for (String stat : resetStats)
-					player.getMemos().unset("status_points." + stat);
+				for (String s : resetStats)
+					player.getMemos().unset("status_points." + s);
 				
 				player.getMemos().unset("status_points.preview");
 				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
