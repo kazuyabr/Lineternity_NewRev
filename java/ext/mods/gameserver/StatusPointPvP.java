@@ -64,7 +64,7 @@ public class StatusPointPvP
 				try
 				{
 					Stats enumStat = Stats.valueOf("STAT_" + stat.trim());
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.PVP));
+					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.PVP, false));
 				}
 				catch (IllegalArgumentException e)
 				{
@@ -99,7 +99,7 @@ public class StatusPointPvP
 				try
 				{
 					Stats enumStat = Stats.valueOf("STAT_" + trimmed);
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.PVP));
+					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.PVP, false));
 				}
 				catch (IllegalArgumentException e)
 				{

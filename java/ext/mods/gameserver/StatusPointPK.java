@@ -71,6 +71,7 @@ public class StatusPointPK
 		
 		victim.getMemos().unset("pk_karma_removed");
 		victim.getMemos().unset("status_points.preview");
+		victim.getMemos().unset("status_points.isOldChar");
 		
 		victim.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		victim.broadcastUserInfo();

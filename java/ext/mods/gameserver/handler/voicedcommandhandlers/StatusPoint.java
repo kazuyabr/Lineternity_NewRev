@@ -60,31 +60,23 @@ public class StatusPoint implements IVoicedCommandHandler
 		
 		int available = player.getMemos().getInteger("status_points.available", 0);
 		int distributed = countDistributedPoints(player);
+		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
 		
 		htm.replace("%available%", available);
 		htm.replace("%distributed%", distributed);
 		htm.replace("%pdef_bonus%", player.getMemos().getInteger("status_points.pdef", 0));
 		
-		htm.replace("%str_base%", player.getTemplate().getBaseSTR());
-		htm.replace("%con_base%", player.getTemplate().getBaseCON());
-		htm.replace("%dex_base%", player.getTemplate().getBaseDEX());
-		htm.replace("%int_base%", player.getTemplate().getBaseINT());
-		htm.replace("%wit_base%", player.getTemplate().getBaseWIT());
-		htm.replace("%men_base%", player.getTemplate().getBaseMEN());
-		
-		htm.replace("%str_dist%", player.getMemos().getInteger("status_points.STR", 0));
-		htm.replace("%con_dist%", player.getMemos().getInteger("status_points.CON", 0));
-		htm.replace("%dex_dist%", player.getMemos().getInteger("status_points.DEX", 0));
-		htm.replace("%int_dist%", player.getMemos().getInteger("status_points.INT", 0));
-		htm.replace("%wit_dist%", player.getMemos().getInteger("status_points.WIT", 0));
-		htm.replace("%men_dist%", player.getMemos().getInteger("status_points.MEN", 0));
-		
-		htm.replace("%str_total%", player.getTemplate().getBaseSTR() + player.getMemos().getInteger("status_points.STR", 0));
-		htm.replace("%con_total%", player.getTemplate().getBaseCON() + player.getMemos().getInteger("status_points.CON", 0));
-		htm.replace("%dex_total%", player.getTemplate().getBaseDEX() + player.getMemos().getInteger("status_points.DEX", 0));
-		htm.replace("%int_total%", player.getTemplate().getBaseINT() + player.getMemos().getInteger("status_points.INT", 0));
-		htm.replace("%wit_total%", player.getTemplate().getBaseWIT() + player.getMemos().getInteger("status_points.WIT", 0));
-		htm.replace("%men_total%", player.getTemplate().getBaseMEN() + player.getMemos().getInteger("status_points.MEN", 0));
+		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
+		for (String stat : stats)
+		{
+			int base = isOldChar ? 0 : getBaseForStat(player, stat);
+			int dist = player.getMemos().getInteger("status_points." + stat, 0);
+			int total = isOldChar ? dist : base + dist;
+			
+			htm.replace("%" + stat.toLowerCase() + "_base%", base);
+			htm.replace("%" + stat.toLowerCase() + "_dist%", dist);
+			htm.replace("%" + stat.toLowerCase() + "_total%", total);
+		}
 		
 		htm.replace("%patk_spd%", player.getMemos().getInteger("status_points.POWER_ATTACK", 0));
 		htm.replace("%matk_spd%", player.getMemos().getInteger("status_points.MAGIC_ATTACK", 0));
@@ -99,18 +91,18 @@ public class StatusPoint implements IVoicedCommandHandler
 		
 		htm.replace("%confirm_enabled%", canConfirm ? "" : "disabled");
 		
-		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
-		for (String stat : stats)
+		String[] actionStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+		for (String stat : actionStats)
 		{
 			int dist = player.getMemos().getInteger("status_points." + stat, 0);
 			boolean showPlus = (available > 0) && !isMaxed(stat, dist);
-			boolean showMinus = (dist > 0) && hasPreview;
+			boolean showMinus = (dist > 0);
 			
-		String buttons = "";
-		if (showPlus)
-			buttons += "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=18 height=18 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>&nbsp;";
-		if (showMinus)
-			buttons += "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=18 height=18 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>";
+			String buttons = "";
+			if (showPlus)
+				buttons += "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=18 height=18 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>&nbsp;";
+			if (showMinus)
+				buttons += "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=18 height=18 back=L2UI_CH3.calculate2_bs_down fore=L2UI_CH3.calculate2_bs>";
 			
 			htm.replace("%" + stat.toLowerCase() + "_buttons%", buttons);
 		}
@@ -163,6 +155,8 @@ public class StatusPoint implements IVoicedCommandHandler
 				player.getMemos().unset("status_points.preview");
 				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 				
+				boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
+				
 			String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
 			for (String s : stats)
 			{
@@ -172,7 +166,7 @@ public class StatusPoint implements IVoicedCommandHandler
 					try
 					{
 						Stats enumStat = Stats.valueOf("STAT_" + s);
-						player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.DISTRIBUTED));
+						player.addStatFunc(new FuncStatusPoint(player, enumStat, points, isOldChar));
 					}
 					catch (IllegalArgumentException e)
 					{
@@ -186,7 +180,9 @@ public class StatusPoint implements IVoicedCommandHandler
 			case "reset":
 			{
 				int totalDistributed = countDistributedPoints(player);
-				if (totalDistributed <= 0)
+				boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
+				
+				if (totalDistributed <= 0 && !isOldChar)
 				{
 					player.sendMessage("You have no distributed status points to reset.");
 					break;
@@ -217,6 +213,7 @@ public class StatusPoint implements IVoicedCommandHandler
 					player.getMemos().unset("status_points." + s);
 				
 				player.getMemos().unset("status_points.preview");
+				player.getMemos().set("status_points.isOldChar", false);
 				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 				player.broadcastUserInfo();
 				
@@ -226,6 +223,27 @@ public class StatusPoint implements IVoicedCommandHandler
 		}
 		
 		showHtml(player);
+	}
+	
+	private int getBaseForStat(Player player, String stat)
+	{
+		switch (stat)
+		{
+			case "STR":
+				return player.getTemplate().getBaseSTR();
+			case "CON":
+				return player.getTemplate().getBaseCON();
+			case "DEX":
+				return player.getTemplate().getBaseDEX();
+			case "INT":
+				return player.getTemplate().getBaseINT();
+			case "WIT":
+				return player.getTemplate().getBaseWIT();
+			case "MEN":
+				return player.getTemplate().getBaseMEN();
+			default:
+				return 0;
+		}
 	}
 	
 	private int countDistributedPoints(Player player)

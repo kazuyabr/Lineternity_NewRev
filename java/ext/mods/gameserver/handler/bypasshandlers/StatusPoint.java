@@ -109,6 +109,8 @@ public class StatusPoint implements IBypassHandler
 		
 		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		
+		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
+		
 		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
 		for (String stat : stats)
 		{
@@ -118,7 +120,7 @@ public class StatusPoint implements IBypassHandler
 				try
 				{
 					Stats enumStat = Stats.valueOf("STAT_" + stat);
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.DISTRIBUTED));
+					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, isOldChar));
 				}
 				catch (IllegalArgumentException e)
 				{
@@ -134,7 +136,9 @@ public class StatusPoint implements IBypassHandler
 	private void handleReset(Player player)
 	{
 		int totalDistributed = countDistributed(player);
-		if (totalDistributed <= 0)
+		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
+		
+		if (totalDistributed <= 0 && !isOldChar)
 		{
 			player.sendMessage("You have no distributed status points to reset.");
 			return;
@@ -165,6 +169,7 @@ public class StatusPoint implements IBypassHandler
 			player.getMemos().unset("status_points." + stat);
 		
 		player.getMemos().unset("status_points.preview");
+		player.getMemos().set("status_points.isOldChar", false);
 		
 		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		player.broadcastUserInfo();

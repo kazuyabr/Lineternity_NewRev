@@ -27,21 +27,59 @@ import ext.mods.gameserver.StatusPointOwner;
 
 public class FuncStatusPoint extends Func
 {
+	private final boolean _replaceBase;
+	
 	public FuncStatusPoint(Player owner, Stats stat, int value)
 	{
-		super(StatusPointOwner.DISTRIBUTED, stat, 2, value, null);
+		this(owner, stat, value, StatusPointOwner.DISTRIBUTED, false);
 	}
 	
 	public FuncStatusPoint(Player owner, Stats stat, int value, Object ownerMarker)
 	{
+		this(owner, stat, value, ownerMarker, false);
+	}
+	
+	public FuncStatusPoint(Player owner, Stats stat, int value, boolean replaceBase)
+	{
+		this(owner, stat, value, StatusPointOwner.DISTRIBUTED, replaceBase);
+	}
+	
+	public FuncStatusPoint(Player owner, Stats stat, int value, Object ownerMarker, boolean replaceBase)
+	{
 		super(ownerMarker, stat, 2, value, null);
+		_replaceBase = replaceBase;
+	}
+	
+	private static int getBaseDefault(Stats stat, Player player)
+	{
+		switch (stat)
+		{
+			case STAT_STR:
+				return player.getTemplate().getBaseSTR();
+			case STAT_CON:
+				return player.getTemplate().getBaseCON();
+			case STAT_DEX:
+				return player.getTemplate().getBaseDEX();
+			case STAT_INT:
+				return player.getTemplate().getBaseINT();
+			case STAT_WIT:
+				return player.getTemplate().getBaseWIT();
+			case STAT_MEN:
+				return player.getTemplate().getBaseMEN();
+			default:
+				return 0;
+		}
 	}
 	
 	@Override
 	public double calc(Creature effector, Creature effected, L2Skill skill, double base, double value)
 	{
 		if (effector instanceof Player player)
+		{
+			if (_replaceBase)
+				return value + getValue() - getBaseDefault(getStat(), player);
 			return value + getValue();
+		}
 		return value;
 	}
 }

@@ -6353,16 +6353,15 @@ public class Player extends Playable
 			{
 				getMemos().set("status_points.initialized", true);
 				
-				if (StatusPointConfig.STARTING_STATUS_POINTS_FROM_HENNA)
-				{
-					int hennaSum = ext.mods.gameserver.StatusPointHennaSum.calculate(getClassId());
-					int levelBonus = getStatus().getLevel();
-					getMemos().set("status_points.available", hennaSum + levelBonus);
-				}
-				else
-				{
-					getMemos().set("status_points.available", 0);
-				}
+				int baseSum = getTemplate().getBaseSTR() + getTemplate().getBaseCON() +
+						getTemplate().getBaseDEX() + getTemplate().getBaseINT() +
+						getTemplate().getBaseWIT() + getTemplate().getBaseMEN();
+				
+				if (baseSum <= 0)
+					baseSum = 170;
+				
+				getMemos().set("status_points.available", baseSum);
+				getMemos().set("status_points.isOldChar", false);
 			}
 			
 			StatusPointPvP.applyBonuses(this);

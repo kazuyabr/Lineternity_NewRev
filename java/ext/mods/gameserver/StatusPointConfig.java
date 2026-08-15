@@ -28,7 +28,6 @@ public class StatusPointConfig
 	private static final CLogger LOGGER = new CLogger(StatusPointConfig.class.getName());
 	
 	public static boolean STATUS_POINTS_ENABLED;
-	public static boolean STARTING_STATUS_POINTS_FROM_HENNA;
 	public static int PDEF_PER_POINT;
 	public static int MAX_DEX_POINTS;
 	public static int MAX_WIT_POINTS;
@@ -59,7 +58,6 @@ public class StatusPointConfig
 		final ExProperties statusPoints = Config.initProperties(STATUS_POINTS_FILE);
 		
 		STATUS_POINTS_ENABLED = statusPoints.getProperty("StatusPointsEnabled", false);
-		STARTING_STATUS_POINTS_FROM_HENNA = statusPoints.getProperty("StartingStatusPointsFromHenna", true);
 		PDEF_PER_POINT = statusPoints.getProperty("PDefPerPoint", 1);
 		MAX_DEX_POINTS = statusPoints.getProperty("MaxDexPoints", 8);
 		MAX_WIT_POINTS = statusPoints.getProperty("MaxWitPoints", 8);
