@@ -22,6 +22,8 @@ import ext.mods.Config;
 import ext.mods.commons.config.ExProperties;
 import ext.mods.commons.logging.CLogger;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 public class StatusPointConfig
 {
@@ -38,6 +40,7 @@ public class StatusPointConfig
 	public static int RESET_ITEM_COUNT;
 	public static int RESET_ADENA;
 	public static boolean PREMIUM_EXEMPT_FROM_RESET_COST;
+	public static int STATUS_POINT_ACTIVATION_DATE;
 	
 	public static boolean PK_REWARD_ENABLED;
 	public static int PK_REWARD_POINTS_PER_KARMA;
@@ -68,6 +71,16 @@ public class StatusPointConfig
 		RESET_ITEM_COUNT = statusPoints.getProperty("ResetItemCount", 1);
 		RESET_ADENA = statusPoints.getProperty("ResetAdena", 100000);
 		PREMIUM_EXEMPT_FROM_RESET_COST = statusPoints.getProperty("PremiumExemptFromResetCost", false);
+		
+		String activationDateStr = statusPoints.getProperty("StatusPointActivationDate", "2026-01-01");
+		try
+		{
+			STATUS_POINT_ACTIVATION_DATE = (int) LocalDate.parse(activationDateStr).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+		}
+		catch (Exception e)
+		{
+			STATUS_POINT_ACTIVATION_DATE = (int) LocalDate.parse("2026-01-01").atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
+		}
 		
 		final ExProperties pkRewards = Config.initProperties(PK_REWARDS_FILE);
 		

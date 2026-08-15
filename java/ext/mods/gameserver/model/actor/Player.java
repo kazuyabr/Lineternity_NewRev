@@ -354,6 +354,7 @@ public class Player extends Playable
 	private long _onlineBeginTime;
 	private long _lastAccess;
 	private long _uptime;
+	private int _createTime;
 	
 	protected int _baseClass;
 	protected int _activeClass;
@@ -4350,6 +4351,7 @@ public class Player extends Playable
 					player.restorePremServiceData(player, rs.getString("account_name"));
 					player.setName(rs.getString("char_name"));
 					player._lastAccess = rs.getLong("lastAccess");
+				player._createTime = rs.getInt("ct");
 					
 					player.getStatus().setExp(rs.getLong("exp"));
 					player.getStatus().setLevel(rs.getByte("level"));
@@ -6360,8 +6362,34 @@ public class Player extends Playable
 				if (baseSum <= 0)
 					baseSum = 170;
 				
-				getMemos().set("status_points.available", baseSum);
-				getMemos().set("status_points.isOldChar", false);
+				boolean isOldChar = _createTime < StatusPointConfig.STATUS_POINT_ACTIVATION_DATE;
+				
+				if (isOldChar)
+				{
+					getMemos().set("status_points.available", 0);
+					getMemos().set("status_points.isOldChar", true);
+					
+				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
+				for (String s : stats)
+				{
+					int baseValue = switch (s)
+					{
+						case "STR" -> getTemplate().getBaseSTR();
+						case "CON" -> getTemplate().getBaseCON();
+						case "DEX" -> getTemplate().getBaseDEX();
+						case "INT" -> getTemplate().getBaseINT();
+						case "WIT" -> getTemplate().getBaseWIT();
+						case "MEN" -> getTemplate().getBaseMEN();
+						default -> 0;
+					};
+					getMemos().set("status_points." + s, baseValue);
+				}
+				}
+				else
+				{
+					getMemos().set("status_points.available", baseSum);
+					getMemos().set("status_points.isOldChar", false);
+				}
 			}
 			
 			StatusPointPvP.applyBonuses(this);
@@ -6377,6 +6405,11 @@ public class Player extends Playable
 	public long getLastAccess()
 	{
 		return _lastAccess;
+	}
+	
+	public int getCreateTime()
+	{
+		return _createTime;
 	}
 	
 	@Override

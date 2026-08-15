@@ -61,7 +61,7 @@ public class StatusPointPK
 		
 		victim.getMemos().set("status_points.available", 0);
 		
-		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 		for (String stat : stats)
 			victim.getMemos().unset("status_points." + stat);
 		
@@ -71,7 +71,6 @@ public class StatusPointPK
 		
 		victim.getMemos().unset("pk_karma_removed");
 		victim.getMemos().unset("status_points.preview");
-		victim.getMemos().unset("status_points.isOldChar");
 		
 		victim.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		victim.broadcastUserInfo();

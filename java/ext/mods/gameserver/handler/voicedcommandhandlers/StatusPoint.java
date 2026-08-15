@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  * Our main Developers, Dhousefe-L2JBR, Agazes33, Ban-L2jDev, Warman, SrEli.
  * Our special thanks, Nattan Felipe, Diego Fonseca, Junin, ColdPlay, Denky, MecBew, Localhost, MundvayneHELLBOY,
- * SonecaL2, Eduardo.SilvaL2J, biLL, xpower, xTech, kakuzo, Tiagorosendo, Schuster, LucasStark, damedd
+ * SonecaL2, Eduardo.Silva, biLL, xpower, xTech, kakuzo, Tiagorosendo, Schuster, LucasStark, damedd
  * as a contribution for the forum L2JBrasil.com
  */
 package ext.mods.gameserver.handler.voicedcommandhandlers;
@@ -25,7 +25,6 @@ import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.gameserver.StatusPointOwner;
 import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.gameserver.enums.skills.Stats;
-import ext.mods.gameserver.StatusPointOwner;
 
 public class StatusPoint implements IVoicedCommandHandler
 {
@@ -73,30 +72,32 @@ public class StatusPoint implements IVoicedCommandHandler
 			int dist = player.getMemos().getInteger("status_points." + stat, 0);
 			int total = isOldChar ? dist : base + dist;
 			
-			htm.replace("%" + stat.toLowerCase() + "_base%", base);
-			htm.replace("%" + stat.toLowerCase() + "_dist%", dist);
-			htm.replace("%" + stat.toLowerCase() + "_total%", total);
+			if (dist > 0)
+				htm.replace("%" + stat.toLowerCase() + "_display%", String.valueOf(total));
+			else
+				htm.replace("%" + stat.toLowerCase() + "_display%", String.valueOf(base));
 		}
-		
-		htm.replace("%patk_spd%", player.getMemos().getInteger("status_points.POWER_ATTACK", 0));
-		htm.replace("%matk_spd%", player.getMemos().getInteger("status_points.MAGIC_ATTACK", 0));
-		htm.replace("%mspd%", player.getMemos().getInteger("status_points.MOVEMENT_SPEED", 0));
 		
 		htm.replace("%pvp_kills%", player.getMemos().getInteger("pvp_kills", 0));
 		htm.replace("%pvp_milestone%", player.getMemos().getInteger("pvp_milestone", 0));
 		htm.replace("%pk_karma_removed%", player.getMemos().getInteger("pk_karma_removed", 0));
 		
 		boolean hasPreview = player.getMemos().getBool("status_points.preview", false);
-		boolean canConfirm = available > 0 && hasPreview;
+		boolean canConfirm = hasPreview && distributed > 0;
 		
 		htm.replace("%confirm_enabled%", canConfirm ? "" : "disabled");
 		
-		String[] actionStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
-		for (String stat : actionStats)
+		boolean showReset = isOldChar || distributed > 0;
+		htm.replace("%reset_enabled%", showReset ? "" : "disabled");
+		
+		String resetCostText = StatusPointConfig.RESET_ADENA + "x Adena";
+		htm.replace("%reset_cost%", resetCostText);
+		
+		for (String stat : stats)
 		{
 			int dist = player.getMemos().getInteger("status_points." + stat, 0);
 			boolean showPlus = (available > 0) && !isMaxed(stat, dist);
-			boolean showMinus = (dist > 0);
+			boolean showMinus = (dist > 0) && hasPreview;
 			
 			String buttons = "";
 			if (showPlus)
@@ -157,22 +158,22 @@ public class StatusPoint implements IVoicedCommandHandler
 				
 				boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
 				
-			String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
-			for (String s : stats)
-			{
-				int points = player.getMemos().getInteger("status_points." + s, 0);
-				if (points > 0)
+				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
+				for (String s : stats)
 				{
-					try
+					int points = player.getMemos().getInteger("status_points." + s, 0);
+					if (points > 0)
 					{
-						Stats enumStat = Stats.valueOf("STAT_" + s);
-						player.addStatFunc(new FuncStatusPoint(player, enumStat, points, isOldChar));
-					}
-					catch (IllegalArgumentException e)
-					{
+						try
+						{
+							Stats enumStat = Stats.valueOf("STAT_" + s);
+							player.addStatFunc(new FuncStatusPoint(player, enumStat, points, isOldChar));
+						}
+						catch (IllegalArgumentException e)
+						{
+						}
 					}
 				}
-			}
 				
 				player.broadcastUserInfo();
 				break;
@@ -206,9 +207,20 @@ public class StatusPoint implements IVoicedCommandHandler
 				}
 				
 				int available = player.getMemos().getInteger("status_points.available", 0);
-				player.getMemos().set("status_points.available", available + totalDistributed);
 				
-				String[] resetStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+				if (isOldChar)
+				{
+					int baseSum = getBaseForStat(player, "STR") + getBaseForStat(player, "CON") +
+							getBaseForStat(player, "DEX") + getBaseForStat(player, "INT") +
+							getBaseForStat(player, "WIT") + getBaseForStat(player, "MEN");
+					player.getMemos().set("status_points.available", baseSum);
+				}
+				else
+				{
+					player.getMemos().set("status_points.available", available + totalDistributed);
+				}
+				
+				String[] resetStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 				for (String s : resetStats)
 					player.getMemos().unset("status_points." + s);
 				
@@ -217,7 +229,7 @@ public class StatusPoint implements IVoicedCommandHandler
 				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 				player.broadcastUserInfo();
 				
-				player.sendMessage("Status points reset successfully. " + totalDistributed + " points returned.");
+				player.sendMessage("Status points reset successfully.");
 				break;
 			}
 		}
@@ -249,7 +261,7 @@ public class StatusPoint implements IVoicedCommandHandler
 	private int countDistributedPoints(Player player)
 	{
 		int total = 0;
-		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "POWER_ATTACK", "MAGIC_ATTACK", "MOVEMENT_SPEED"};
+		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 		for (String stat : stats)
 			total += player.getMemos().getInteger("status_points." + stat, 0);
 		return total;
@@ -263,12 +275,6 @@ public class StatusPoint implements IVoicedCommandHandler
 				return current >= StatusPointConfig.MAX_DEX_POINTS;
 			case "WIT":
 				return current >= StatusPointConfig.MAX_WIT_POINTS;
-			case "POWER_ATTACK":
-				return current >= StatusPointConfig.MAX_ATTACK_SPEED_POINTS;
-			case "MAGIC_ATTACK":
-				return current >= StatusPointConfig.MAX_MAGIC_ATTACK_SPEED_POINTS;
-			case "MOVEMENT_SPEED":
-				return current >= StatusPointConfig.MAX_MOVEMENT_SPEED_POINTS;
 			default:
 				return false;
 		}
