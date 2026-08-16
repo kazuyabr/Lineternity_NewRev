@@ -45,21 +45,23 @@ public class StatusPoint implements IVoicedCommandHandler
 		if (target != null && !target.isEmpty())
 			handleBypass(player, target);
 		else
+		{
+			player.getMemos().unset("status_points.preview");
 			showHtml(player);
+		}
 		
 		return true;
 	}
 	
 	public void showHtml(Player player)
 	{
-		player.getMemos().unset("status_points.preview");
-		
 		NpcHtmlMessage htm = new NpcHtmlMessage(0);
 		htm.setFile(player.getLocale(), "html/mods/statuspoint/statuspoint.htm");
 		
 		int available = player.getMemos().getInteger("status_points.available", 0);
 		int distributed = countDistributedPoints(player);
 		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
+		boolean hasPreview = player.getMemos().getBool("status_points.preview", false);
 		
 		htm.replace("%available%", available);
 		htm.replace("%distributed%", distributed);
@@ -68,21 +70,24 @@ public class StatusPoint implements IVoicedCommandHandler
 		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 		for (String stat : stats)
 		{
-			int base = isOldChar ? 0 : getBaseForStat(player, stat);
+			int templateBase = getBaseForStat(player, stat);
 			int dist = player.getMemos().getInteger("status_points." + stat, 0);
-			int total = isOldChar ? dist : base + dist;
+			int additional = isOldChar ? dist - templateBase : dist;
+			int total = templateBase + additional;
 			
-			if (dist > 0)
-				htm.replace("%" + stat.toLowerCase() + "_display%", String.valueOf(total));
+			String display;
+			if (hasPreview && additional > 0)
+				display = templateBase + " + " + additional + " = " + total;
 			else
-				htm.replace("%" + stat.toLowerCase() + "_display%", String.valueOf(base));
+				display = String.valueOf(total);
+			
+			htm.replace("%" + stat.toLowerCase() + "_display%", display);
 		}
 		
 		htm.replace("%pvp_kills%", player.getMemos().getInteger("pvp_kills", 0));
 		htm.replace("%pvp_milestone%", player.getMemos().getInteger("pvp_milestone", 0));
 		htm.replace("%pk_karma_removed%", player.getMemos().getInteger("pk_karma_removed", 0));
 		
-		boolean hasPreview = player.getMemos().getBool("status_points.preview", false);
 		boolean canConfirm = hasPreview && distributed > 0;
 		
 		htm.replace("%confirm_enabled%", canConfirm ? "" : "disabled");
