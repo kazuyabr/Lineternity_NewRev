@@ -60,7 +60,6 @@ public class StatusPoint implements IVoicedCommandHandler
 		
 		int available = player.getMemos().getInteger("status_points.available", 0);
 		int distributed = countDistributedPoints(player);
-		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
 		boolean hasPreview = player.getMemos().getBool("status_points.preview", false);
 		
 		htm.replace("%available%", available);
@@ -72,12 +71,11 @@ public class StatusPoint implements IVoicedCommandHandler
 		{
 			int templateBase = getBaseForStat(player, stat);
 			int dist = player.getMemos().getInteger("status_points." + stat, 0);
-			int additional = isOldChar ? dist - templateBase : dist;
-			int total = templateBase + additional;
+			int total = templateBase + dist;
 			
 			String display;
-			if (hasPreview && additional > 0)
-				display = templateBase + " + " + additional + " = " + total;
+			if (hasPreview && dist > 0)
+				display = templateBase + " + " + dist + " = " + total;
 			else
 				display = String.valueOf(total);
 			
@@ -92,7 +90,7 @@ public class StatusPoint implements IVoicedCommandHandler
 		
 		htm.replace("%confirm_enabled%", canConfirm ? "" : "disabled");
 		
-		boolean showReset = isOldChar || distributed > 0;
+		boolean showReset = distributed > 0;
 		htm.replace("%reset_enabled%", showReset ? "" : "disabled");
 		
 		String resetCostText = StatusPointConfig.RESET_ADENA + "x Adena";
@@ -153,90 +151,78 @@ public class StatusPoint implements IVoicedCommandHandler
 					player.getMemos().unset("status_points.preview");
 				break;
 			}
-			case "confirm":
+		case "confirm":
+		{
+			if (!player.getMemos().getBool("status_points.preview", false))
+				break;
+			
+			player.getMemos().unset("status_points.preview");
+			player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+			
+			String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
+			for (String s : stats)
 			{
-				if (!player.getMemos().getBool("status_points.preview", false))
-					break;
-				
-				player.getMemos().unset("status_points.preview");
-				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
-				
-				boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
-				
-				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
-				for (String s : stats)
+				int points = player.getMemos().getInteger("status_points." + s, 0);
+				if (points > 0)
 				{
-					int points = player.getMemos().getInteger("status_points." + s, 0);
-					if (points > 0)
+					try
 					{
-						try
-						{
-							Stats enumStat = Stats.valueOf("STAT_" + s);
-							player.addStatFunc(new FuncStatusPoint(player, enumStat, points, isOldChar));
-						}
-						catch (IllegalArgumentException e)
-						{
-						}
+						Stats enumStat = Stats.valueOf("STAT_" + s);
+						player.addStatFunc(new FuncStatusPoint(player, enumStat, points, false));
+					}
+					catch (IllegalArgumentException e)
+					{
 					}
 				}
-				
-				player.broadcastUserInfo();
+			}
+			
+			player.broadcastUserInfo();
+			break;
+		}
+		case "reset":
+		{
+			int totalDistributed = countDistributedPoints(player);
+			
+			if (totalDistributed <= 0)
+			{
+				player.sendMessage("You have no distributed status points to reset.");
 				break;
 			}
-			case "reset":
+			
+			if (!StatusPointConfig.PREMIUM_EXEMPT_FROM_RESET_COST || player.getPremiumService() == 0)
 			{
-				int totalDistributed = countDistributedPoints(player);
-				boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
-				
-				if (totalDistributed <= 0 && !isOldChar)
+				if (player.getInventory().getItemCount(StatusPointConfig.RESET_ITEM_ID) < StatusPointConfig.RESET_ITEM_COUNT)
 				{
-					player.sendMessage("You have no distributed status points to reset.");
+					player.sendMessage("You need " + StatusPointConfig.RESET_ITEM_COUNT + " item(s) to reset status points.");
 					break;
 				}
 				
-				if (!StatusPointConfig.PREMIUM_EXEMPT_FROM_RESET_COST || player.getPremiumService() == 0)
+				if (!player.reduceAdena(StatusPointConfig.RESET_ADENA, true))
 				{
-					if (player.getInventory().getItemCount(StatusPointConfig.RESET_ITEM_ID) < StatusPointConfig.RESET_ITEM_COUNT)
-					{
-						player.sendMessage("You need " + StatusPointConfig.RESET_ITEM_COUNT + " item(s) to reset status points.");
-						break;
-					}
-					
-					if (!player.reduceAdena(StatusPointConfig.RESET_ADENA, true))
-					{
-						player.sendMessage("You need " + StatusPointConfig.RESET_ADENA + " adena to reset status points.");
-						break;
-					}
-					
-					player.destroyItemByItemId(StatusPointConfig.RESET_ITEM_ID, StatusPointConfig.RESET_ITEM_COUNT, true);
+					player.sendMessage("You need " + StatusPointConfig.RESET_ADENA + " adena to reset status points.");
+					break;
 				}
 				
-				int available = player.getMemos().getInteger("status_points.available", 0);
-				
-				if (isOldChar)
-				{
-					int baseSum = getBaseForStat(player, "STR") + getBaseForStat(player, "CON") +
-							getBaseForStat(player, "DEX") + getBaseForStat(player, "INT") +
-							getBaseForStat(player, "WIT") + getBaseForStat(player, "MEN");
-					player.getMemos().set("status_points.available", baseSum);
-				}
-				else
-				{
-					player.getMemos().set("status_points.available", available + totalDistributed);
-				}
-				
-				String[] resetStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
-				for (String s : resetStats)
-					player.getMemos().unset("status_points." + s);
-				
-				player.getMemos().unset("status_points.preview");
-				player.getMemos().set("status_points.isOldChar", false);
-				player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
-				player.broadcastUserInfo();
-				
-				player.sendMessage("Status points reset successfully.");
-				break;
+				player.destroyItemByItemId(StatusPointConfig.RESET_ITEM_ID, StatusPointConfig.RESET_ITEM_COUNT, true);
 			}
+			
+			int baseSum = getBaseForStat(player, "STR") + getBaseForStat(player, "CON") +
+					getBaseForStat(player, "DEX") + getBaseForStat(player, "INT") +
+					getBaseForStat(player, "WIT") + getBaseForStat(player, "MEN");
+			
+			player.getMemos().set("status_points.available", baseSum);
+			
+			String[] resetStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
+			for (String s : resetStats)
+				player.getMemos().unset("status_points." + s);
+			
+			player.getMemos().unset("status_points.preview");
+			player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+			player.broadcastUserInfo();
+			
+			player.sendMessage("Status points reset successfully.");
+			break;
+		}
 		}
 		
 		showHtml(player);

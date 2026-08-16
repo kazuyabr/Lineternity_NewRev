@@ -61,30 +61,9 @@ public class StatusPointPK
 		
 		victim.getMemos().set("status_points.available", 0);
 		
-		boolean isOldChar = victim.getMemos().getBool("status_points.isOldChar", false);
-		
 		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 		for (String stat : stats)
-		{
-			if (isOldChar)
-			{
-				int baseValue = switch (stat)
-				{
-					case "STR" -> victim.getTemplate().getBaseSTR();
-					case "CON" -> victim.getTemplate().getBaseCON();
-					case "DEX" -> victim.getTemplate().getBaseDEX();
-					case "INT" -> victim.getTemplate().getBaseINT();
-					case "WIT" -> victim.getTemplate().getBaseWIT();
-					case "MEN" -> victim.getTemplate().getBaseMEN();
-					default -> 0;
-				};
-				victim.getMemos().set("status_points." + stat, baseValue);
-			}
-			else
-			{
-				victim.getMemos().unset("status_points." + stat);
-			}
-		}
+			victim.getMemos().unset("status_points." + stat);
 		
 		victim.removeStatsByOwner(StatusPointOwner.PVP);
 		victim.getMemos().unset("pvp_kills");

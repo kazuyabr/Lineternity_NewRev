@@ -6351,9 +6351,13 @@ public class Player extends Playable
 		
 		if (StatusPointConfig.STATUS_POINTS_ENABLED)
 		{
-			if (!getMemos().containsKey("status_points.initialized"))
+			int currentVersion = 2;
+			int savedVersion = getMemos().getInteger("status_points.version", 0);
+			
+			if (!getMemos().containsKey("status_points.initialized") || savedVersion < currentVersion)
 			{
 				getMemos().set("status_points.initialized", true);
+				getMemos().set("status_points.version", currentVersion);
 				
 				int baseSum = getTemplate().getBaseSTR() + getTemplate().getBaseCON() +
 						getTemplate().getBaseDEX() + getTemplate().getBaseINT() +
@@ -6362,34 +6366,17 @@ public class Player extends Playable
 				if (baseSum <= 0)
 					baseSum = 170;
 				
-				boolean isOldChar = _createTime < StatusPointConfig.STATUS_POINT_ACTIVATION_DATE;
-				
-				if (isOldChar)
-				{
-					getMemos().set("status_points.available", 0);
-					getMemos().set("status_points.isOldChar", true);
-					
 				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 				for (String s : stats)
-				{
-					int baseValue = switch (s)
-					{
-						case "STR" -> getTemplate().getBaseSTR();
-						case "CON" -> getTemplate().getBaseCON();
-						case "DEX" -> getTemplate().getBaseDEX();
-						case "INT" -> getTemplate().getBaseINT();
-						case "WIT" -> getTemplate().getBaseWIT();
-						case "MEN" -> getTemplate().getBaseMEN();
-						default -> 0;
-					};
-					getMemos().set("status_points." + s, baseValue);
-				}
-				}
-				else
-				{
-					getMemos().set("status_points.available", baseSum);
-					getMemos().set("status_points.isOldChar", false);
-				}
+					getMemos().unset("status_points." + s);
+				
+				getMemos().unset("status_points.preview");
+				getMemos().unset("status_points.pvp_kills");
+				getMemos().unset("status_points.pvp_milestone");
+				getMemos().unset("status_points.pk_karma_removed");
+				getMemos().unset("status_points.isOldChar");
+				
+				getMemos().set("status_points.available", baseSum);
 			}
 			
 			StatusPointPvP.applyBonuses(this);

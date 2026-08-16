@@ -109,8 +109,6 @@ public class StatusPoint implements IBypassHandler
 		
 		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		
-		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
-		
 		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 		for (String stat : stats)
 		{
@@ -120,7 +118,7 @@ public class StatusPoint implements IBypassHandler
 				try
 				{
 					Stats enumStat = Stats.valueOf("STAT_" + stat);
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, isOldChar));
+					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, false));
 				}
 				catch (IllegalArgumentException e)
 				{
@@ -136,9 +134,8 @@ public class StatusPoint implements IBypassHandler
 	private void handleReset(Player player)
 	{
 		int totalDistributed = countDistributed(player);
-		boolean isOldChar = player.getMemos().getBool("status_points.isOldChar", false);
 		
-		if (totalDistributed <= 0 && !isOldChar)
+		if (totalDistributed <= 0)
 		{
 			player.sendMessage("You have no distributed status points to reset.");
 			return;
@@ -161,26 +158,17 @@ public class StatusPoint implements IBypassHandler
 			player.destroyItemByItemId(StatusPointConfig.RESET_ITEM_ID, StatusPointConfig.RESET_ITEM_COUNT, true);
 		}
 		
-		int available = player.getMemos().getInteger("status_points.available", 0);
+		int baseSum = player.getTemplate().getBaseSTR() + player.getTemplate().getBaseCON() +
+				player.getTemplate().getBaseDEX() + player.getTemplate().getBaseINT() +
+				player.getTemplate().getBaseWIT() + player.getTemplate().getBaseMEN();
 		
-		if (isOldChar)
-		{
-			int baseSum = player.getTemplate().getBaseSTR() + player.getTemplate().getBaseCON() +
-					player.getTemplate().getBaseDEX() + player.getTemplate().getBaseINT() +
-					player.getTemplate().getBaseWIT() + player.getTemplate().getBaseMEN();
-			player.getMemos().set("status_points.available", baseSum);
-		}
-		else
-		{
-			player.getMemos().set("status_points.available", available + totalDistributed);
-		}
+		player.getMemos().set("status_points.available", baseSum);
 		
 		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
 		for (String stat : stats)
 			player.getMemos().unset("status_points." + stat);
 		
 		player.getMemos().unset("status_points.preview");
-		player.getMemos().set("status_points.isOldChar", false);
 		
 		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		player.broadcastUserInfo();
