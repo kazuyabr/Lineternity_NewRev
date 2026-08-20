@@ -243,15 +243,12 @@ public class StatusPointConfig
 		for (Map.Entry<Integer, Integer> entry : RESET_COST_ITEMS.entrySet())
 		{
 			if (sb.length() > 0)
-				sb.append(" + ");
+				sb.append("<br>");
 			
 			ext.mods.gameserver.data.xml.ItemData itemData = ext.mods.gameserver.data.xml.ItemData.getInstance();
 			ext.mods.gameserver.model.item.kind.Item item = itemData.getTemplate(entry.getKey());
-			String icon = (item != null) ? item.getIcon() : "icon.noimage";
 			String name = (item != null) ? item.getName() : "Item#" + entry.getKey();
-			if (name.length() > 7)
-				name = name.substring(0, 7) + ".";
-			sb.append(entry.getValue()).append("x <img src=\"").append(icon).append("\" width=12 height=12> ").append(name);
+			sb.append(entry.getValue()).append("x ").append(name);
 		}
 		return sb.toString();
 	}
@@ -269,11 +266,8 @@ public class StatusPointConfig
 			
 			ext.mods.gameserver.data.xml.ItemData itemData = ext.mods.gameserver.data.xml.ItemData.getInstance();
 			ext.mods.gameserver.model.item.kind.Item item = itemData.getTemplate(entry.getKey());
-			String icon = (item != null) ? item.getIcon() : "icon.noimage";
 			String name = (item != null) ? item.getName() : "Item#" + entry.getKey();
-			if (name.length() > 7)
-				name = name.substring(0, 7) + ".";
-			sb.append(entry.getValue()).append("x <img src=\"").append(icon).append("\" width=12 height=12> ").append(name);
+			sb.append(entry.getValue()).append("x ").append(name);
 		}
 		return sb.toString();
 	}

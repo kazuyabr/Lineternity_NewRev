@@ -20,11 +20,11 @@ package ext.mods.gameserver.handler.voicedcommandhandlers;
 
 import ext.mods.gameserver.handler.IVoicedCommandHandler;
 import ext.mods.gameserver.model.actor.Player;
-import ext.mods.gameserver.network.serverpackets.NpcHtmlMessage;
-import ext.mods.gameserver.network.serverpackets.ShowBoard;
 import ext.mods.gameserver.CharacterStatusPoints;
 import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.gameserver.StatusPointOwner;
+import ext.mods.gameserver.data.HTMLData;
+import ext.mods.gameserver.communitybbs.manager.BaseBBSManager;
 
 public class StatusPoint implements IVoicedCommandHandler
 {
@@ -56,10 +56,9 @@ public class StatusPoint implements IVoicedCommandHandler
 		if (data == null)
 			return;
 		
-		NpcHtmlMessage htm = new NpcHtmlMessage(0);
-		htm.setFile(player.getLocale(), "html/mods/statuspoint/statuspoint.htm");
-		
-		htm.replace("%available%", data.available);
+		String html = HTMLData.getInstance().getHtm(player.getLocale(), "html/mods/statuspoint/statuspoint.htm");
+		if (html == null || html.isEmpty())
+			return;
 		
 		boolean isOldChar = data.isOldChar;
 		
@@ -78,9 +77,9 @@ public class StatusPoint implements IVoicedCommandHandler
 			boolean atCapAndNoItems = atCap && !StatusPointConfig.hasCapItems(player);
 			
 			if (maxed)
-				htm.replace("%" + key + "_display%", "<font color=40E0D0>" + preview + " MAX</font>");
+				html = html.replace("%" + key + "_display%", "<font color=40E0D0>" + preview + " MAX</font>");
 			else
-				htm.replace("%" + key + "_display%", String.valueOf(preview));
+				html = html.replace("%" + key + "_display%", String.valueOf(preview));
 			
 			String costHtml = "";
 			if (!maxed && !isOldChar)
@@ -90,20 +89,21 @@ public class StatusPoint implements IVoicedCommandHandler
 				else
 					costHtml = "<font color=FF0000>" + cost + " pts</font>";
 			}
-			htm.replace("%" + key + "_cost%", costHtml);
+			html = html.replace("%" + key + "_cost%", costHtml);
 		}
 		
 		boolean canConfirm = !isOldChar && data.dirty;
 		boolean showReset = isOldChar || data.getTotalDistributed() > 0;
 		
-		htm.replace("%confirm_button%", canConfirm ? makeButton("Confirm", "confirm") : "");
-		htm.replace("%reset_button%", showReset ? makeButton("Reset", "reset") : "");
-		htm.replace("%reset_cost%", StatusPointConfig.getResetCostDisplay());
+		html = html.replace("%confirm_button%", canConfirm ? makeButton("Confirm", "confirm") : "");
+		html = html.replace("%reset_button%", showReset ? makeButton("Reset", "reset") : "");
+		html = html.replace("%reset_cost%", StatusPointConfig.getResetCostDisplay());
+		html = html.replace("%available%", String.valueOf(data.available));
 		
 		if (data.karmaPenaltyAttr > 0)
-			htm.replace("%karma_display%", "<font color=LEVEL>Karma Penalty: <font color=FF0000>" + data.karmaPenaltyAttr + "</font></font>");
+			html = html.replace("%karma_display%", "<font color=LEVEL>Karma Penalty: <font color=FF0000>" + data.karmaPenaltyAttr + "</font></font>");
 		else
-			htm.replace("%karma_display%", "");
+			html = html.replace("%karma_display%", "");
 		
 		for (int i = 0; i < allStats.length; i++)
 		{
@@ -119,11 +119,10 @@ public class StatusPoint implements IVoicedCommandHandler
 			
 			boolean showPlus = !isOldChar && !maxed && canAfford && !atCapAndNoItems;
 			boolean showMinus = data.dirty && (dist > confirmed) && !isOldChar;
-			htm.replace("%" + key + "_buttons%", makePlusMinus(stat, showPlus, showMinus));
+			html = html.replace("%" + key + "_buttons%", makePlusMinus(stat, showPlus, showMinus));
 		}
 		
-		player.sendPacket(ShowBoard.STATIC_CLOSE);
-		player.sendPacket(htm);
+		BaseBBSManager.separateAndSend(html, player);
 	}
 	
 	private String makePlusMinus(String stat, boolean showPlus, boolean showMinus)
@@ -132,10 +131,10 @@ public class StatusPoint implements IVoicedCommandHandler
 			return "";
 		
 		String plus = showPlus
-			? "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
+			? "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=80 height=21 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
 			: "";
 		String minus = showMinus
-			? "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
+			? "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=80 height=21 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
 			: "";
 		
 		return "<table cellpadding=0 cellspacing=0><tr><td>" + plus + "</td><td>" + minus + "</td></tr></table>";
@@ -143,7 +142,7 @@ public class StatusPoint implements IVoicedCommandHandler
 	
 	private String makeButton(String value, String action)
 	{
-		return "<button value=\"" + value + "\" action=\"bypass -h voiced_statuspoint " + action + "\" width=74 height=21 back=L2UI_ch3.Btn1_normalOn fore=L2UI_ch3.Btn1_normal>";
+		return "<button value=\"" + value + "\" action=\"bypass -h voiced_statuspoint " + action + "\" width=100 height=25 back=L2UI_ch3.Btn1_normalOn fore=L2UI_ch3.Btn1_normal>";
 	}
 	
 	private void handleBypass(Player player, String target)
