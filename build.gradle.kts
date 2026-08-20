@@ -193,10 +193,11 @@ tasks.jar {
     // Exclui server.jar para evitar JAR-in-JAR (server.jar é o output desta task)
     from(configurations.runtimeClasspath.get().map {
         val path = it.absolutePath
-        if (it.isDirectory) it
-        else if (path.endsWith(".jar") && path.contains("lib") && !path.endsWith("server.jar")) it
+        if (path.endsWith("server.jar")) null
+        else if (it.isDirectory) it
+        else if (path.endsWith(".jar") && path.contains("lib")) it
         else zipTree(it)
-    })
+    }.filterNotNull())
     
     // Inclui os JARs locais da pasta libs (igual ao Ant)
     // O Ant usa ${src-lib} que aponta para "libs"
