@@ -248,7 +248,7 @@ public class StatusPointConfig
 			ext.mods.gameserver.data.xml.ItemData itemData = ext.mods.gameserver.data.xml.ItemData.getInstance();
 			ext.mods.gameserver.model.item.kind.Item item = itemData.getTemplate(entry.getKey());
 			String name = (item != null) ? item.getName() : "Item#" + entry.getKey();
-			sb.append(entry.getValue()).append("x ").append(name);
+			sb.append(entry.getValue()).append("x <font color=FF0000>").append(name).append("</font>");
 		}
 		return sb.toString();
 	}
@@ -267,7 +267,7 @@ public class StatusPointConfig
 			ext.mods.gameserver.data.xml.ItemData itemData = ext.mods.gameserver.data.xml.ItemData.getInstance();
 			ext.mods.gameserver.model.item.kind.Item item = itemData.getTemplate(entry.getKey());
 			String name = (item != null) ? item.getName() : "Item#" + entry.getKey();
-			sb.append(entry.getValue()).append("x ").append(name);
+			sb.append(entry.getValue()).append("x <font color=FF0000>").append(name).append("</font>");
 		}
 		return sb.toString();
 	}

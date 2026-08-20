@@ -21,6 +21,7 @@ package ext.mods.gameserver.handler.voicedcommandhandlers;
 import ext.mods.gameserver.handler.IVoicedCommandHandler;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.network.serverpackets.NpcHtmlMessage;
+import ext.mods.gameserver.network.serverpackets.ShowBoard;
 import ext.mods.gameserver.CharacterStatusPoints;
 import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.gameserver.StatusPointOwner;
@@ -77,12 +78,16 @@ public class StatusPoint implements IVoicedCommandHandler
 			boolean atCapAndNoItems = atCap && !StatusPointConfig.hasCapItems(player);
 			
 			String display = String.valueOf(preview);
-			if (!maxed && !isOldChar)
+			if (maxed)
+			{
+				display += " <font color=40E0D0>MAX</font>";
+			}
+			else if (!isOldChar)
 			{
 				if (atCap && !StatusPointConfig.COST_CAP_ITEMS.isEmpty())
-					display += " (" + cost + "+" + StatusPointConfig.getCapItemsDisplay() + ")";
+					display += "<br><font color=FF0000>" + cost + " pts + " + StatusPointConfig.getCapItemsDisplay() + "</font>";
 				else
-					display += " (" + cost + ")";
+					display += "<br><font color=FF0000>" + cost + " pts</font>";
 			}
 			htm.replace("%" + key + "_display%", display);
 		}
@@ -116,6 +121,7 @@ public class StatusPoint implements IVoicedCommandHandler
 			htm.replace("%" + key + "_buttons%", makePlusMinus(stat, showPlus, showMinus));
 		}
 		
+		player.sendPacket(ShowBoard.STATIC_CLOSE);
 		player.sendPacket(htm);
 	}
 	
