@@ -18,15 +18,11 @@
 package ext.mods.gameserver.network.clientpackets;
 
 import ext.mods.Config;
-import ext.mods.commons.logging.CLogger;
 import ext.mods.gameserver.communitybbs.CommunityBoard;
 import ext.mods.gameserver.communitybbs.CustomCommunityBoard;
-import ext.mods.gameserver.model.actor.Player;
 
 public final class RequestShowBoard extends L2GameClientPacket
 {
-	private static final CLogger LOGGER = new CLogger(RequestShowBoard.class.getName());
-	
 	@Override
 	protected void readImpl()
 	{
@@ -36,9 +32,6 @@ public final class RequestShowBoard extends L2GameClientPacket
 	@Override
 	protected void runImpl()
 	{
-		final Player player = getClient().getPlayer();
-		LOGGER.info("RequestShowBoard received for {} (customBbs={}, communityBoard={})", player != null ? player.getName() : "?", Config.ENABLE_CUSTOM_BBS, Config.ENABLE_COMMUNITY_BOARD);
-		
 		if (Config.ENABLE_CUSTOM_BBS)
 			CustomCommunityBoard.getInstance().handleCommands(getClient(), Config.BBS_DEFAULT);
 		

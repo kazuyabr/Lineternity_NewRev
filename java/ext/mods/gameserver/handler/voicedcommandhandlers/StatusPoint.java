@@ -77,19 +77,20 @@ public class StatusPoint implements IVoicedCommandHandler
 			boolean canAfford = data.available >= cost;
 			boolean atCapAndNoItems = atCap && !StatusPointConfig.hasCapItems(player);
 			
-			String display = String.valueOf(preview);
 			if (maxed)
-			{
-				display += " <font color=40E0D0>MAX</font>";
-			}
-			else if (!isOldChar)
+				htm.replace("%" + key + "_display%", "<font color=40E0D0>" + preview + " MAX</font>");
+			else
+				htm.replace("%" + key + "_display%", String.valueOf(preview));
+			
+			String costHtml = "";
+			if (!maxed && !isOldChar)
 			{
 				if (atCap && !StatusPointConfig.COST_CAP_ITEMS.isEmpty())
-					display += "<br><font color=FF0000>" + cost + " pts + " + StatusPointConfig.getCapItemsDisplay() + "</font>";
+					costHtml = "<font color=FF0000>" + cost + " pts<br>" + StatusPointConfig.getCapItemsDisplay() + "</font>";
 				else
-					display += "<br><font color=FF0000>" + cost + " pts</font>";
+					costHtml = "<font color=FF0000>" + cost + " pts</font>";
 			}
-			htm.replace("%" + key + "_display%", display);
+			htm.replace("%" + key + "_cost%", costHtml);
 		}
 		
 		boolean canConfirm = !isOldChar && data.dirty;
