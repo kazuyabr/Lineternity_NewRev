@@ -26,7 +26,7 @@ public class StatusPointSiege
 		if (!StatusPointConfig.SIEGE_REWARD_ENABLED)
 			return;
 		
-		if (StatusPointConfig.SIEGE_REWARD_ATTR_POINTS <= 0 && StatusPointConfig.SIEGE_REWARD_STATUS_POINTS <= 0)
+		if (StatusPointConfig.SIEGE_REWARD_POINTS <= 0)
 			return;
 		
 		if (winningClanMembers == null)
@@ -41,20 +41,11 @@ public class StatusPointSiege
 			if (data == null || data.isOldChar)
 				continue;
 			
-			if (StatusPointConfig.SIEGE_REWARD_ATTR_POINTS > 0)
-			{
-				data.attrAvailable += StatusPointConfig.SIEGE_REWARD_ATTR_POINTS;
-				data.sourceSiegePoints += StatusPointConfig.SIEGE_REWARD_ATTR_POINTS;
-			}
-			
-			if (StatusPointConfig.SIEGE_REWARD_STATUS_POINTS > 0)
-			{
-				data.statusAvailable += StatusPointConfig.SIEGE_REWARD_STATUS_POINTS;
-				data.sourceSiegePoints += StatusPointConfig.SIEGE_REWARD_STATUS_POINTS;
-			}
+			data.available += StatusPointConfig.SIEGE_REWARD_POINTS;
+			data.sourceSiegePoints += StatusPointConfig.SIEGE_REWARD_POINTS;
 			
 			data.store(player);
-			player.sendMessage("Siege victory reward: +" + StatusPointConfig.SIEGE_REWARD_ATTR_POINTS + " attr, +" + StatusPointConfig.SIEGE_REWARD_STATUS_POINTS + " status points.");
+			player.sendMessage("Siege victory reward: +" + StatusPointConfig.SIEGE_REWARD_POINTS + " status points.");
 		}
 	}
 }

@@ -14,9 +14,6 @@
  */
 package ext.mods.gameserver;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import ext.mods.gameserver.model.actor.Player;
@@ -31,7 +28,7 @@ public class StatusPointRaid
 		if (!StatusPointConfig.RAID_REWARD_ENABLED)
 			return;
 		
-		if (StatusPointConfig.RAID_REWARD_ATTR_POINTS <= 0 && StatusPointConfig.RAID_REWARD_STATUS_POINTS <= 0)
+		if (StatusPointConfig.RAID_REWARD_POINTS <= 0)
 			return;
 		
 		if (topDealers == null || topDealers.isEmpty())
@@ -49,20 +46,11 @@ public class StatusPointRaid
 			if (data == null || data.isOldChar)
 				continue;
 			
-			if (StatusPointConfig.RAID_REWARD_ATTR_POINTS > 0)
-			{
-				data.attrAvailable += StatusPointConfig.RAID_REWARD_ATTR_POINTS;
-				data.sourceRaidPoints += StatusPointConfig.RAID_REWARD_ATTR_POINTS;
-			}
-			
-			if (StatusPointConfig.RAID_REWARD_STATUS_POINTS > 0)
-			{
-				data.statusAvailable += StatusPointConfig.RAID_REWARD_STATUS_POINTS;
-				data.sourceRaidPoints += StatusPointConfig.RAID_REWARD_STATUS_POINTS;
-			}
+			data.available += StatusPointConfig.RAID_REWARD_POINTS;
+			data.sourceRaidPoints += StatusPointConfig.RAID_REWARD_POINTS;
 			
 			data.store(player);
-			player.sendMessage("Raid Boss reward: +" + StatusPointConfig.RAID_REWARD_ATTR_POINTS + " attr, +" + StatusPointConfig.RAID_REWARD_STATUS_POINTS + " status points.");
+			player.sendMessage("Raid Boss reward: +" + StatusPointConfig.RAID_REWARD_POINTS + " status points.");
 		}
 	}
 }

@@ -6297,8 +6297,7 @@ public class Player extends Playable
 				
 				if (data.isOldChar)
 				{
-					data.attrAvailable = 0;
-					data.statusAvailable = 0;
+					data.available = 0;
 				}
 				
 				applyStatusPointFuncs(this, data);
@@ -6385,24 +6384,20 @@ public class Player extends Playable
 			
 			if (data.isOldChar)
 			{
-				data.attrAvailable = 0;
-				data.statusAvailable = 0;
+				data.available = 0;
 			}
 			else
 			{
 				int level = getStatus().getLevel();
-				int currentVersion = 3;
+				int currentVersion = 4;
 				
 				if (data.version < currentVersion)
 				{
 					data.version = currentVersion;
-					data.attrAvailable = (level * StatusPointConfig.ATTRIBUTE_POINTS_PER_LEVEL) - data.getAttrDistributed();
-					data.statusAvailable = (level * StatusPointConfig.DIRECT_STATUS_POINTS_PER_LEVEL) - data.getStatusDistributed();
+					data.available = (level * StatusPointConfig.POINTS_PER_LEVEL) - data.getTotalDistributed();
 					
-					if (data.attrAvailable < 0)
-						data.attrAvailable = 0;
-					if (data.statusAvailable < 0)
-						data.statusAvailable = 0;
+					if (data.available < 0)
+						data.available = 0;
 				}
 			}
 			

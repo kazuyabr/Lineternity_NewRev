@@ -70,29 +70,21 @@ public class StatusPoint implements IBypassHandler
 		if (data == null || data.isOldChar)
 			return;
 		
-		if (isDirectStat(stat))
-		{
-			if (data.statusAvailable <= 0)
-				return;
-			if (isMaxedDirect(stat, data))
-				return;
-			int current = getDirectStatValue(data, stat);
-			setDirectStatValue(data, stat, current + 1);
-			data.statusAvailable--;
-			data.statusDistributed++;
-		}
-		else
-		{
-			if (data.attrAvailable <= 0)
-				return;
-			if (isMaxedAttr(player, stat, data))
-				return;
-			int current = getAttrStatValue(data, stat);
-			setAttrStatValue(data, stat, current + 1);
-			data.attrAvailable--;
-			data.attrDistributed++;
-		}
+		int cost = data.getCostToNext(stat);
+		if (data.available < cost)
+			return;
+		if (isMaxed(player, stat, data))
+			return;
+		if (data.isAtCap(stat) && !StatusPointConfig.hasCapItems(player))
+			return;
 		
+		if (data.isAtCap(stat))
+			StatusPointConfig.chargeCapItems(player);
+		
+		int current = data.getDistributedValue(stat);
+		data.setDistributedValue(stat, current + 1);
+		data.available -= cost;
+		updateDistributedCount(data, stat);
 		data.dirty = true;
 		new ext.mods.gameserver.handler.voicedcommandhandlers.StatusPoint().showHtml(player);
 	}
@@ -103,27 +95,15 @@ public class StatusPoint implements IBypassHandler
 		if (data == null || data.isOldChar)
 			return;
 		
-		if (isDirectStat(stat))
-		{
-			int current = getDirectStatValue(data, stat);
-			int confirmed = getConfirmedDirectValue(data, stat);
-			if (current <= confirmed)
-				return;
-			setDirectStatValue(data, stat, current - 1);
-			data.statusAvailable++;
-			data.statusDistributed--;
-		}
-		else
-		{
-			int current = getAttrStatValue(data, stat);
-			int confirmed = getConfirmedAttrValue(data, stat);
-			if (current <= confirmed)
-				return;
-			setAttrStatValue(data, stat, current - 1);
-			data.attrAvailable++;
-			data.attrDistributed--;
-		}
+		int current = data.getDistributedValue(stat);
+		int confirmed = data.getConfirmedValue(stat);
+		if (current <= confirmed)
+			return;
 		
+		int refund = StatusPointConfig.getCostForStat(current - 1);
+		data.setDistributedValue(stat, current - 1);
+		data.available += refund;
+		updateDistributedCount(data, stat);
 		data.dirty = true;
 		new ext.mods.gameserver.handler.voicedcommandhandlers.StatusPoint().showHtml(player);
 	}
@@ -139,22 +119,9 @@ public class StatusPoint implements IBypassHandler
 		Player.applyStatusPointFuncs(player, data);
 		Player.applyDirectStatusFuncs(player, data);
 		
-		data.confirmedAttrStr = data.attrStr;
-		data.confirmedAttrCon = data.attrCon;
-		data.confirmedAttrDex = data.attrDex;
-		data.confirmedAttrInt = data.attrInt;
-		data.confirmedAttrWit = data.attrWit;
-		data.confirmedAttrMen = data.attrMen;
-		data.confirmedStatusPdef = data.statusPdef;
-		data.confirmedStatusMdef = data.statusMdef;
-		data.confirmedStatusHp = data.statusHp;
-		data.confirmedStatusMp = data.statusMp;
-		data.confirmedStatusCp = data.statusCp;
-		data.confirmedStatusPatk = data.statusPatk;
-		data.confirmedStatusMatk = data.statusMatk;
-		data.confirmedStatusAccuracy = data.statusAccuracy;
-		data.confirmedStatusEvasion = data.statusEvasion;
-		data.confirmedStatusCrit = data.statusCrit;
+		String[] allStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "PDEF", "MDEF", "HP", "MP", "CP", "PATK", "MATK", "ACC", "EVA", "CRIT"};
+		for (String statName : allStats)
+			data.setConfirmedValue(statName, data.getDistributedValue(statName));
 		
 		data.computeEffectiveBases(player);
 		data.dirty = false;
@@ -186,9 +153,7 @@ public class StatusPoint implements IBypassHandler
 			return;
 		}
 		
-		int totalAttrDistributed = data.getAttrDistributed();
-		int totalStatusDistributed = data.getStatusDistributed();
-		if (totalAttrDistributed <= 0 && totalStatusDistributed <= 0)
+		if (data.getTotalDistributed() <= 0)
 		{
 			player.sendMessage("You have no distributed points to reset.");
 			return;
@@ -201,57 +166,23 @@ public class StatusPoint implements IBypassHandler
 				player.sendMessage("You need " + StatusPointConfig.getResetCostDisplay() + " to reset.");
 				return;
 			}
-			
 			StatusPointConfig.chargeResetCost(player);
 		}
 		
 		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
 		player.removeStatsByOwner(StatusPointOwner.DIRECT);
 		
-		if (totalAttrDistributed > 0)
-		{
-			data.attrAvailable += totalAttrDistributed;
-			data.attrStr = 0;
-			data.attrCon = 0;
-			data.attrDex = 0;
-			data.attrInt = 0;
-			data.attrWit = 0;
-			data.attrMen = 0;
-			data.attrDistributed = 0;
-		}
+		int totalSpent = data.getTotalSpent();
+		data.available += totalSpent;
 		
-		if (totalStatusDistributed > 0)
+		String[] allStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "PDEF", "MDEF", "HP", "MP", "CP", "PATK", "MATK", "ACC", "EVA", "CRIT"};
+		for (String statName : allStats)
 		{
-			data.statusAvailable += totalStatusDistributed;
-			data.statusPdef = 0;
-			data.statusMdef = 0;
-			data.statusHp = 0;
-			data.statusMp = 0;
-			data.statusCp = 0;
-			data.statusPatk = 0;
-			data.statusMatk = 0;
-			data.statusAccuracy = 0;
-			data.statusEvasion = 0;
-			data.statusCrit = 0;
-			data.statusDistributed = 0;
+			data.setDistributedValue(statName, 0);
+			data.setConfirmedValue(statName, 0);
 		}
-		
-		data.confirmedAttrStr = 0;
-		data.confirmedAttrCon = 0;
-		data.confirmedAttrDex = 0;
-		data.confirmedAttrInt = 0;
-		data.confirmedAttrWit = 0;
-		data.confirmedAttrMen = 0;
-		data.confirmedStatusPdef = 0;
-		data.confirmedStatusMdef = 0;
-		data.confirmedStatusHp = 0;
-		data.confirmedStatusMp = 0;
-		data.confirmedStatusCp = 0;
-		data.confirmedStatusPatk = 0;
-		data.confirmedStatusMatk = 0;
-		data.confirmedStatusAccuracy = 0;
-		data.confirmedStatusEvasion = 0;
-		data.confirmedStatusCrit = 0;
+		data.attrDistributed = 0;
+		data.statusDistributed = 0;
 		
 		Player.applyStatusPointFuncs(player, data);
 		Player.applyDirectStatusFuncs(player, data);
@@ -260,156 +191,36 @@ public class StatusPoint implements IBypassHandler
 		data.store(player);
 		player.broadcastUserInfo();
 		
-		player.sendMessage("Status points reset successfully.");
+		player.sendMessage("Status points reset successfully. " + totalSpent + " points returned.");
 		new ext.mods.gameserver.handler.voicedcommandhandlers.StatusPoint().showHtml(player);
 	}
 	
-	private boolean isDirectStat(String stat)
+	private void updateDistributedCount(CharacterStatusPoints data, String stat)
 	{
-		return switch (stat)
-		{
-			case "PDEF", "MDEF", "HP", "MP", "CP", "PATK", "MATK", "ACC", "EVA", "CRIT" -> true;
-			default -> false;
-		};
+		data.attrDistributed = data.attrStr + data.attrCon + data.attrDex + data.attrInt + data.attrWit + data.attrMen;
+		data.statusDistributed = data.statusPdef + data.statusMdef + data.statusHp + data.statusMp + data.statusCp
+			+ data.statusPatk + data.statusMatk + data.statusAccuracy + data.statusEvasion + data.statusCrit;
 	}
 	
-	private int getAttrStatValue(CharacterStatusPoints data, String stat)
+	private boolean isMaxed(Player player, String stat, CharacterStatusPoints data)
 	{
-		return switch (stat)
-		{
-			case "STR" -> data.attrStr;
-			case "CON" -> data.attrCon;
-			case "DEX" -> data.attrDex;
-			case "INT" -> data.attrInt;
-			case "WIT" -> data.attrWit;
-			case "MEN" -> data.attrMen;
-			default -> 0;
-		};
-	}
-	
-	private void setAttrStatValue(CharacterStatusPoints data, String stat, int value)
-	{
-		switch (stat)
-		{
-			case "STR" -> data.attrStr = value;
-			case "CON" -> data.attrCon = value;
-			case "DEX" -> data.attrDex = value;
-			case "INT" -> data.attrInt = value;
-			case "WIT" -> data.attrWit = value;
-			case "MEN" -> data.attrMen = value;
-		}
-	}
-	
-	private int getDirectStatValue(CharacterStatusPoints data, String stat)
-	{
-		return switch (stat)
-		{
-			case "PDEF" -> data.statusPdef;
-			case "MDEF" -> data.statusMdef;
-			case "HP" -> data.statusHp;
-			case "MP" -> data.statusMp;
-			case "CP" -> data.statusCp;
-			case "PATK" -> data.statusPatk;
-			case "MATK" -> data.statusMatk;
-			case "ACC" -> data.statusAccuracy;
-			case "EVA" -> data.statusEvasion;
-			case "CRIT" -> data.statusCrit;
-			default -> 0;
-		};
-	}
-	
-	private void setDirectStatValue(CharacterStatusPoints data, String stat, int value)
-	{
-		switch (stat)
-		{
-			case "PDEF" -> data.statusPdef = value;
-			case "MDEF" -> data.statusMdef = value;
-			case "HP" -> data.statusHp = value;
-			case "MP" -> data.statusMp = value;
-			case "CP" -> data.statusCp = value;
-			case "PATK" -> data.statusPatk = value;
-			case "MATK" -> data.statusMatk = value;
-			case "ACC" -> data.statusAccuracy = value;
-			case "EVA" -> data.statusEvasion = value;
-			case "CRIT" -> data.statusCrit = value;
-		}
-	}
-	
-	private int getConfirmedAttrValue(CharacterStatusPoints data, String stat)
-	{
-		return switch (stat)
-		{
-			case "STR" -> data.confirmedAttrStr;
-			case "CON" -> data.confirmedAttrCon;
-			case "DEX" -> data.confirmedAttrDex;
-			case "INT" -> data.confirmedAttrInt;
-			case "WIT" -> data.confirmedAttrWit;
-			case "MEN" -> data.confirmedAttrMen;
-			default -> 0;
-		};
-	}
-	
-	private int getConfirmedDirectValue(CharacterStatusPoints data, String stat)
-	{
-		return switch (stat)
-		{
-			case "PDEF" -> data.confirmedStatusPdef;
-			case "MDEF" -> data.confirmedStatusMdef;
-			case "HP" -> data.confirmedStatusHp;
-			case "MP" -> data.confirmedStatusMp;
-			case "CP" -> data.confirmedStatusCp;
-			case "PATK" -> data.confirmedStatusPatk;
-			case "MATK" -> data.confirmedStatusMatk;
-			case "ACC" -> data.confirmedStatusAccuracy;
-			case "EVA" -> data.confirmedStatusEvasion;
-			case "CRIT" -> data.confirmedStatusCrit;
-			default -> 0;
-		};
-	}
-	
-	private boolean isMaxedAttr(Player player, String stat, CharacterStatusPoints data)
-	{
-		int distributed = getAttrStatValue(data, stat);
-		int total;
-		int max;
+		int distributed = data.getDistributedValue(stat);
 		
-		switch (stat)
-		{
-			case "DEX":
-				total = data.previewBaseDex + distributed;
-				max = StatusPointConfig.MAX_TOTAL_DEX;
-				return total >= max;
-			case "WIT":
-				total = data.previewBaseWit + distributed;
-				max = StatusPointConfig.MAX_TOTAL_WIT;
-				return total >= max;
-			default:
-				return false;
-		}
-	}
-	
-	private boolean isMaxedDirect(String stat, CharacterStatusPoints data)
-	{
-		int distributed = getDirectStatValue(data, stat);
-		int max = getMaxDirectStatValue(stat);
-		return distributed >= max;
-	}
-	
-	private int getMaxDirectStatValue(String stat)
-	{
 		return switch (stat)
 		{
-			case "PDEF" -> StatusPointConfig.MAX_DIRECT_PDEF;
-			case "MDEF" -> StatusPointConfig.MAX_DIRECT_MDEF;
-			case "HP" -> StatusPointConfig.MAX_DIRECT_HP;
-			case "MP" -> StatusPointConfig.MAX_DIRECT_MP;
-			case "CP" -> StatusPointConfig.MAX_DIRECT_CP;
-			case "PATK" -> StatusPointConfig.MAX_DIRECT_PATK;
-			case "MATK" -> StatusPointConfig.MAX_DIRECT_MATK;
-			case "ACC" -> StatusPointConfig.MAX_DIRECT_ACCURACY;
-			case "EVA" -> StatusPointConfig.MAX_DIRECT_EVASION;
-			case "CRIT" -> StatusPointConfig.MAX_DIRECT_CRIT;
-			default -> Integer.MAX_VALUE;
+			case "DEX" -> (data.previewBaseDex + distributed) >= StatusPointConfig.MAX_TOTAL_DEX;
+			case "WIT" -> (data.previewBaseWit + distributed) >= StatusPointConfig.MAX_TOTAL_WIT;
+			case "PDEF" -> distributed >= StatusPointConfig.MAX_DIRECT_PDEF;
+			case "MDEF" -> distributed >= StatusPointConfig.MAX_DIRECT_MDEF;
+			case "HP" -> distributed >= StatusPointConfig.MAX_DIRECT_HP;
+			case "MP" -> distributed >= StatusPointConfig.MAX_DIRECT_MP;
+			case "CP" -> distributed >= StatusPointConfig.MAX_DIRECT_CP;
+			case "PATK" -> distributed >= StatusPointConfig.MAX_DIRECT_PATK;
+			case "MATK" -> distributed >= StatusPointConfig.MAX_DIRECT_MATK;
+			case "ACC" -> distributed >= StatusPointConfig.MAX_DIRECT_ACCURACY;
+			case "EVA" -> distributed >= StatusPointConfig.MAX_DIRECT_EVASION;
+			case "CRIT" -> distributed >= StatusPointConfig.MAX_DIRECT_CRIT;
+			default -> false;
 		};
 	}
 	

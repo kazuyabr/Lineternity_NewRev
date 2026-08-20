@@ -42,16 +42,10 @@ public class StatusPointPvP
 		
 		if (data.sourcePvpPoints % milestone == 0)
 		{
-			if (StatusPointConfig.PVP_BONUS_PER_MILESTONE > 0)
+			if (StatusPointConfig.PVP_BONUS_POINTS > 0)
 			{
-				data.attrAvailable += StatusPointConfig.PVP_BONUS_PER_MILESTONE;
-				killer.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_PER_MILESTONE + " attribute points.");
-			}
-			
-			if (StatusPointConfig.PVP_BONUS_STATUS_PER_MILESTONE > 0)
-			{
-				data.statusAvailable += StatusPointConfig.PVP_BONUS_STATUS_PER_MILESTONE;
-				killer.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_STATUS_PER_MILESTONE + " status points.");
+				data.available += StatusPointConfig.PVP_BONUS_POINTS;
+				killer.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_POINTS + " status points.");
 			}
 		}
 		

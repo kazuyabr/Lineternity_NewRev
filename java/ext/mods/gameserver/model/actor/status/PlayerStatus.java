@@ -644,11 +644,10 @@ public class PlayerStatus extends PlayableStatus<Player>
 				CharacterStatusPoints data = ((Player) _actor).getStatusPointsData();
 				if (data != null && !data.isOldChar)
 				{
-					data.attrAvailable += StatusPointConfig.ATTRIBUTE_POINTS_PER_LEVEL;
-					data.statusAvailable += StatusPointConfig.DIRECT_STATUS_POINTS_PER_LEVEL;
-					data.sourceLevelPoints += StatusPointConfig.ATTRIBUTE_POINTS_PER_LEVEL + StatusPointConfig.DIRECT_STATUS_POINTS_PER_LEVEL;
+					data.available += StatusPointConfig.POINTS_PER_LEVEL;
+					data.sourceLevelPoints += StatusPointConfig.POINTS_PER_LEVEL;
 					data.store((Player) _actor);
-					_actor.sendMessage("You gained " + StatusPointConfig.ATTRIBUTE_POINTS_PER_LEVEL + " attribute points and " + StatusPointConfig.DIRECT_STATUS_POINTS_PER_LEVEL + " status points from level up.");
+					_actor.sendMessage("You gained " + StatusPointConfig.POINTS_PER_LEVEL + " status points from level up.");
 				}
 			}
 		}

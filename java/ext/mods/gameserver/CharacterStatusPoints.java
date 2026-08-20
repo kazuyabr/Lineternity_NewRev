@@ -33,8 +33,10 @@ public class CharacterStatusPoints
 	// Subclass index (0 = base, 1-3 = subclass)
 	public int classIndex;
 	
-	// Attribute pool
-	public int attrAvailable;
+	// Unified pool
+	public int available;
+	
+	// Attribute distributed (STR/CON/DEX/INT/WIT/MEN)
 	public int attrDistributed;
 	public int attrStr;
 	public int attrCon;
@@ -43,8 +45,7 @@ public class CharacterStatusPoints
 	public int attrWit;
 	public int attrMen;
 	
-	// Direct status pool
-	public int statusAvailable;
+	// Direct status distributed (P.Def/M.Def/HP/MP/CP/P.Atk/M.Atk/Acc/Eva/Crit)
 	public int statusDistributed;
 	public int statusPdef;
 	public int statusMdef;
@@ -109,6 +110,13 @@ public class CharacterStatusPoints
 	public int confirmedStatusEvasion;
 	public int confirmedStatusCrit;
 	
+	public int getTotalDistributed()
+	{
+		return attrStr + attrCon + attrDex + attrInt + attrWit + attrMen
+			+ statusPdef + statusMdef + statusHp + statusMp + statusCp
+			+ statusPatk + statusMatk + statusAccuracy + statusEvasion + statusCrit;
+	}
+	
 	public int getAttrDistributed()
 	{
 		return attrStr + attrCon + attrDex + attrInt + attrWit + attrMen;
@@ -118,6 +126,125 @@ public class CharacterStatusPoints
 	{
 		return statusPdef + statusMdef + statusHp + statusMp + statusCp
 			+ statusPatk + statusMatk + statusAccuracy + statusEvasion + statusCrit;
+	}
+	
+	public int getCostToNext(String stat)
+	{
+		int current = getDistributedValue(stat);
+		return StatusPointConfig.getCostForStat(current);
+	}
+	
+	public boolean isAtCap(String stat)
+	{
+		int current = getDistributedValue(stat);
+		return StatusPointConfig.isAtCap(current);
+	}
+	
+	public int getDistributedValue(String stat)
+	{
+		return switch (stat)
+		{
+			case "STR" -> attrStr;
+			case "CON" -> attrCon;
+			case "DEX" -> attrDex;
+			case "INT" -> attrInt;
+			case "WIT" -> attrWit;
+			case "MEN" -> attrMen;
+			case "PDEF" -> statusPdef;
+			case "MDEF" -> statusMdef;
+			case "HP" -> statusHp;
+			case "MP" -> statusMp;
+			case "CP" -> statusCp;
+			case "PATK" -> statusPatk;
+			case "MATK" -> statusMatk;
+			case "ACC" -> statusAccuracy;
+			case "EVA" -> statusEvasion;
+			case "CRIT" -> statusCrit;
+			default -> 0;
+		};
+	}
+	
+	public void setDistributedValue(String stat, int value)
+	{
+		switch (stat)
+		{
+			case "STR" -> attrStr = value;
+			case "CON" -> attrCon = value;
+			case "DEX" -> attrDex = value;
+			case "INT" -> attrInt = value;
+			case "WIT" -> attrWit = value;
+			case "MEN" -> attrMen = value;
+			case "PDEF" -> statusPdef = value;
+			case "MDEF" -> statusMdef = value;
+			case "HP" -> statusHp = value;
+			case "MP" -> statusMp = value;
+			case "CP" -> statusCp = value;
+			case "PATK" -> statusPatk = value;
+			case "MATK" -> statusMatk = value;
+			case "ACC" -> statusAccuracy = value;
+			case "EVA" -> statusEvasion = value;
+			case "CRIT" -> statusCrit = value;
+		}
+	}
+	
+	public int getConfirmedValue(String stat)
+	{
+		return switch (stat)
+		{
+			case "STR" -> confirmedAttrStr;
+			case "CON" -> confirmedAttrCon;
+			case "DEX" -> confirmedAttrDex;
+			case "INT" -> confirmedAttrInt;
+			case "WIT" -> confirmedAttrWit;
+			case "MEN" -> confirmedAttrMen;
+			case "PDEF" -> confirmedStatusPdef;
+			case "MDEF" -> confirmedStatusMdef;
+			case "HP" -> confirmedStatusHp;
+			case "MP" -> confirmedStatusMp;
+			case "CP" -> confirmedStatusCp;
+			case "PATK" -> confirmedStatusPatk;
+			case "MATK" -> confirmedStatusMatk;
+			case "ACC" -> confirmedStatusAccuracy;
+			case "EVA" -> confirmedStatusEvasion;
+			case "CRIT" -> confirmedStatusCrit;
+			default -> 0;
+		};
+	}
+	
+	public void setConfirmedValue(String stat, int value)
+	{
+		switch (stat)
+		{
+			case "STR" -> confirmedAttrStr = value;
+			case "CON" -> confirmedAttrCon = value;
+			case "DEX" -> confirmedAttrDex = value;
+			case "INT" -> confirmedAttrInt = value;
+			case "WIT" -> confirmedAttrWit = value;
+			case "MEN" -> confirmedAttrMen = value;
+			case "PDEF" -> confirmedStatusPdef = value;
+			case "MDEF" -> confirmedStatusMdef = value;
+			case "HP" -> confirmedStatusHp = value;
+			case "MP" -> confirmedStatusMp = value;
+			case "CP" -> confirmedStatusCp = value;
+			case "PATK" -> confirmedStatusPatk = value;
+			case "MATK" -> confirmedStatusMatk = value;
+			case "ACC" -> confirmedStatusAccuracy = value;
+			case "EVA" -> confirmedStatusEvasion = value;
+			case "CRIT" -> confirmedStatusCrit = value;
+		}
+	}
+	
+	public int getTotalSpent()
+	{
+		int total = 0;
+		String[] allStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "PDEF", "MDEF", "HP", "MP", "CP", "PATK", "MATK", "ACC", "EVA", "CRIT"};
+		for (String stat : allStats)
+		{
+			int distributed = getDistributedValue(stat);
+			for (int i = 0; i < distributed; i++)
+				total += StatusPointConfig.getCostForStat(i);
+		}
+		return total;
 	}
 	
 	public static CharacterStatusPoints load(Player player)
@@ -134,7 +261,7 @@ public class CharacterStatusPoints
 			
 			if (rs.next())
 			{
-				data.attrAvailable = rs.getInt("attr_available");
+				data.available = rs.getInt("available");
 				data.attrDistributed = rs.getInt("attr_distributed");
 				data.attrStr = rs.getInt("attr_str");
 				data.attrCon = rs.getInt("attr_con");
@@ -143,7 +270,6 @@ public class CharacterStatusPoints
 				data.attrWit = rs.getInt("attr_wit");
 				data.attrMen = rs.getInt("attr_men");
 				
-				data.statusAvailable = rs.getInt("status_available");
 				data.statusDistributed = rs.getInt("status_distributed");
 				data.statusPdef = rs.getInt("status_pdef");
 				data.statusMdef = rs.getInt("status_mdef");
@@ -193,14 +319,16 @@ public class CharacterStatusPoints
 		{
 			PreparedStatement ps = con.prepareStatement(
 				"UPDATE character_status_points SET " +
-				"attr_available=?, attr_distributed=?, attr_str=?, attr_con=?, attr_dex=?, attr_int=?, attr_wit=?, attr_men=?, " +
-				"status_available=?, status_distributed=?, status_pdef=?, status_mdef=?, status_hp=?, status_mp=?, status_cp=?, " +
+				"available=?, " +
+				"attr_distributed=?, attr_str=?, attr_con=?, attr_dex=?, attr_int=?, attr_wit=?, attr_men=?, " +
+				"status_distributed=?, status_pdef=?, status_mdef=?, status_hp=?, status_mp=?, status_cp=?, " +
 				"status_patk=?, status_matk=?, status_accuracy=?, status_evasion=?, status_crit=?, " +
 				"karma_penalty_attr=?, " +
 				"source_level_points=?, source_quest_points=?, source_raid_points=?, source_siege_points=?, source_pvp_points=?, source_karma_points=?, " +
 				"version=? WHERE char_id=? AND class_index=?");
 			
-			ps.setInt(1, attrAvailable);
+			ps.setInt(1, available);
+			
 			ps.setInt(2, attrDistributed);
 			ps.setInt(3, attrStr);
 			ps.setInt(4, attrCon);
@@ -209,31 +337,30 @@ public class CharacterStatusPoints
 			ps.setInt(7, attrWit);
 			ps.setInt(8, attrMen);
 			
-			ps.setInt(9, statusAvailable);
-			ps.setInt(10, statusDistributed);
-			ps.setInt(11, statusPdef);
-			ps.setInt(12, statusMdef);
-			ps.setInt(13, statusHp);
-			ps.setInt(14, statusMp);
-			ps.setInt(15, statusCp);
-			ps.setInt(16, statusPatk);
-			ps.setInt(17, statusMatk);
-			ps.setInt(18, statusAccuracy);
-			ps.setInt(19, statusEvasion);
-			ps.setInt(20, statusCrit);
+			ps.setInt(9, statusDistributed);
+			ps.setInt(10, statusPdef);
+			ps.setInt(11, statusMdef);
+			ps.setInt(12, statusHp);
+			ps.setInt(13, statusMp);
+			ps.setInt(14, statusCp);
+			ps.setInt(15, statusPatk);
+			ps.setInt(16, statusMatk);
+			ps.setInt(17, statusAccuracy);
+			ps.setInt(18, statusEvasion);
+			ps.setInt(19, statusCrit);
 			
-			ps.setInt(21, karmaPenaltyAttr);
+			ps.setInt(20, karmaPenaltyAttr);
 			
-			ps.setInt(22, sourceLevelPoints);
-			ps.setInt(23, sourceQuestPoints);
-			ps.setInt(24, sourceRaidPoints);
-			ps.setInt(25, sourceSiegePoints);
-			ps.setInt(26, sourcePvpPoints);
-			ps.setInt(27, sourceKarmaPoints);
+			ps.setInt(21, sourceLevelPoints);
+			ps.setInt(22, sourceQuestPoints);
+			ps.setInt(23, sourceRaidPoints);
+			ps.setInt(24, sourceSiegePoints);
+			ps.setInt(25, sourcePvpPoints);
+			ps.setInt(26, sourceKarmaPoints);
 			
-			ps.setInt(28, version);
-			ps.setInt(29, player.getObjectId());
-			ps.setInt(30, classIndex);
+			ps.setInt(27, version);
+			ps.setInt(28, player.getObjectId());
+			ps.setInt(29, classIndex);
 			
 			ps.executeUpdate();
 			ps.close();
@@ -270,8 +397,7 @@ public class CharacterStatusPoints
 		version = 3;
 		
 		int level = player.getStatus().getLevel();
-		attrAvailable = level * StatusPointConfig.ATTRIBUTE_POINTS_PER_LEVEL;
-		statusAvailable = level * StatusPointConfig.DIRECT_STATUS_POINTS_PER_LEVEL;
+		available = level * StatusPointConfig.POINTS_PER_LEVEL;
 		
 		attrDistributed = 0;
 		attrStr = 0;

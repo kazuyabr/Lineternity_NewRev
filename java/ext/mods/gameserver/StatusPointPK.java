@@ -33,28 +33,17 @@ public class StatusPointPK
 		
 		int totalKarmaRemoved = karmaRemoved;
 		
-		if (data.karmaPenaltyAttr > 0 && StatusPointConfig.PK_REMOVED_PER_ATTR_POINT > 0)
+		if (data.karmaPenaltyAttr > 0 && StatusPointConfig.PK_REMOVED_PER_POINT > 0)
 		{
-			int attrToRecover = totalKarmaRemoved / StatusPointConfig.PK_REMOVED_PER_ATTR_POINT;
-			if (attrToRecover > data.karmaPenaltyAttr)
-				attrToRecover = data.karmaPenaltyAttr;
+			int pointsToRecover = totalKarmaRemoved / StatusPointConfig.PK_REMOVED_PER_POINT;
+			if (pointsToRecover > data.karmaPenaltyAttr)
+				pointsToRecover = data.karmaPenaltyAttr;
 			
-			if (attrToRecover > 0)
+			if (pointsToRecover > 0)
 			{
-				data.karmaPenaltyAttr -= attrToRecover;
-				data.attrAvailable += attrToRecover;
-				player.sendMessage("Karma penalty reduced: +" + attrToRecover + " attribute points recovered.");
-			}
-		}
-		
-		if (StatusPointConfig.PK_REMOVED_PER_STATUS_POINT > 0)
-		{
-			int statusToRecover = totalKarmaRemoved / StatusPointConfig.PK_REMOVED_PER_STATUS_POINT;
-			if (statusToRecover > 0)
-			{
-				data.statusAvailable += statusToRecover;
-				data.sourceKarmaPoints += statusToRecover;
-				player.sendMessage("Karma removal reward: +" + statusToRecover + " status points.");
+				data.karmaPenaltyAttr -= pointsToRecover;
+				data.available += pointsToRecover;
+				player.sendMessage("Karma penalty reduced: +" + pointsToRecover + " status points recovered.");
 			}
 		}
 		
@@ -74,23 +63,22 @@ public class StatusPointPK
 		if (data == null || data.isOldChar)
 			return;
 		
-		if (StatusPointConfig.DEATH_WITH_KARMA_REMOVE_ALL_ATTRIBUTES)
+		if (StatusPointConfig.DEATH_WITH_KARMA_REMOVE_ALL_POINTS)
 		{
-			int totalDistributed = data.getAttrDistributed();
+			int totalDistributed = data.getTotalDistributed();
 			if (totalDistributed > 0)
 			{
 				data.karmaPenaltyAttr += totalDistributed;
-				data.attrStr = 0;
-				data.attrCon = 0;
-				data.attrDex = 0;
-				data.attrInt = 0;
-				data.attrWit = 0;
-				data.attrMen = 0;
+				
+				String[] allStats = {"STR", "CON", "DEX", "INT", "WIT", "MEN", "PDEF", "MDEF", "HP", "MP", "CP", "PATK", "MATK", "ACC", "EVA", "CRIT"};
+				for (String stat : allStats)
+					data.setDistributedValue(stat, 0);
 				data.attrDistributed = 0;
-				data.attrAvailable = 0;
+				data.statusDistributed = 0;
+				data.available = 0;
 				
 				victim.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
-				victim.sendMessage("You died with karma! Lost " + totalDistributed + " attribute points (recoverable via karma removal).");
+				victim.sendMessage("You died with karma! Lost " + totalDistributed + " status points (recoverable via karma removal).");
 			}
 		}
 		

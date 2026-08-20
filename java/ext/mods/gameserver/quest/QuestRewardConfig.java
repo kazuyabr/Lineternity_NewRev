@@ -73,14 +73,14 @@ public class QuestRewardConfig
 		int spReward = props.getProperty("StatusPointReward", 0);
 		if (spReward > 0 && !repeatable)
 		{
-			data.attrAvailable += spReward;
+			data.available += spReward;
 			data.sourceQuestPoints += spReward;
 		}
 		
 		int repeatableSpReward = props.getProperty("RepeatableStatusPointReward", 0);
 		if (repeatableSpReward > 0 && repeatable)
 		{
-			data.attrAvailable += repeatableSpReward;
+			data.available += repeatableSpReward;
 			data.sourceQuestPoints += repeatableSpReward;
 		}
 		
