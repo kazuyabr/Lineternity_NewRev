@@ -135,10 +135,10 @@ public class StatusPoint implements IVoicedCommandHandler
 			return "";
 		
 		String plus = showPlus
-			? "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
+			? "<button value=\"+\" action=\"bypass voiced_statuspoint add " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
 			: "";
 		String minus = showMinus
-			? "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
+			? "<button value=\"-\" action=\"bypass voiced_statuspoint remove " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
 			: "";
 		
 		return "<table cellpadding=0 cellspacing=0><tr><td align=center>" + plus + "</td><td align=center>" + minus + "</td></tr></table>";
@@ -146,7 +146,7 @@ public class StatusPoint implements IVoicedCommandHandler
 	
 	private String makeButton(String value, String action)
 	{
-		return "<table cellpadding=0 cellspacing=0><tr><td align=center><button value=\"" + value + "\" action=\"bypass -h voiced_statuspoint " + action + "\" width=74 height=21 back=L2UI_ch3.Btn1_normalOn fore=L2UI_ch3.Btn1_normal></td></tr></table>";
+		return "<table cellpadding=0 cellspacing=0><tr><td align=center><button value=\"" + value + "\" action=\"bypass voiced_statuspoint " + action + "\" width=74 height=21 back=L2UI_ch3.Btn1_normalOn fore=L2UI_ch3.Btn1_normal></td></tr></table>";
 	}
 	
 	private void handleBypass(Player player, String target)
