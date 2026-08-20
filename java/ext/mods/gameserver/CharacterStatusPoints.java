@@ -294,6 +294,23 @@ public class CharacterStatusPoints
 				data.version = rs.getInt("version");
 				
 				data.isOldChar = data.version < 3 && player.getCreateTime() < StatusPointConfig.STATUS_POINT_ACTIVATION_DATE;
+				
+				data.confirmedAttrStr = data.attrStr;
+				data.confirmedAttrCon = data.attrCon;
+				data.confirmedAttrDex = data.attrDex;
+				data.confirmedAttrInt = data.attrInt;
+				data.confirmedAttrWit = data.attrWit;
+				data.confirmedAttrMen = data.attrMen;
+				data.confirmedStatusPdef = data.statusPdef;
+				data.confirmedStatusMdef = data.statusMdef;
+				data.confirmedStatusHp = data.statusHp;
+				data.confirmedStatusMp = data.statusMp;
+				data.confirmedStatusCp = data.statusCp;
+				data.confirmedStatusPatk = data.statusPatk;
+				data.confirmedStatusMatk = data.statusMatk;
+				data.confirmedStatusAccuracy = data.statusAccuracy;
+				data.confirmedStatusEvasion = data.statusEvasion;
+				data.confirmedStatusCrit = data.statusCrit;
 			}
 			else
 			{

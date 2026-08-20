@@ -71,6 +71,8 @@ public class StatusPoint implements IVoicedCommandHandler
 			String key = allKeys[i];
 			int preview = getPreviewValue(data, stat);
 			int dist = data.getDistributedValue(stat);
+			int confirmed = data.getConfirmedValue(stat);
+			int unconfirmed = dist - confirmed;
 			int cost = data.getCostToNext(stat);
 			boolean atCap = data.isAtCap(stat);
 			boolean maxed = isMaxed(player, stat, data);
@@ -79,8 +81,8 @@ public class StatusPoint implements IVoicedCommandHandler
 			
 			if (maxed)
 				html = html.replace("%" + key + "_display%", "<font color=40E0D0>" + preview + " MAX</font>");
-			else if (dist > 0)
-				html = html.replace("%" + key + "_display%", preview + " <font color=808080>(+" + dist + ")</font>");
+			else if (unconfirmed > 0)
+				html = html.replace("%" + key + "_display%", preview + " <font color=808080>(+" + unconfirmed + ")</font>");
 			else
 				html = html.replace("%" + key + "_display%", String.valueOf(preview));
 			
