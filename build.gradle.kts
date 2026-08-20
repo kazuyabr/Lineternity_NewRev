@@ -143,7 +143,7 @@ dependencies {
         include("mariadb.jar")
         include("c3p0-0.9.5-pre5.jar")
         include("mchange-commons-java-0.2.6.2.jar")
-        
+        include("server.jar")
     })
 }
 
@@ -190,11 +190,12 @@ tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE 
     
     // Filtra as dependências locais e expande o restante (Fat JAR)
-    from(configurations.runtimeClasspath.get().map { 
+    // Exclui server.jar para evitar JAR-in-JAR (server.jar é o output desta task)
+    from(configurations.runtimeClasspath.get().map {
         val path = it.absolutePath
-        if (it.isDirectory) it 
-        else if (path.endsWith(".jar") && path.contains("lib")) it 
-        else zipTree(it) 
+        if (it.isDirectory) it
+        else if (path.endsWith(".jar") && path.contains("lib") && !path.endsWith("server.jar")) it
+        else zipTree(it)
     })
     
     // Inclui os JARs locais da pasta libs (igual ao Ant)
