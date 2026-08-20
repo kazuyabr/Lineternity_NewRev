@@ -614,13 +614,25 @@ def create_login_properties(config_dir: Path, config: dict[str, str]):
     print(f"  Properties de login criados em: {config_dir}")
 
 def create_game_properties(config_dir: Path, config: dict[str, str]):
-    # Copiar TODOS os arquivos de game/config/ (source é autoridade)
+    # 1. Copiar templates (docker/templates/game/) — arquivos COM placeholders
+    template_config = DOCKER_DIR / "templates" / "game"
+    if template_config.exists():
+        for template_file in template_config.glob("*.properties"):
+            shutil.copy2(template_file, config_dir / template_file.name)
+
+    # 2. Copiar source (game/config/) apenas para arquivos que NÃO têm template
     source_config = PROJECT_ROOT / "game" / "config"
     for source_file in source_config.iterdir():
-        if source_file.is_file():
+        if source_file.is_file() and source_file.suffix == ".properties":
+            if not (config_dir / source_file.name).exists():
+                shutil.copy2(source_file, config_dir / source_file.name)
+
+    # 3. Copiar NÃO-properties de game/config/ (chatfilter.txt, etc.)
+    for source_file in source_config.iterdir():
+        if source_file.is_file() and source_file.suffix != ".properties":
             shutil.copy2(source_file, config_dir / source_file.name)
 
-    # Aplicar overrides per-server (placeholders) em todos os .properties
+    # 4. Aplicar overrides per-server (placeholders) em todos os .properties
     for prop_file in config_dir.glob("*.properties"):
         content = prop_file.read_text(encoding='utf-8')
         modified = False
@@ -632,7 +644,7 @@ def create_game_properties(config_dir: Path, config: dict[str, str]):
         if modified:
             prop_file.write_text(content, encoding='utf-8')
 
-    print(f"  Config copiada de game/config/ para: {config_dir}")
+    print(f"  Config copiada (templates + source) para: {config_dir}")
 
 # ============================================================
 # Network Management
