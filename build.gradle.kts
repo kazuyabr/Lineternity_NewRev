@@ -517,7 +517,7 @@ tasks.register("distribution") {
         }
 
         // 11. Arquivos raiz
-        listOf("README.md", "Dockerfile", "entrypoint.sh").forEach { f ->
+        listOf("README.md", "Dockerfile", "entrypoint.sh", "init-db.sh").forEach { f ->
             if (file(f).exists()) {
                 project.copy {
                     from(f)

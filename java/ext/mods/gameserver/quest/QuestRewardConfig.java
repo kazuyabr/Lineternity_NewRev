@@ -23,13 +23,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import ext.mods.commons.config.ExProperties;
-import ext.mods.gameserver.enums.skills.Stats;
+import ext.mods.gameserver.CharacterStatusPoints;
 import ext.mods.gameserver.model.actor.Player;
 import ext.mods.gameserver.scripting.Quest;
 import ext.mods.gameserver.scripting.QuestState;
 import ext.mods.gameserver.StatusPointConfig;
-import ext.mods.gameserver.StatusPointOwner;
-import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.commons.logging.CLogger;
 
 public class QuestRewardConfig
@@ -40,6 +38,10 @@ public class QuestRewardConfig
 	public static void applyQuestRewards(Player player, Quest quest, QuestState st)
 	{
 		if (!StatusPointConfig.STATUS_POINTS_ENABLED)
+			return;
+		
+		CharacterStatusPoints data = player.getStatusPointsData();
+		if (data == null || data.isOldChar)
 			return;
 		
 		String questName = quest.getName();
@@ -71,23 +73,22 @@ public class QuestRewardConfig
 		int spReward = props.getProperty("StatusPointReward", 0);
 		if (spReward > 0 && !repeatable)
 		{
-			int current = player.getMemos().getInteger("status_points.available", 0);
-			player.getMemos().set("status_points.available", current + spReward);
+			data.attrAvailable += spReward;
+			data.sourceQuestPoints += spReward;
 		}
 		
 		int repeatableSpReward = props.getProperty("RepeatableStatusPointReward", 0);
 		if (repeatableSpReward > 0 && repeatable)
 		{
-			int current = player.getMemos().getInteger("status_points.available", 0);
-			player.getMemos().set("status_points.available", current + repeatableSpReward);
+			data.attrAvailable += repeatableSpReward;
+			data.sourceQuestPoints += repeatableSpReward;
 		}
 		
 		int pdefReward = props.getProperty("PDefReward", 0);
 		if (pdefReward > 0)
 		{
-			int current = player.getMemos().getInteger("status_points.pdef", 0);
-			player.getMemos().set("status_points.pdef", current + pdefReward);
-			applyPDefBonus(player);
+			data.statusPdef += pdefReward;
+			data.statusDistributed += pdefReward;
 		}
 		
 		int rewardXP = props.getProperty("RewardXP", 0);
@@ -105,6 +106,10 @@ public class QuestRewardConfig
 		
 		if (!repeatable)
 			player.getMemos().set("quest_rewarded." + questName, true);
+		
+		Player.applyDirectStatusFuncs(player, data);
+		data.store(player);
+		player.broadcastUserInfo();
 	}
 	
 	private static Path findQuestConfig(String questName)
@@ -124,12 +129,11 @@ public class QuestRewardConfig
 	
 	public static void applyPDefBonus(Player player)
 	{
-		int pdef = player.getMemos().getInteger("status_points.pdef", 0);
-		if (pdef > 0)
-		{
-			player.removeStatsByOwner(StatusPointOwner.PDEF);
-			player.addStatFunc(new FuncStatusPoint(player, Stats.POWER_DEFENCE, pdef * StatusPointConfig.PDEF_PER_POINT, StatusPointOwner.PDEF));
-			player.broadcastUserInfo();
-		}
+		CharacterStatusPoints data = player.getStatusPointsData();
+		if (data == null)
+			return;
+		
+		if (data.statusPdef > 0)
+			Player.applyDirectStatusFuncs(player, data);
 	}
 }

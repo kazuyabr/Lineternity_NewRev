@@ -19,35 +19,46 @@
 package ext.mods.gameserver;
 
 import ext.mods.gameserver.model.actor.Player;
-import ext.mods.commons.logging.CLogger;
 
 public class StatusPointPK
 {
-	private static final CLogger LOGGER = new CLogger(StatusPointPK.class.getName());
-	
 	public static void onKarmaRemoved(Player player, int karmaRemoved)
 	{
-		if (!StatusPointConfig.PK_REWARD_ENABLED)
+		if (!StatusPointConfig.PK_REWARD_ENABLED || karmaRemoved <= 0)
 			return;
 		
-		if (karmaRemoved <= 0)
+		CharacterStatusPoints data = player.getStatusPointsData();
+		if (data == null || data.isOldChar)
 			return;
 		
-		int currentKarmaRemoved = player.getMemos().getInteger("pk_karma_removed", 0);
-		currentKarmaRemoved += karmaRemoved;
+		int totalKarmaRemoved = karmaRemoved;
 		
-		int pointsPerKarma = StatusPointConfig.PK_REWARD_POINTS_PER_KARMA;
-		int newPoints = currentKarmaRemoved / pointsPerKarma;
-		int remainingKarma = currentKarmaRemoved % pointsPerKarma;
-		
-		if (newPoints > 0)
+		if (data.karmaPenaltyAttr > 0 && StatusPointConfig.PK_REMOVED_PER_ATTR_POINT > 0)
 		{
-			int available = player.getMemos().getInteger("status_points.available", 0);
-			player.getMemos().set("status_points.available", available + newPoints);
-			player.sendMessage("You gained " + newPoints + " status points from karma removal.");
+			int attrToRecover = totalKarmaRemoved / StatusPointConfig.PK_REMOVED_PER_ATTR_POINT;
+			if (attrToRecover > data.karmaPenaltyAttr)
+				attrToRecover = data.karmaPenaltyAttr;
+			
+			if (attrToRecover > 0)
+			{
+				data.karmaPenaltyAttr -= attrToRecover;
+				data.attrAvailable += attrToRecover;
+				player.sendMessage("Karma penalty reduced: +" + attrToRecover + " attribute points recovered.");
+			}
 		}
 		
-		player.getMemos().set("pk_karma_removed", remainingKarma);
+		if (StatusPointConfig.PK_REMOVED_PER_STATUS_POINT > 0)
+		{
+			int statusToRecover = totalKarmaRemoved / StatusPointConfig.PK_REMOVED_PER_STATUS_POINT;
+			if (statusToRecover > 0)
+			{
+				data.statusAvailable += statusToRecover;
+				data.sourceKarmaPoints += statusToRecover;
+				player.sendMessage("Karma removal reward: +" + statusToRecover + " status points.");
+			}
+		}
+		
+		data.store(player);
 	}
 	
 	public static void onDeath(Player victim)
@@ -56,25 +67,34 @@ public class StatusPointPK
 			return;
 		
 		int karma = victim.getKarma();
-		if (karma < StatusPointConfig.PK_MIN_KARMA_FOR_DEATH_PENALTY)
+		if (karma <= 0)
 			return;
 		
-		victim.getMemos().set("status_points.available", 0);
+		CharacterStatusPoints data = victim.getStatusPointsData();
+		if (data == null || data.isOldChar)
+			return;
 		
-		String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
-		for (String stat : stats)
-			victim.getMemos().unset("status_points." + stat);
+		if (StatusPointConfig.DEATH_WITH_KARMA_REMOVE_ALL_ATTRIBUTES)
+		{
+			int totalDistributed = data.getAttrDistributed();
+			if (totalDistributed > 0)
+			{
+				data.karmaPenaltyAttr += totalDistributed;
+				data.attrStr = 0;
+				data.attrCon = 0;
+				data.attrDex = 0;
+				data.attrInt = 0;
+				data.attrWit = 0;
+				data.attrMen = 0;
+				data.attrDistributed = 0;
+				data.attrAvailable = 0;
+				
+				victim.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+				victim.sendMessage("You died with karma! Lost " + totalDistributed + " attribute points (recoverable via karma removal).");
+			}
+		}
 		
-		victim.removeStatsByOwner(StatusPointOwner.PVP);
-		victim.getMemos().unset("pvp_kills");
-		victim.getMemos().unset("pvp_milestone");
-		
-		victim.getMemos().unset("pk_karma_removed");
-		victim.getMemos().unset("status_points.preview");
-		
-		victim.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+		data.store(victim);
 		victim.broadcastUserInfo();
-		
-		victim.sendMessage("You died with karma! All status points lost.");
 	}
 }

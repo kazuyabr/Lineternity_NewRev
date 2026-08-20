@@ -42,21 +42,58 @@ lineternity-gameserver-2 # GameServer canal 2 (opcional)
    - Salva hexid.txt em game/config/
    - Conecta em l2jdb_gsN para operações de game
 
-## Menu Stack (docker/stack.py)
+## Menu Stack (docker/stack.py v2.4)
 ```
-1. Criar Base (Setup Completo)     ← Setup para máquina nova
-2. Iniciar MariaDB LoginServer
-3. Iniciar LoginServer
-4. Criar GameServer
-5. Iniciar GameServer
-6. Parar GameServer
-7. Parar Todos os Serviços
-8. Listar servidores ativos
-9. Logs (ver logs de containers)
-10. Edicao em massa de environment
-11. Gerenciar perfis de configuracao
-12. Sair
+1.  Compilar Projeto (Build)       ← Gradle build + distribution
+2.  Criar Base (Setup Completo)    ← Wizard: MariaDB + LoginServer + GameServer #1
+3.  Iniciar LoginServer            ← Detect MariaDB, build, start
+4.  Iniciar GameServer             ← Select/create server, build, start
+5.  Parar GameServer               ← Stop specific GameServer
+6.  Parar Todos os Serviços        ← Stop all containers
+7.  Listar servidores ativos       ← Show running containers
+8.  Logs                           ← View container logs
+9.  Editar Config por Servidor     ← Bulk edit properties per server
+10. Gerenciar perfis de config     ← Save/load/delete config profiles
+11. Setar GM / Access Level        ← Set GM access via DB
+12. Atualizar Imagens              ← Pull/update Docker images
+13. Atualizar Dados nos Containers ← docker cp config/xml to running containers
+14. Aplicar Migrations SQL         ← Apply pending SQL migrations to GameServers
+15. Sair
 ```
+
+### Fluxo de Build (opção 1)
+```
+stack.py build_project()
+  → java.exe GradleWrapperMain --no-daemon --rerun-tasks build distribution -x test
+  → build.gradle.kts "distribution" task copia:
+      game/data/, game/config/, libs/, login/, images/, sound/, Hwid/, tools/
+      entrypoint.sh, init-db.sh, Dockerfile, docker/, gradle/, cache/
+  → Gera: build/distribution/ (contexto para Docker)
+```
+
+### Fluxo de Container (opções 3/4)
+```
+stack.py start_loginserver() / start_game_server()
+  → Verifica build/distribution/ existe
+  → Cria rede lineternity-network
+  → docker-compose build --no-cache (usa docker/Dockerfile)
+  → docker-compose up -d
+  → Dockerfile: COPY . . → /lineternity/
+  → ENTRYPOINT: /lineternity/docker/entrypoint.sh
+```
+
+### Docker Compose Files (docker/)
+| Arquivo | Uso |
+|---------|-----|
+| `docker-compose.loginserver.yml` | LoginServer + MariaDB embedded |
+| `docker-compose.loginserver-external.yml` | LoginServer + MariaDB externo |
+| `gameservers/template/docker-compose.yml` | Template para GameServers |
+| `gameservers/gameserver-N/docker-compose.yml` | GameServer específico |
+
+### ⚠️ IMPORTANTE: Usar stack.py, NÃO docker-compose
+- **NUNCA** rodar `docker compose` diretamente — sempre usar stack.py
+- Stack.py já gerencia build, rede, .env, e sincronização entre serviços
+- Exceção: `docker exec` para queries diretas no MariaDB
 
 ## Fases Implementadas
 | Fase | Descrição | Status |
@@ -172,16 +209,54 @@ Mesmo caso de augmented.properties.
 - Configurar volumes para persistir dados dos gameservers
 - Limpar logs de debug (ERRO while loading chat filter words, custom event data, etc.)
 
+## Status Points System v3
+
+### Duas Pools Separadas
+- **Attribute Points**: STR/CON/DEX/INT/WIT/MEN → multiplicadores exponenciais
+- **Direct Status Points**: P.Def/M.Def/HP/MP/CP/P.Atk/M.Atk/Accuracy/Evasion/Crit → bônus flat
+
+### Velocidade NÃO é distribuível
+- Velocidade (P.Atk Speed, M.Atk Speed, Move Speed) NÃO entra no pool de pontos
+- Velocidade é limitada por DEX/WIT com cap configurável:
+  - `MaxAttackSpeedPoints=1300` (P.Atk Speed sem montaria)
+  - `MaxMagicAttackSpeedPoints=2200` (M.Atk Speed sem montaria)
+  - `MaxMovementSpeedPoints=220` (Move Speed sem montaria)
+- Com montaria: sem cap (bônus do mount)
+- Hard limits em project.properties: `MaxPAtkSpeed=1500`, `MaxMAtkSpeed=1999`
+
+### MaxDirect* Limits (statuspoints.properties)
+| Config | Limite por stat |
+|--------|-----------------|
+| `MaxDirectPDef` | 200 |
+| `MaxDirectMDef` | 100 |
+| `MaxDirectHp` | 500 |
+| `MaxDirectMp` | 200 |
+| `MaxDirectCp` | 300 |
+| `MaxDirectPAtk` | 50 |
+| `MaxDirectMAtk` | 50 |
+| `MaxDirectAccuracy` | 20 |
+| `MaxDirectEvasion` | 20 |
+| `MaxDirectCrit` | 20 |
+
+### Buttons Logic
+- **[+] attribute**: hidden when `attrAvailable=0` OR `isMaxedAttr()` OR `isOldChar`
+- **[+] direct**: hidden when `statusAvailable=0` OR `isMaxedDirect()` OR `isOldChar`
+- **[-] attribute/direct**: hidden when `current <= confirmed` OR `!dirty` OR `isOldChar`
+- **[CONFIRM]**: visible when `!isOldChar && dirty`
+- **[RESET]**: visible when `isOldChar || hasAnyDistributed()`
+
+### isOldChar (runtime only)
+- Computed: `version < 3 && createTime < StatusPointActivationTimestamp`
+- NOT stored in DB (column dropped by migration 004)
+- Old chars see Reset button to trigger migration
+
 ## Comandos Úteis
 ```bash
-# Build da imagem
-docker-compose build --no-cache
+# Build + Start (via stack.py)
+python docker/stack.py              # Menu interativo
 
-# Subir todos os containers
-docker-compose -p lineternity up -d --force-recreate
-
-# Ver logs
-docker-compose -p lineternity logs -f
+# Build da imagem (via stack.py opção 1)
+python docker/stack.py              # → Opção 1: Compilar Projeto
 
 # Verificar databases
 docker exec -it lineternity-mariadb mysql -u root -proot -e "SHOW DATABASES;"
@@ -189,7 +264,6 @@ docker exec -it lineternity-mariadb mysql -u root -proot -e "SHOW DATABASES;"
 # Verificar gameservers registrados
 docker exec -it lineternity-mariadb mysql -u root -proot l2jdb_login -e "SELECT * FROM gameservers;"
 
-# Adicionar gameserver-2
-# 1. Descomentar gameserver-2 no docker-compose.yml
-# 2. docker-compose -p lineternity up -d --force-recreate gameserver-2
+# Verificar Status Points de um jogador
+docker exec -it lineternity-mariadb mysql -u root -proot l2jdb_gs1 -e "SELECT * FROM character_status_points;"
 ```

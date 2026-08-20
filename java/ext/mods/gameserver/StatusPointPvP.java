@@ -18,11 +18,7 @@
  */
 package ext.mods.gameserver;
 
-import java.util.Arrays;
-
-import ext.mods.gameserver.enums.skills.Stats;
 import ext.mods.gameserver.model.actor.Player;
-import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.commons.logging.CLogger;
 
 public class StatusPointPvP
@@ -34,81 +30,31 @@ public class StatusPointPvP
 		if (!StatusPointConfig.PVP_REWARD_ENABLED)
 			return;
 		
-		int kills = killer.getMemos().getInteger("pvp_kills", 0) + 1;
-		killer.getMemos().set("pvp_kills", kills);
+		CharacterStatusPoints data = killer.getStatusPointsData();
+		if (data == null || data.isOldChar)
+			return;
 		
 		int milestone = StatusPointConfig.PVP_MILESTONE_KILLS;
 		if (milestone <= 0)
 			return;
 		
-		if (kills % milestone == 0)
-			applyMilestoneBonus(killer);
-	}
-	
-	public static void applyBonuses(Player player)
-	{
-		if (!StatusPointConfig.PVP_REWARD_ENABLED)
-			return;
+		data.sourcePvpPoints++;
 		
-		int milestone = player.getMemos().getInteger("pvp_milestone", 0);
-		if (milestone <= 0)
-			return;
-		
-		player.removeStatsByOwner(StatusPointOwner.PVP);
-		
-		for (String stat : StatusPointConfig.PVP_BONUS_STATS)
+		if (data.sourcePvpPoints % milestone == 0)
 		{
-			int points = player.getMemos().getInteger("status_points.pvp." + stat, 0);
-			if (points > 0)
+			if (StatusPointConfig.PVP_BONUS_PER_MILESTONE > 0)
 			{
-				try
-				{
-					Stats enumStat = Stats.valueOf("STAT_" + stat.trim());
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.PVP, false));
-				}
-				catch (IllegalArgumentException e)
-				{
-					LOGGER.error("Invalid PvP bonus stat: {}", stat);
-				}
+				data.attrAvailable += StatusPointConfig.PVP_BONUS_PER_MILESTONE;
+				killer.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_PER_MILESTONE + " attribute points.");
 			}
-		}
-	}
-	
-	private static void applyMilestoneBonus(Player player)
-	{
-		String[] stats = StatusPointConfig.PVP_BONUS_STATS;
-		int currentMilestone = player.getMemos().getInteger("pvp_milestone", 0);
-		
-		for (String stat : stats)
-		{
-			String trimmed = stat.trim();
-			int current = player.getMemos().getInteger("status_points.pvp." + trimmed, 0);
-			player.getMemos().set("status_points.pvp." + trimmed, current + StatusPointConfig.PVP_BONUS_PER_MILESTONE);
-		}
-		
-		player.getMemos().set("pvp_milestone", currentMilestone + 1);
-		
-		player.removeStatsByOwner(StatusPointOwner.PVP);
-		
-		for (String stat : stats)
-		{
-			String trimmed = stat.trim();
-			int points = player.getMemos().getInteger("status_points.pvp." + trimmed, 0);
-			if (points > 0)
+			
+			if (StatusPointConfig.PVP_BONUS_STATUS_PER_MILESTONE > 0)
 			{
-				try
-				{
-					Stats enumStat = Stats.valueOf("STAT_" + trimmed);
-					player.addStatFunc(new FuncStatusPoint(player, enumStat, points, StatusPointOwner.PVP, false));
-				}
-				catch (IllegalArgumentException e)
-				{
-					LOGGER.error("Invalid PvP bonus stat: {}", trimmed);
-				}
+				data.statusAvailable += StatusPointConfig.PVP_BONUS_STATUS_PER_MILESTONE;
+				killer.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_STATUS_PER_MILESTONE + " status points.");
 			}
 		}
 		
-		player.broadcastUserInfo();
-		player.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_PER_MILESTONE + " to " + String.join(", ", stats) + ".");
+		data.store(killer);
 	}
 }

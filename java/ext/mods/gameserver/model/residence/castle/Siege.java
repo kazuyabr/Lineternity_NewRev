@@ -34,6 +34,7 @@ import ext.mods.commons.pool.ConnectionPool;
 import ext.mods.commons.pool.ThreadPool;
 import ext.mods.commons.util.ArraysUtil;
 import ext.mods.extensions.listener.manager.SiegeListenerManager;
+import ext.mods.gameserver.StatusPointSiege;
 import ext.mods.gameserver.data.SkillTable;
 import ext.mods.gameserver.data.manager.CastleManager;
 import ext.mods.gameserver.data.manager.HeroManager;
@@ -181,6 +182,8 @@ public class Siege implements Siegable
 					player.addItem(itemId, itemCount.getCount(), true).setEnchantLevel(itemCount.getEnchant(), null);
 				});
 			}
+			
+			StatusPointSiege.onSiegeWin(clan.getOnlineMembers());
 			
 			if (_formerOwner != null && clan != _formerOwner)
 			{

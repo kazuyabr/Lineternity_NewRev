@@ -3000,8 +3000,10 @@ def _apply_migration(container_name: str, database: str, migration_file: Path):
     
     # Executar cada statement separadamente (para ALTER TABLE multiplas colunas)
     for statement in sql_content.split(";"):
-        statement = statement.strip()
-        if not statement or statement.startswith("--"):
+        # Remover linhas de comentario antes de verificar se vazio
+        lines = [l for l in statement.splitlines() if not l.strip().startswith("--")]
+        statement = "\n".join(lines).strip()
+        if not statement:
             continue
         ok, err = run_sql_on_mariadb(container_name, database, statement)
         if not ok:
@@ -3016,10 +3018,39 @@ def _apply_migration(container_name: str, database: str, migration_file: Path):
     )
     return True
 
+def _remove_migration_entry(container_name: str, database: str, filename: str):
+    """Remove uma entrada de migration do schema_migrations"""
+    ok, err = run_sql_on_mariadb(
+        container_name, database,
+        f"DELETE FROM schema_migrations WHERE filename = '{filename}';"
+    )
+    return ok
+
 def apply_migrations():
     """Menu para aplicar migracoes SQL pendentes em GameServers"""
-    print_header("Aplicar Migrations SQL")
-    
+    while True:
+        print_header("Migrations SQL")
+        
+        sub_options = [
+            f"{C.CYAN}1.{C.RESET} Aplicar migracoes pendentes",
+            f"{C.YELLOW}2.{C.RESET} Forcar reaplicacao (ignorar schema_migrations)",
+            f"{C.RED}3.{C.RESET} Limpar entrada corrompida",
+            f"{C.DIM}4.{C.RESET} Voltar",
+        ]
+        
+        idx = choose_from_menu("Selecione a operacao", sub_options)
+        
+        if idx == 3:
+            return
+        elif idx == 0:
+            _apply_pending_migrations()
+        elif idx == 1:
+            _force_apply_migrations()
+        elif idx == 2:
+            _clean_corrupted_migration()
+
+def _apply_pending_migrations():
+    """Aplica migracoes pendentes (ignora as ja registradas)"""
     if not MIGRATIONS_DIR.exists():
         print(f"  Pasta de migracoes nao encontrada: {MIGRATIONS_DIR}")
         return
@@ -3029,7 +3060,6 @@ def apply_migrations():
         print("  Nenhuma migracao encontrada em tools/sql/migrations/")
         return
     
-    # Listar GameServers ativos
     containers = get_running_gameserver_containers()
     if not containers:
         print("  Nenhum GameServer ativo encontrado.")
@@ -3043,28 +3073,21 @@ def apply_migrations():
     idx = choose_from_menu("Selecione o GameServer", options)
     if idx == len(options) - 1:
         return
-    
     if idx < 0 or idx >= len(options):
         return
     
-    # Determinar alvos
-    if idx == len(containers):
-        targets = containers
-    else:
-        targets = [containers[idx]]
+    targets = containers if idx == len(containers) else [containers[idx]]
     
     total_applied = 0
     total_errors = 0
     
     for target in targets:
         server_id = target['server_id']
-        container_name = target['name']
         game_db = f"l2jdb_gs{server_id}"
         mariadb_container = get_mariadb_container_for_gameserver(server_id)
         
         print(f"\n  GameServer #{server_id} ({game_db}):")
         
-        # Verificar se MariaDB esta rodando
         check = subprocess.run(
             ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
             capture_output=True, text=True
@@ -3073,13 +3096,8 @@ def apply_migrations():
             print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
             continue
         
-        # Criar tabela schema_migrations se necessario
         _ensure_schema_migrations_table(mariadb_container, game_db)
-        
-        # Obter migracoes ja aplicadas
         applied = _get_applied_migrations(mariadb_container, game_db)
-        
-        # Filtrar pendentes
         pending = [f for f in migration_files if f.name not in applied]
         
         if not pending:
@@ -3103,6 +3121,146 @@ def apply_migrations():
                 total_errors += 1
     
     print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+
+def _force_apply_migrations():
+    """Forca reaplicacao de TODAS as migracoes (ignora schema_migrations)"""
+    if not MIGRATIONS_DIR.exists():
+        print(f"  Pasta de migracoes nao encontrada: {MIGRATIONS_DIR}")
+        return
+    
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    if not migration_files:
+        print("  Nenhuma migracao encontrada em tools/sql/migrations/")
+        return
+    
+    containers = get_running_gameserver_containers()
+    if not containers:
+        print("  Nenhum GameServer ativo encontrado.")
+        return
+    
+    options = [f"GameServer #{c['server_id']} ({c['name']}) - {c['status']}" for c in containers]
+    options.append("Aplicar em TODOS")
+    options.append("Voltar")
+    
+    idx = choose_from_menu("Selecione o GameServer", options)
+    if idx == len(options) - 1:
+        return
+    if idx < 0 or idx >= len(options):
+        return
+    
+    targets = containers if idx == len(containers) else [containers[idx]]
+    
+    print(f"\n  {C.YELLOW}ATENCAO: Isso reaplicara TODAS as migracoes!{C.RESET}")
+    print(f"  Migrations disponiveis:")
+    for f in migration_files:
+        print(f"    - {f.name}")
+    
+    if not confirm("  Continuar?"):
+        return
+    
+    total_applied = 0
+    total_errors = 0
+    
+    for target in targets:
+        server_id = target['server_id']
+        game_db = f"l2jdb_gs{server_id}"
+        mariadb_container = get_mariadb_container_for_gameserver(server_id)
+        
+        print(f"\n  GameServer #{server_id} ({game_db}):")
+        
+        check = subprocess.run(
+            ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
+            capture_output=True, text=True
+        )
+        if mariadb_container not in check.stdout:
+            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            continue
+        
+        _ensure_schema_migrations_table(mariadb_container, game_db)
+        
+        for migration_file in migration_files:
+            print(f"    Aplicando {migration_file.name}...", end=" ")
+            if _apply_migration(mariadb_container, game_db, migration_file):
+                print("OK")
+                total_applied += 1
+            else:
+                print("FALHOU")
+                total_errors += 1
+    
+    print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+
+def _clean_corrupted_migration():
+    """Remove entrada corrompida do schema_migrations"""
+    containers = get_running_gameserver_containers()
+    if not containers:
+        print("  Nenhum GameServer ativo encontrado.")
+        return
+    
+    options = [f"GameServer #{c['server_id']} ({c['name']}) - {c['status']}" for c in containers]
+    options.append("Limpar em TODOS")
+    options.append("Voltar")
+    
+    idx = choose_from_menu("Selecione o GameServer", options)
+    if idx == len(options) - 1:
+        return
+    if idx < 0 or idx >= len(options):
+        return
+    
+    targets = containers if idx == len(containers) else [containers[idx]]
+    
+    for target in targets:
+        server_id = target['server_id']
+        game_db = f"l2jdb_gs{server_id}"
+        mariadb_container = get_mariadb_container_for_gameserver(server_id)
+        
+        print(f"\n  GameServer #{server_id} ({game_db}):")
+        
+        check = subprocess.run(
+            ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
+            capture_output=True, text=True
+        )
+        if mariadb_container not in check.stdout:
+            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            continue
+        
+        _ensure_schema_migrations_table(mariadb_container, game_db)
+        applied = _get_applied_migrations(mariadb_container, game_db)
+        
+        if not applied:
+            print(f"    Nenhuma migracao registrada.")
+            continue
+        
+        applied_list = sorted(applied)
+        migration_options = [f"{C.CYAN}{f}{C.RESET}" for f in applied_list]
+        migration_options.append("Voltar")
+        
+        print(f"    Migrations registradas em schema_migrations:")
+        for i, f in enumerate(applied_list, 1):
+            print(f"      [{i}] {f}")
+        
+        choice = input(f"\n    Numero para limpar (ou 'all' para limpar tudo): ").strip()
+        
+        if choice.lower() == 'all':
+            if confirm(f"    Limpar TODAS as entradas no GameServer #{server_id}?"):
+                for f in applied_list:
+                    print(f"    Removendo {f}...", end=" ")
+                    if _remove_migration_entry(mariadb_container, game_db, f):
+                        print("OK")
+                    else:
+                        print("FALHOU")
+        elif choice.isdigit():
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(applied_list):
+                filename = applied_list[choice_idx]
+                print(f"    Removendo {filename}...", end=" ")
+                if _remove_migration_entry(mariadb_container, game_db, filename):
+                    print("OK")
+                else:
+                    print("FALHOU")
+            else:
+                print(f"    Opcao invalida.")
+        else:
+            print(f"    Entrada nao reconhecida.")
 
 def set_gm_access():
     """Funcao para setar nivel de acesso de um personagem"""

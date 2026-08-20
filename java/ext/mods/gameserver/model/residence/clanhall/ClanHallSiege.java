@@ -33,6 +33,7 @@ import ext.mods.commons.pool.ThreadPool;
 
 import ext.mods.gameserver.data.manager.ClanHallManager;
 import ext.mods.gameserver.data.sql.ClanTable;
+import ext.mods.gameserver.StatusPointSiege;
 import ext.mods.gameserver.enums.SiegeSide;
 import ext.mods.gameserver.enums.SiegeStatus;
 import ext.mods.gameserver.model.World;
@@ -193,6 +194,8 @@ public abstract class ClanHallSiege extends Quest implements Siegable
 			winner.setClanHallId(_hall.getId());
 			
 			World.toAllOnlinePlayers(SystemMessage.getSystemMessage(SystemMessageId.S1_CLAN_DEFEATED_S2).addString(winner.getName()).addFortId(_hall.getId()));
+			
+			StatusPointSiege.onSiegeWin(winner.getOnlineMembers());
 		}
 	    else if (oldOwner != null && winner != null && oldOwner.equals(winner))
 	        oldOwner.addReputationScore(250);

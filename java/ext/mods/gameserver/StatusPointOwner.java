@@ -22,7 +22,10 @@ public final class StatusPointOwner
 {
 	public static final Object DISTRIBUTED = new Object();
 	public static final Object PVP = new Object();
+	public static final Object RAID = new Object();
+	public static final Object SIEGE = new Object();
 	public static final Object PDEF = new Object();
+	public static final Object DIRECT = new Object();
 	
 	private StatusPointOwner() {}
 }

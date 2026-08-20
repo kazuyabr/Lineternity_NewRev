@@ -486,16 +486,14 @@ elif [ "$START_TYPE" = "gameserver" ]; then
             
             echo "Aplicando migration: $FILENAME"
             
-            # Cada statement separado
-            while IFS= read -r statement; do
-                statement=$(echo "$statement" | sed 's/--.*//g' | xargs)
-                [ -z "$statement" ] && continue
-                mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -e "$statement" 2>/dev/null
-            done < "$migration_file"
-            
-            # Registrar migration aplicada
-            mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -e "INSERT IGNORE INTO schema_migrations (filename) VALUES ('$FILENAME');" 2>/dev/null
-            MIGRATIONS_APPLIED=$((MIGRATIONS_APPLIED + 1))
+            # Pipe direto ao MySQL (multi-line SQL funciona corretamente)
+            if mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" < "$migration_file" 2>/dev/null; then
+                # Registrar migration aplicada apenas se sucesso
+                mysql -h "$DB_HOST_VAL" -P "$DB_PORT_VAL" -u "$DB_USER_VAL" -p"$DB_PASSWORD_VAL" --skip-ssl "$GAME_DB" -e "INSERT IGNORE INTO schema_migrations (filename) VALUES ('$FILENAME');" 2>/dev/null
+                MIGRATIONS_APPLIED=$((MIGRATIONS_APPLIED + 1))
+            else
+                echo "  ERRO ao aplicar migration: $FILENAME (ignorada)"
+            fi
         done
         
         if [ $MIGRATIONS_APPLIED -gt 0 ]; then

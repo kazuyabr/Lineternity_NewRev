@@ -61,6 +61,7 @@ import ext.mods.dungeon.Dungeon;
 import ext.mods.extensions.listener.manager.CreatureListenerManager;
 import ext.mods.extensions.listener.manager.InventoryListenerManager;
 import ext.mods.extensions.listener.manager.PlayerListenerManager;
+import ext.mods.gameserver.CharacterStatusPoints;
 import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.gameserver.StatusPointPvP;
 import ext.mods.gameserver.StatusPointPK;
@@ -282,9 +283,11 @@ import ext.mods.gameserver.skills.AbstractEffect;
 import ext.mods.gameserver.skills.Formulas;
 import ext.mods.gameserver.skills.L2Skill;
 import ext.mods.gameserver.skills.effects.EffectTemplate;
+import ext.mods.gameserver.skills.funcs.FuncDirectBonus;
 import ext.mods.gameserver.skills.funcs.FuncHenna;
 import ext.mods.gameserver.skills.funcs.FuncMaxCpMul;
 import ext.mods.gameserver.skills.funcs.FuncRegenCpMul;
+import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.gameserver.taskmanager.AttackStanceTaskManager;
 import ext.mods.gameserver.taskmanager.PvpFlagTaskManager;
 import ext.mods.gameserver.taskmanager.ShadowItemTaskManager;
@@ -355,6 +358,7 @@ public class Player extends Playable
 	private long _lastAccess;
 	private long _uptime;
 	private int _createTime;
+	private CharacterStatusPoints _statusPointsData;
 	
 	protected int _baseClass;
 	protected int _activeClass;
@@ -4593,6 +4597,9 @@ public class Player extends Playable
 		storeCharBase();
 		storeCharSub();
 		storeEffect(storeActiveEffects);
+		
+		if (_statusPointsData != null)
+			_statusPointsData.store(this);
 	}
 	
 	public synchronized void store()
@@ -6279,6 +6286,28 @@ public class Player extends Playable
 			refreshWeightPenalty();
 			refreshExpertisePenalty();
 			refreshHennaList();
+			
+			if (StatusPointConfig.STATUS_POINTS_ENABLED)
+			{
+				removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+				removeStatsByOwner(StatusPointOwner.DIRECT);
+				
+				CharacterStatusPoints data = CharacterStatusPoints.load(this);
+				setStatusPointsData(data);
+				
+				if (data.isOldChar)
+				{
+					data.attrAvailable = 0;
+					data.statusAvailable = 0;
+				}
+				
+				applyStatusPointFuncs(this, data);
+				applyDirectStatusFuncs(this, data);
+				data.computeEffectiveBases(this);
+				data.dirty = false;
+				data.store(this);
+			}
+			
 			broadcastUserInfo();
 			
 			setExpBeforeDeath(0);
@@ -6351,36 +6380,37 @@ public class Player extends Playable
 		
 		if (StatusPointConfig.STATUS_POINTS_ENABLED)
 		{
-			int currentVersion = 2;
-			int savedVersion = getMemos().getInteger("status_points.version", 0);
+			CharacterStatusPoints data = CharacterStatusPoints.load(this);
+			setStatusPointsData(data);
 			
-			if (!getMemos().containsKey("status_points.initialized") || savedVersion < currentVersion)
+			if (data.isOldChar)
 			{
-				getMemos().set("status_points.initialized", true);
-				getMemos().set("status_points.version", currentVersion);
+				data.attrAvailable = 0;
+				data.statusAvailable = 0;
+			}
+			else
+			{
+				int level = getStatus().getLevel();
+				int currentVersion = 3;
 				
-				int baseSum = getTemplate().getBaseSTR() + getTemplate().getBaseCON() +
-						getTemplate().getBaseDEX() + getTemplate().getBaseINT() +
-						getTemplate().getBaseWIT() + getTemplate().getBaseMEN();
-				
-				if (baseSum <= 0)
-					baseSum = 170;
-				
-				String[] stats = {"STR", "CON", "DEX", "INT", "WIT", "MEN"};
-				for (String s : stats)
-					getMemos().unset("status_points." + s);
-				
-				getMemos().unset("status_points.preview");
-				getMemos().unset("status_points.pvp_kills");
-				getMemos().unset("status_points.pvp_milestone");
-				getMemos().unset("status_points.pk_karma_removed");
-				getMemos().unset("status_points.isOldChar");
-				
-				getMemos().set("status_points.available", baseSum);
+				if (data.version < currentVersion)
+				{
+					data.version = currentVersion;
+					data.attrAvailable = (level * StatusPointConfig.ATTRIBUTE_POINTS_PER_LEVEL) - data.getAttrDistributed();
+					data.statusAvailable = (level * StatusPointConfig.DIRECT_STATUS_POINTS_PER_LEVEL) - data.getStatusDistributed();
+					
+					if (data.attrAvailable < 0)
+						data.attrAvailable = 0;
+					if (data.statusAvailable < 0)
+						data.statusAvailable = 0;
+				}
 			}
 			
-			StatusPointPvP.applyBonuses(this);
-			ext.mods.gameserver.quest.QuestRewardConfig.applyPDefBonus(this);
+			applyStatusPointFuncs(this, data);
+			applyDirectStatusFuncs(this, data);
+			data.computeEffectiveBases(this);
+			data.dirty = false;
+			data.store(this);
 		}
 		
 		PlayerListenerManager.getInstance().notifyPlayerEnter(this);
@@ -6397,6 +6427,60 @@ public class Player extends Playable
 	public int getCreateTime()
 	{
 		return _createTime;
+	}
+	
+	public CharacterStatusPoints getStatusPointsData()
+	{
+		return _statusPointsData;
+	}
+	
+	public void setStatusPointsData(CharacterStatusPoints data)
+	{
+		_statusPointsData = data;
+	}
+	
+	public static void applyStatusPointFuncs(Player player, CharacterStatusPoints data)
+	{
+		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+		
+		if (data.attrStr > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_STR, data.attrStr, false));
+		if (data.attrCon > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_CON, data.attrCon, false));
+		if (data.attrDex > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_DEX, data.attrDex, false));
+		if (data.attrInt > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_INT, data.attrInt, false));
+		if (data.attrWit > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_WIT, data.attrWit, false));
+		if (data.attrMen > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_MEN, data.attrMen, false));
+	}
+	
+	public static void applyDirectStatusFuncs(Player player, CharacterStatusPoints data)
+	{
+		player.removeStatsByOwner(StatusPointOwner.DIRECT);
+		
+		if (data.statusPdef > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.POWER_DEFENCE, data.statusPdef * StatusPointConfig.PDEF_PER_POINT, StatusPointOwner.DIRECT));
+		if (data.statusMdef > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAGIC_DEFENCE, data.statusMdef, StatusPointOwner.DIRECT));
+		if (data.statusHp > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAX_HP, data.statusHp, StatusPointOwner.DIRECT));
+		if (data.statusMp > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAX_MP, data.statusMp, StatusPointOwner.DIRECT));
+		if (data.statusCp > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAX_CP, data.statusCp, StatusPointOwner.DIRECT));
+		if (data.statusPatk > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.POWER_ATTACK, data.statusPatk, StatusPointOwner.DIRECT));
+		if (data.statusMatk > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAGIC_ATTACK, data.statusMatk, StatusPointOwner.DIRECT));
+		if (data.statusAccuracy > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.ACCURACY_COMBAT, data.statusAccuracy, StatusPointOwner.DIRECT));
+		if (data.statusEvasion > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.EVASION_RATE, data.statusEvasion, StatusPointOwner.DIRECT));
+		if (data.statusCrit > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.CRITICAL_RATE, data.statusCrit, StatusPointOwner.DIRECT));
 	}
 	
 	@Override
