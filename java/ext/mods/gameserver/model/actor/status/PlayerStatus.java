@@ -1001,7 +1001,7 @@ public class PlayerStatus extends PlayableStatus<Player>
 		float finalSpeed = (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
 		
 		if (_actor.isMounted())
-			return Math.min(finalSpeed, Config.MAX_RUN_SPEED);
+			return finalSpeed;
 		
 		if (StatusPointConfig.SPEED_CAP_ENABLED)
 			finalSpeed = Math.min(finalSpeed, StatusPointConfig.MAX_MOVEMENT_SPEED_POINTS);
@@ -1036,6 +1036,9 @@ public class PlayerStatus extends PlayableStatus<Player>
 			baseValue /= 2;
 		
 		if (_actor.isGM())
+			return (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
+		
+		if (_actor.isMounted())
 			return (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
 		
 		return Math.min((float) calcStat(Stats.RUN_SPEED, baseValue, null, null), Config.MAX_RUN_SPEED);
