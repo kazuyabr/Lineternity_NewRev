@@ -243,7 +243,7 @@ public class StatusPointConfig
 		for (Map.Entry<Integer, Integer> entry : RESET_COST_ITEMS.entrySet())
 		{
 			if (sb.length() > 0)
-				sb.append("<br>");
+				sb.append("<br1>");
 			
 			ext.mods.gameserver.data.xml.ItemData itemData = ext.mods.gameserver.data.xml.ItemData.getInstance();
 			ext.mods.gameserver.model.item.kind.Item item = itemData.getTemplate(entry.getKey());
@@ -262,7 +262,7 @@ public class StatusPointConfig
 		for (Map.Entry<Integer, Integer> entry : COST_CAP_ITEMS.entrySet())
 		{
 			if (sb.length() > 0)
-				sb.append("<br>");
+				sb.append("<br1>");
 			
 			ext.mods.gameserver.data.xml.ItemData itemData = ext.mods.gameserver.data.xml.ItemData.getInstance();
 			ext.mods.gameserver.model.item.kind.Item item = itemData.getTemplate(entry.getKey());

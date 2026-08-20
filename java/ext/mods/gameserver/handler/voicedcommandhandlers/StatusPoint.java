@@ -88,7 +88,7 @@ public class StatusPoint implements IVoicedCommandHandler
 			if (!maxed && !isOldChar)
 			{
 				if (atCap && !StatusPointConfig.COST_CAP_ITEMS.isEmpty())
-					costHtml = "<font color=FF0000>" + cost + " pts<br>" + StatusPointConfig.getCapItemsDisplay() + "</font>";
+					costHtml = "<font color=FF0000>" + cost + " pts<br1>" + StatusPointConfig.getCapItemsDisplay() + "</font>";
 				else
 					costHtml = "<font color=FF0000>" + cost + " pts</font>";
 			}
