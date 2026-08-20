@@ -402,6 +402,43 @@ GAME_CATEGORIES = {
             PropertyConfig("BlockHealOnGrandBoss", "Block Heal Grand Boss", "True", "Block healing on GrandBosses", False, "bossHeal"),
         ]
     ),
+    "statuspoints": CategoryConfig(
+        name="statuspoints",
+        label="Status Points",
+        properties=[
+            PropertyConfig("StatusPointsEnabled", "Status Points Enabled", "True", "Enable status points system", False, "statuspoints"),
+            PropertyConfig("PointsPerLevel", "Points Per Level", "5", "Points awarded per level", False, "statuspoints"),
+            PropertyConfig("CostCapValue", "Cost Cap Value", "128", "Max cost per stat (2^n cap)", False, "statuspoints"),
+            PropertyConfig("CostCapItems", "Cost Cap Items", "9143:1", "Items required at cap (id:count)", False, "statuspoints"),
+            PropertyConfig("MaxDirectHp", "Max Direct HP", "500", "Max HP points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectMp", "Max Direct MP", "200", "Max MP points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectCp", "Max Direct CP", "300", "Max CP points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectPDef", "Max Direct P.Def", "200", "Max P.Def points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectMDef", "Max Direct M.Def", "100", "Max M.Def points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectPAtk", "Max Direct P.Atk", "50", "Max P.Atk points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectMAtk", "Max Direct M.Atk", "50", "Max M.Atk points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectAccuracy", "Max Direct Accuracy", "20", "Max Accuracy points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectEvasion", "Max Direct Evasion", "20", "Max Evasion points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectCrit", "Max Direct Crit", "20", "Max Crit points distributable", False, "statuspoints"),
+            PropertyConfig("MaxAttackSpeedPoints", "Max Attack Speed", "1200", "Max P.Atk Speed without mount", False, "statuspoints"),
+            PropertyConfig("MaxMagicAttackSpeedPoints", "Max Magic Attack Speed", "2180", "Max M.Atk Speed without mount", False, "statuspoints"),
+            PropertyConfig("MaxMovementSpeedPoints", "Max Movement Speed", "250", "Max Run Speed without mount", False, "statuspoints"),
+            PropertyConfig("ResetCostItems", "Reset Cost Items", "9143:1", "Items to reset (id:count)", False, "statuspoints"),
+            PropertyConfig("PremiumExemptFromResetCost", "Premium Free Reset", "false", "Premium accounts skip reset cost", False, "statuspoints"),
+        ]
+    ),
+    "rewards": CategoryConfig(
+        name="rewards",
+        label="Rewards (PK/PvP/Raid/Siege)",
+        properties=[
+            PropertyConfig("KarmaRemovedPerPoint", "Karma Removed Per Point", "10", "Karma removed per status point", False, "rewards"),
+            PropertyConfig("DeathWithKarmaRemoveAllPoints", "Death Lose All Points", "true", "Death with karma removes all points", False, "rewards"),
+            PropertyConfig("PVPMilestoneKills", "PvP Milestone Kills", "50", "Kills per PvP milestone", False, "rewards"),
+            PropertyConfig("PVPBonusPoints", "PvP Bonus Points", "1", "Points per PvP milestone", False, "rewards"),
+            PropertyConfig("RaidRewardPoints", "Raid Reward Points", "5", "Points per raid boss kill", False, "rewards"),
+            PropertyConfig("SiegeRewardPoints", "Siege Reward Points", "15", "Points per siege participation", False, "rewards"),
+        ]
+    ),
 }
 
 # Mandatory configs for basic mode
