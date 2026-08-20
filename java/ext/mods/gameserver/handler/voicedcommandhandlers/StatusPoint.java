@@ -70,6 +70,7 @@ public class StatusPoint implements IVoicedCommandHandler
 			String stat = allStats[i];
 			String key = allKeys[i];
 			int preview = getPreviewValue(data, stat);
+			int dist = data.getDistributedValue(stat);
 			int cost = data.getCostToNext(stat);
 			boolean atCap = data.isAtCap(stat);
 			boolean maxed = isMaxed(player, stat, data);
@@ -78,6 +79,8 @@ public class StatusPoint implements IVoicedCommandHandler
 			
 			if (maxed)
 				html = html.replace("%" + key + "_display%", "<font color=40E0D0>" + preview + " MAX</font>");
+			else if (dist > 0)
+				html = html.replace("%" + key + "_display%", preview + " <font color=808080>(+" + dist + ")</font>");
 			else
 				html = html.replace("%" + key + "_display%", String.valueOf(preview));
 			
@@ -99,6 +102,7 @@ public class StatusPoint implements IVoicedCommandHandler
 		html = html.replace("%reset_button%", showReset ? makeButton("Reset", "reset") : "");
 		html = html.replace("%reset_cost%", StatusPointConfig.getResetCostDisplay());
 		html = html.replace("%available%", String.valueOf(data.available));
+		html = html.replace("%distributed%", String.valueOf(data.getTotalDistributed()));
 		
 		if (data.karmaPenaltyAttr > 0)
 			html = html.replace("%karma_display%", "<font color=LEVEL>Karma Penalty: <font color=FF0000>" + data.karmaPenaltyAttr + "</font></font>");
@@ -131,18 +135,18 @@ public class StatusPoint implements IVoicedCommandHandler
 			return "";
 		
 		String plus = showPlus
-			? "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=80 height=21 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
+			? "<button value=\"+\" action=\"bypass -h voiced_statuspoint add " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
 			: "";
 		String minus = showMinus
-			? "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=80 height=21 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
+			? "<button value=\"-\" action=\"bypass -h voiced_statuspoint remove " + stat + "\" width=65 height=19 back=L2UI_ch3.smallbutton2_over fore=L2UI_ch3.smallbutton2>"
 			: "";
 		
-		return "<table cellpadding=0 cellspacing=0><tr><td>" + plus + "</td><td>" + minus + "</td></tr></table>";
+		return "<table cellpadding=0 cellspacing=0><tr><td align=center>" + plus + "</td><td align=center>" + minus + "</td></tr></table>";
 	}
 	
 	private String makeButton(String value, String action)
 	{
-		return "<button value=\"" + value + "\" action=\"bypass -h voiced_statuspoint " + action + "\" width=100 height=25 back=L2UI_ch3.Btn1_normalOn fore=L2UI_ch3.Btn1_normal>";
+		return "<table cellpadding=0 cellspacing=0><tr><td align=center><button value=\"" + value + "\" action=\"bypass -h voiced_statuspoint " + action + "\" width=74 height=21 back=L2UI_ch3.Btn1_normalOn fore=L2UI_ch3.Btn1_normal></td></tr></table>";
 	}
 	
 	private void handleBypass(Player player, String target)
