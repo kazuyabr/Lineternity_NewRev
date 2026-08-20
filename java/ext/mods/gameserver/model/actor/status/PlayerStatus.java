@@ -22,6 +22,8 @@ import java.util.Map;
 import ext.mods.commons.random.Rnd;
 
 import ext.mods.Config;
+import ext.mods.gameserver.CharacterStatusPoints;
+import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.gameserver.data.manager.CastleManager;
 import ext.mods.gameserver.data.manager.ClanHallManager;
 import ext.mods.gameserver.data.manager.DuelManager;
@@ -36,6 +38,7 @@ import ext.mods.gameserver.enums.actors.WeightPenalty;
 import ext.mods.gameserver.enums.duels.DuelState;
 import ext.mods.gameserver.enums.skills.EffectType;
 import ext.mods.gameserver.enums.skills.Stats;
+import ext.mods.gameserver.skills.Formulas;
 import ext.mods.gameserver.model.actor.Creature;
 import ext.mods.gameserver.model.actor.Npc;
 import ext.mods.gameserver.model.actor.Playable;
@@ -635,6 +638,18 @@ public class PlayerStatus extends PlayableStatus<Player>
 			_actor.sendPacket(SystemMessageId.YOU_INCREASED_YOUR_LEVEL);
 			
 			ClassMaster.showQuestionMark(_actor);
+			
+			if (ext.mods.gameserver.StatusPointConfig.STATUS_POINTS_ENABLED)
+			{
+				CharacterStatusPoints data = ((Player) _actor).getStatusPointsData();
+				if (data != null && !data.isOldChar)
+				{
+					data.available += StatusPointConfig.POINTS_PER_LEVEL;
+					data.sourceLevelPoints += StatusPointConfig.POINTS_PER_LEVEL;
+					data.store((Player) _actor);
+					_actor.sendMessage("You gained " + StatusPointConfig.POINTS_PER_LEVEL + " status points from level up.");
+				}
+			}
 		}
 		
 		_actor.giveSkills();
@@ -982,7 +997,15 @@ public class PlayerStatus extends PlayableStatus<Player>
 		if (_actor.isGM())
 			return (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
 		
-		return Math.min((float) calcStat(Stats.RUN_SPEED, baseValue, null, null), Config.MAX_RUN_SPEED);
+		float finalSpeed = (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
+		
+		if (_actor.isMounted())
+			return finalSpeed;
+		
+		if (StatusPointConfig.SPEED_CAP_ENABLED)
+			finalSpeed = Math.min(finalSpeed, StatusPointConfig.MAX_MOVEMENT_SPEED_POINTS);
+		
+		return Math.min(finalSpeed, Config.MAX_RUN_SPEED);
 	}
 	
 	@Override
@@ -1012,6 +1035,9 @@ public class PlayerStatus extends PlayableStatus<Player>
 			baseValue /= 2;
 		
 		if (_actor.isGM())
+			return (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
+		
+		if (_actor.isMounted())
 			return (float) calcStat(Stats.RUN_SPEED, baseValue, null, null);
 		
 		return Math.min((float) calcStat(Stats.RUN_SPEED, baseValue, null, null), Config.MAX_RUN_SPEED);
@@ -1060,7 +1086,15 @@ public class PlayerStatus extends PlayableStatus<Player>
 		if (_actor.isGM())
 			return (int) calcStat(Stats.MAGIC_ATTACK_SPEED, base, null, null);
 		
-		return Math.min((int) calcStat(Stats.MAGIC_ATTACK_SPEED, base, null, null), Config.MAX_MATK_SPEED);
+		int finalSpeed = (int) calcStat(Stats.MAGIC_ATTACK_SPEED, base, null, null);
+		
+		if (_actor.isMounted())
+			return finalSpeed;
+		
+		if (StatusPointConfig.SPEED_CAP_ENABLED)
+			finalSpeed = Math.min(finalSpeed, StatusPointConfig.MAX_MAGIC_ATTACK_SPEED_POINTS);
+		
+		return Math.min(finalSpeed, Config.MAX_MATK_SPEED);
 	}
 	
 	@Override
@@ -1115,6 +1149,9 @@ public class PlayerStatus extends PlayableStatus<Player>
 		
 		if (_actor.isGM())
 			return val;
+		
+		if (StatusPointConfig.SPEED_CAP_ENABLED)
+			val = Math.min(val, StatusPointConfig.MAX_ATTACK_SPEED_POINTS);
 		
 		return Math.min(val, Config.MAX_PATK_SPEED);
 	}
@@ -1234,5 +1271,17 @@ public class PlayerStatus extends PlayableStatus<Player>
 	public int getCommonRecipeLimit()
 	{
 		return Config.COMMON_RECIPE_LIMIT + (int) calcStat(Stats.REC_C_LIM, 0, null, null);
+	}
+	
+	private int getMaxAllowedDex()
+	{
+		int max = StatusPointConfig.MAX_TOTAL_DEX;
+		return Math.min(max, Formulas.DEX_BONUS.length - 1);
+	}
+	
+	private int getMaxAllowedWit()
+	{
+		int max = StatusPointConfig.MAX_TOTAL_WIT;
+		return Math.min(max, Formulas.WIT_BONUS.length - 1);
 	}
 }

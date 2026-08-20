@@ -32,6 +32,8 @@ import ext.mods.Crypta.GlobalDropManager;
 import ext.mods.commons.pool.ThreadPool;
 import ext.mods.commons.random.Rnd;
 import ext.mods.dungeon.Dungeon;
+import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.gameserver.StatusPointRaid;
 import ext.mods.gameserver.custom.data.EventsData;
 import ext.mods.gameserver.custom.data.RaidDropAnnounceData;
 import ext.mods.gameserver.custom.data.RatesData;
@@ -159,6 +161,28 @@ public class Monster extends Attackable
 			maxDealer = _firstCcAttacker.getLeader();
 		
 		doItemDrop((maxDealer != null && maxDealer.isOnline()) ? maxDealer : creature);
+		
+		if (isRaidBoss() && StatusPointConfig.RAID_REWARD_ENABLED)
+		{
+			List<Player> topDealers = new ArrayList<>();
+			for (RewardInfo ri : rewards.values())
+			{
+				if (!(ri.getAttacker() instanceof Summon) && ri.getAttacker() instanceof Playable)
+				{
+					Player p = ri.getAttacker().getActingPlayer();
+					if (p != null)
+						topDealers.add(p);
+				}
+			}
+			topDealers.sort((a, b) -> {
+				RewardInfo ra = rewards.get(a);
+				RewardInfo rb = rewards.get(b);
+				double da = ra != null ? ra.getDamage() : 0;
+				double db = rb != null ? rb.getDamage() : 0;
+				return Double.compare(db, da);
+			});
+			StatusPointRaid.onRaidBossKilled(topDealers);
+		}
 		
 		for (RewardInfo reward : rewards.values())
 		{

@@ -48,6 +48,7 @@ import ext.mods.gameserver.data.manager.CountryLocaleManager;
 import ext.mods.gameserver.enums.GeoType;
 import ext.mods.gameserver.model.holder.IntIntHolder;
 import ext.mods.gameserver.model.olympiad.enums.OlympiadPeriod;
+import ext.mods.gameserver.StatusPointConfig;
 import ext.mods.protection.hwid.crypt.FirstKey;
 
 /**
@@ -3392,6 +3393,7 @@ public final class Config
 			loadTranslator();
 			loadBossJewelUpgrades();
 			loadBossHealConfigs();
+			StatusPointConfig.load();
 		}
 		catch (Throwable t)
 		{

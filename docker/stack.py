@@ -402,6 +402,43 @@ GAME_CATEGORIES = {
             PropertyConfig("BlockHealOnGrandBoss", "Block Heal Grand Boss", "True", "Block healing on GrandBosses", False, "bossHeal"),
         ]
     ),
+    "statuspoints": CategoryConfig(
+        name="statuspoints",
+        label="Status Points",
+        properties=[
+            PropertyConfig("StatusPointsEnabled", "Status Points Enabled", "True", "Enable status points system", False, "statuspoints"),
+            PropertyConfig("PointsPerLevel", "Points Per Level", "5", "Points awarded per level", False, "statuspoints"),
+            PropertyConfig("CostCapValue", "Cost Cap Value", "128", "Max cost per stat (2^n cap)", False, "statuspoints"),
+            PropertyConfig("CostCapItems", "Cost Cap Items", "9143:1", "Items required at cap (id:count)", False, "statuspoints"),
+            PropertyConfig("MaxDirectHp", "Max Direct HP", "500", "Max HP points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectMp", "Max Direct MP", "200", "Max MP points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectCp", "Max Direct CP", "300", "Max CP points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectPDef", "Max Direct P.Def", "200", "Max P.Def points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectMDef", "Max Direct M.Def", "100", "Max M.Def points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectPAtk", "Max Direct P.Atk", "50", "Max P.Atk points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectMAtk", "Max Direct M.Atk", "50", "Max M.Atk points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectAccuracy", "Max Direct Accuracy", "20", "Max Accuracy points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectEvasion", "Max Direct Evasion", "20", "Max Evasion points distributable", False, "statuspoints"),
+            PropertyConfig("MaxDirectCrit", "Max Direct Crit", "20", "Max Crit points distributable", False, "statuspoints"),
+            PropertyConfig("MaxAttackSpeedPoints", "Max Attack Speed", "1200", "Max P.Atk Speed without mount", False, "statuspoints"),
+            PropertyConfig("MaxMagicAttackSpeedPoints", "Max Magic Attack Speed", "2180", "Max M.Atk Speed without mount", False, "statuspoints"),
+            PropertyConfig("MaxMovementSpeedPoints", "Max Movement Speed", "250", "Max Run Speed without mount", False, "statuspoints"),
+            PropertyConfig("ResetCostItems", "Reset Cost Items", "9143:1", "Items to reset (id:count)", False, "statuspoints"),
+            PropertyConfig("PremiumExemptFromResetCost", "Premium Free Reset", "false", "Premium accounts skip reset cost", False, "statuspoints"),
+        ]
+    ),
+    "rewards": CategoryConfig(
+        name="rewards",
+        label="Rewards (PK/PvP/Raid/Siege)",
+        properties=[
+            PropertyConfig("KarmaRemovedPerPoint", "Karma Removed Per Point", "10", "Karma removed per status point", False, "rewards"),
+            PropertyConfig("DeathWithKarmaRemoveAllPoints", "Death Lose All Points", "true", "Death with karma removes all points", False, "rewards"),
+            PropertyConfig("PVPMilestoneKills", "PvP Milestone Kills", "50", "Kills per PvP milestone", False, "rewards"),
+            PropertyConfig("PVPBonusPoints", "PvP Bonus Points", "1", "Points per PvP milestone", False, "rewards"),
+            PropertyConfig("RaidRewardPoints", "Raid Reward Points", "5", "Points per raid boss kill", False, "rewards"),
+            PropertyConfig("SiegeRewardPoints", "Siege Reward Points", "15", "Points per siege participation", False, "rewards"),
+        ]
+    ),
 }
 
 # Mandatory configs for basic mode
@@ -577,13 +614,25 @@ def create_login_properties(config_dir: Path, config: dict[str, str]):
     print(f"  Properties de login criados em: {config_dir}")
 
 def create_game_properties(config_dir: Path, config: dict[str, str]):
-    # Copiar TODOS os arquivos de game/config/ (source é autoridade)
+    # 1. Copiar templates (docker/templates/game/) — arquivos COM placeholders
+    template_config = DOCKER_DIR / "templates" / "game"
+    if template_config.exists():
+        for template_file in template_config.glob("*.properties"):
+            shutil.copy2(template_file, config_dir / template_file.name)
+
+    # 2. Copiar source (game/config/) apenas para arquivos que NÃO têm template
     source_config = PROJECT_ROOT / "game" / "config"
     for source_file in source_config.iterdir():
-        if source_file.is_file():
+        if source_file.is_file() and source_file.suffix == ".properties":
+            if not (config_dir / source_file.name).exists():
+                shutil.copy2(source_file, config_dir / source_file.name)
+
+    # 3. Copiar NÃO-properties de game/config/ (chatfilter.txt, etc.)
+    for source_file in source_config.iterdir():
+        if source_file.is_file() and source_file.suffix != ".properties":
             shutil.copy2(source_file, config_dir / source_file.name)
 
-    # Aplicar overrides per-server (placeholders) em todos os .properties
+    # 4. Aplicar overrides per-server (placeholders) em todos os .properties
     for prop_file in config_dir.glob("*.properties"):
         content = prop_file.read_text(encoding='utf-8')
         modified = False
@@ -595,7 +644,7 @@ def create_game_properties(config_dir: Path, config: dict[str, str]):
         if modified:
             prop_file.write_text(content, encoding='utf-8')
 
-    print(f"  Config copiada de game/config/ para: {config_dir}")
+    print(f"  Config copiada (templates + source) para: {config_dir}")
 
 # ============================================================
 # Network Management
@@ -3000,8 +3049,10 @@ def _apply_migration(container_name: str, database: str, migration_file: Path):
     
     # Executar cada statement separadamente (para ALTER TABLE multiplas colunas)
     for statement in sql_content.split(";"):
-        statement = statement.strip()
-        if not statement or statement.startswith("--"):
+        # Remover linhas de comentario antes de verificar se vazio
+        lines = [l for l in statement.splitlines() if not l.strip().startswith("--")]
+        statement = "\n".join(lines).strip()
+        if not statement:
             continue
         ok, err = run_sql_on_mariadb(container_name, database, statement)
         if not ok:
@@ -3016,10 +3067,39 @@ def _apply_migration(container_name: str, database: str, migration_file: Path):
     )
     return True
 
+def _remove_migration_entry(container_name: str, database: str, filename: str):
+    """Remove uma entrada de migration do schema_migrations"""
+    ok, err = run_sql_on_mariadb(
+        container_name, database,
+        f"DELETE FROM schema_migrations WHERE filename = '{filename}';"
+    )
+    return ok
+
 def apply_migrations():
     """Menu para aplicar migracoes SQL pendentes em GameServers"""
-    print_header("Aplicar Migrations SQL")
-    
+    while True:
+        print_header("Migrations SQL")
+        
+        sub_options = [
+            f"{C.CYAN}1.{C.RESET} Aplicar migracoes pendentes",
+            f"{C.YELLOW}2.{C.RESET} Forcar reaplicacao (ignorar schema_migrations)",
+            f"{C.RED}3.{C.RESET} Limpar entrada corrompida",
+            f"{C.DIM}4.{C.RESET} Voltar",
+        ]
+        
+        idx = choose_from_menu("Selecione a operacao", sub_options)
+        
+        if idx == 3:
+            return
+        elif idx == 0:
+            _apply_pending_migrations()
+        elif idx == 1:
+            _force_apply_migrations()
+        elif idx == 2:
+            _clean_corrupted_migration()
+
+def _apply_pending_migrations():
+    """Aplica migracoes pendentes (ignora as ja registradas)"""
     if not MIGRATIONS_DIR.exists():
         print(f"  Pasta de migracoes nao encontrada: {MIGRATIONS_DIR}")
         return
@@ -3029,7 +3109,6 @@ def apply_migrations():
         print("  Nenhuma migracao encontrada em tools/sql/migrations/")
         return
     
-    # Listar GameServers ativos
     containers = get_running_gameserver_containers()
     if not containers:
         print("  Nenhum GameServer ativo encontrado.")
@@ -3043,28 +3122,21 @@ def apply_migrations():
     idx = choose_from_menu("Selecione o GameServer", options)
     if idx == len(options) - 1:
         return
-    
     if idx < 0 or idx >= len(options):
         return
     
-    # Determinar alvos
-    if idx == len(containers):
-        targets = containers
-    else:
-        targets = [containers[idx]]
+    targets = containers if idx == len(containers) else [containers[idx]]
     
     total_applied = 0
     total_errors = 0
     
     for target in targets:
         server_id = target['server_id']
-        container_name = target['name']
         game_db = f"l2jdb_gs{server_id}"
         mariadb_container = get_mariadb_container_for_gameserver(server_id)
         
         print(f"\n  GameServer #{server_id} ({game_db}):")
         
-        # Verificar se MariaDB esta rodando
         check = subprocess.run(
             ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
             capture_output=True, text=True
@@ -3073,13 +3145,8 @@ def apply_migrations():
             print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
             continue
         
-        # Criar tabela schema_migrations se necessario
         _ensure_schema_migrations_table(mariadb_container, game_db)
-        
-        # Obter migracoes ja aplicadas
         applied = _get_applied_migrations(mariadb_container, game_db)
-        
-        # Filtrar pendentes
         pending = [f for f in migration_files if f.name not in applied]
         
         if not pending:
@@ -3103,6 +3170,146 @@ def apply_migrations():
                 total_errors += 1
     
     print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+
+def _force_apply_migrations():
+    """Forca reaplicacao de TODAS as migracoes (ignora schema_migrations)"""
+    if not MIGRATIONS_DIR.exists():
+        print(f"  Pasta de migracoes nao encontrada: {MIGRATIONS_DIR}")
+        return
+    
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+    if not migration_files:
+        print("  Nenhuma migracao encontrada em tools/sql/migrations/")
+        return
+    
+    containers = get_running_gameserver_containers()
+    if not containers:
+        print("  Nenhum GameServer ativo encontrado.")
+        return
+    
+    options = [f"GameServer #{c['server_id']} ({c['name']}) - {c['status']}" for c in containers]
+    options.append("Aplicar em TODOS")
+    options.append("Voltar")
+    
+    idx = choose_from_menu("Selecione o GameServer", options)
+    if idx == len(options) - 1:
+        return
+    if idx < 0 or idx >= len(options):
+        return
+    
+    targets = containers if idx == len(containers) else [containers[idx]]
+    
+    print(f"\n  {C.YELLOW}ATENCAO: Isso reaplicara TODAS as migracoes!{C.RESET}")
+    print(f"  Migrations disponiveis:")
+    for f in migration_files:
+        print(f"    - {f.name}")
+    
+    if not confirm("  Continuar?"):
+        return
+    
+    total_applied = 0
+    total_errors = 0
+    
+    for target in targets:
+        server_id = target['server_id']
+        game_db = f"l2jdb_gs{server_id}"
+        mariadb_container = get_mariadb_container_for_gameserver(server_id)
+        
+        print(f"\n  GameServer #{server_id} ({game_db}):")
+        
+        check = subprocess.run(
+            ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
+            capture_output=True, text=True
+        )
+        if mariadb_container not in check.stdout:
+            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            continue
+        
+        _ensure_schema_migrations_table(mariadb_container, game_db)
+        
+        for migration_file in migration_files:
+            print(f"    Aplicando {migration_file.name}...", end=" ")
+            if _apply_migration(mariadb_container, game_db, migration_file):
+                print("OK")
+                total_applied += 1
+            else:
+                print("FALHOU")
+                total_errors += 1
+    
+    print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+
+def _clean_corrupted_migration():
+    """Remove entrada corrompida do schema_migrations"""
+    containers = get_running_gameserver_containers()
+    if not containers:
+        print("  Nenhum GameServer ativo encontrado.")
+        return
+    
+    options = [f"GameServer #{c['server_id']} ({c['name']}) - {c['status']}" for c in containers]
+    options.append("Limpar em TODOS")
+    options.append("Voltar")
+    
+    idx = choose_from_menu("Selecione o GameServer", options)
+    if idx == len(options) - 1:
+        return
+    if idx < 0 or idx >= len(options):
+        return
+    
+    targets = containers if idx == len(containers) else [containers[idx]]
+    
+    for target in targets:
+        server_id = target['server_id']
+        game_db = f"l2jdb_gs{server_id}"
+        mariadb_container = get_mariadb_container_for_gameserver(server_id)
+        
+        print(f"\n  GameServer #{server_id} ({game_db}):")
+        
+        check = subprocess.run(
+            ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
+            capture_output=True, text=True
+        )
+        if mariadb_container not in check.stdout:
+            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            continue
+        
+        _ensure_schema_migrations_table(mariadb_container, game_db)
+        applied = _get_applied_migrations(mariadb_container, game_db)
+        
+        if not applied:
+            print(f"    Nenhuma migracao registrada.")
+            continue
+        
+        applied_list = sorted(applied)
+        migration_options = [f"{C.CYAN}{f}{C.RESET}" for f in applied_list]
+        migration_options.append("Voltar")
+        
+        print(f"    Migrations registradas em schema_migrations:")
+        for i, f in enumerate(applied_list, 1):
+            print(f"      [{i}] {f}")
+        
+        choice = input(f"\n    Numero para limpar (ou 'all' para limpar tudo): ").strip()
+        
+        if choice.lower() == 'all':
+            if confirm(f"    Limpar TODAS as entradas no GameServer #{server_id}?"):
+                for f in applied_list:
+                    print(f"    Removendo {f}...", end=" ")
+                    if _remove_migration_entry(mariadb_container, game_db, f):
+                        print("OK")
+                    else:
+                        print("FALHOU")
+        elif choice.isdigit():
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(applied_list):
+                filename = applied_list[choice_idx]
+                print(f"    Removendo {filename}...", end=" ")
+                if _remove_migration_entry(mariadb_container, game_db, filename):
+                    print("OK")
+                else:
+                    print("FALHOU")
+            else:
+                print(f"    Opcao invalida.")
+        else:
+            print(f"    Entrada nao reconhecida.")
 
 def set_gm_access():
     """Funcao para setar nivel de acesso de um personagem"""

@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS characters (
   `clan_create_expiry_time` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `death_penalty_level` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   `herountil` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `ct` INT(11) NOT NULL DEFAULT 0 COMMENT 'Character creation timestamp',
   PRIMARY KEY (obj_Id),
   KEY `clanid` (`clanid`)
 );

@@ -61,6 +61,11 @@ import ext.mods.dungeon.Dungeon;
 import ext.mods.extensions.listener.manager.CreatureListenerManager;
 import ext.mods.extensions.listener.manager.InventoryListenerManager;
 import ext.mods.extensions.listener.manager.PlayerListenerManager;
+import ext.mods.gameserver.CharacterStatusPoints;
+import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.gameserver.StatusPointPvP;
+import ext.mods.gameserver.StatusPointPK;
+import ext.mods.gameserver.StatusPointOwner;
 import ext.mods.gameserver.LoginServerThread;
 import ext.mods.gameserver.communitybbs.CommunityBoard;
 import ext.mods.gameserver.communitybbs.model.Forum;
@@ -278,9 +283,11 @@ import ext.mods.gameserver.skills.AbstractEffect;
 import ext.mods.gameserver.skills.Formulas;
 import ext.mods.gameserver.skills.L2Skill;
 import ext.mods.gameserver.skills.effects.EffectTemplate;
+import ext.mods.gameserver.skills.funcs.FuncDirectBonus;
 import ext.mods.gameserver.skills.funcs.FuncHenna;
 import ext.mods.gameserver.skills.funcs.FuncMaxCpMul;
 import ext.mods.gameserver.skills.funcs.FuncRegenCpMul;
+import ext.mods.gameserver.skills.funcs.FuncStatusPoint;
 import ext.mods.gameserver.taskmanager.AttackStanceTaskManager;
 import ext.mods.gameserver.taskmanager.PvpFlagTaskManager;
 import ext.mods.gameserver.taskmanager.ShadowItemTaskManager;
@@ -350,6 +357,8 @@ public class Player extends Playable
 	private long _onlineBeginTime;
 	private long _lastAccess;
 	private long _uptime;
+	private int _createTime;
+	private CharacterStatusPoints _statusPointsData;
 	
 	protected int _baseClass;
 	protected int _activeClass;
@@ -2908,6 +2917,9 @@ public class Player extends Playable
 		AntiFeedManager.getInstance().setLastDeathTime(getObjectId());
 		_missionList.update(MissionType.DEATHS);
 		
+		if (StatusPointConfig.STATUS_POINTS_ENABLED && getKarma() > 0)
+			StatusPointPK.onDeath(this);
+		
 		return true;
 	}
 	
@@ -2984,7 +2996,11 @@ public class Player extends Playable
 		{
 			final int karmaLost = Formulas.calculateKarmaLost(getStatus().getLevel(), exp);
 			if (karmaLost > 0)
+			{
+				int oldKarma = getKarma();
 				setKarma(getKarma() - karmaLost);
+				StatusPointPK.onKarmaRemoved(this, oldKarma - getKarma());
+			}
 		}
 	}
 	
@@ -3042,9 +3058,12 @@ public class Player extends Playable
 			{
 				RandomManager.getInstance().onPvPKill(this, (Player) target);
 				
-				setPvpKills(getPvpKills() + 1);
-				
-				for (RewardSystem kills : PvPData.getInstance().getReward())
+			setPvpKills(getPvpKills() + 1);
+			
+			if (StatusPointConfig.PVP_REWARD_ENABLED)
+				StatusPointPvP.onPvPKill(this);
+			
+			for (RewardSystem kills : PvPData.getInstance().getReward())
 				{
 					for (IntIntHolder reward : kills.reward())
 					{
@@ -4336,6 +4355,7 @@ public class Player extends Playable
 					player.restorePremServiceData(player, rs.getString("account_name"));
 					player.setName(rs.getString("char_name"));
 					player._lastAccess = rs.getLong("lastAccess");
+				player._createTime = rs.getInt("ct");
 					
 					player.getStatus().setExp(rs.getLong("exp"));
 					player.getStatus().setLevel(rs.getByte("level"));
@@ -4577,6 +4597,9 @@ public class Player extends Playable
 		storeCharBase();
 		storeCharSub();
 		storeEffect(storeActiveEffects);
+		
+		if (_statusPointsData != null)
+			_statusPointsData.store(this);
 	}
 	
 	public synchronized void store()
@@ -6263,6 +6286,27 @@ public class Player extends Playable
 			refreshWeightPenalty();
 			refreshExpertisePenalty();
 			refreshHennaList();
+			
+			if (StatusPointConfig.STATUS_POINTS_ENABLED)
+			{
+				removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+				removeStatsByOwner(StatusPointOwner.DIRECT);
+				
+				CharacterStatusPoints data = CharacterStatusPoints.load(this);
+				setStatusPointsData(data);
+				
+				if (data.isOldChar)
+				{
+					data.available = 0;
+				}
+				
+				applyStatusPointFuncs(this, data);
+				applyDirectStatusFuncs(this, data);
+				data.computeEffectiveBases(this);
+				data.dirty = false;
+				data.store(this);
+			}
+			
 			broadcastUserInfo();
 			
 			setExpBeforeDeath(0);
@@ -6332,6 +6376,38 @@ public class Player extends Playable
 		
 		RelationManager.getInstance().notifyFriends(this, true);
 		AutoFarmManager.getInstance().onPlayerLogin(this);
+		
+		if (StatusPointConfig.STATUS_POINTS_ENABLED)
+		{
+			CharacterStatusPoints data = CharacterStatusPoints.load(this);
+			setStatusPointsData(data);
+			
+			if (data.isOldChar)
+			{
+				data.available = 0;
+			}
+			else
+			{
+				int level = getStatus().getLevel();
+				int currentVersion = 4;
+				
+				if (data.version < currentVersion)
+				{
+					data.version = currentVersion;
+					data.available = (level * StatusPointConfig.POINTS_PER_LEVEL) - data.getTotalDistributed();
+					
+					if (data.available < 0)
+						data.available = 0;
+				}
+			}
+			
+			applyStatusPointFuncs(this, data);
+			applyDirectStatusFuncs(this, data);
+			data.computeEffectiveBases(this);
+			data.dirty = false;
+			data.store(this);
+		}
+		
 		PlayerListenerManager.getInstance().notifyPlayerEnter(this);
 		loadQuestKillCounts();
 		
@@ -6341,6 +6417,65 @@ public class Player extends Playable
 	public long getLastAccess()
 	{
 		return _lastAccess;
+	}
+	
+	public int getCreateTime()
+	{
+		return _createTime;
+	}
+	
+	public CharacterStatusPoints getStatusPointsData()
+	{
+		return _statusPointsData;
+	}
+	
+	public void setStatusPointsData(CharacterStatusPoints data)
+	{
+		_statusPointsData = data;
+	}
+	
+	public static void applyStatusPointFuncs(Player player, CharacterStatusPoints data)
+	{
+		player.removeStatsByOwner(StatusPointOwner.DISTRIBUTED);
+		
+		if (data.attrStr > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_STR, data.attrStr, false));
+		if (data.attrCon > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_CON, data.attrCon, false));
+		if (data.attrDex > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_DEX, data.attrDex, false));
+		if (data.attrInt > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_INT, data.attrInt, false));
+		if (data.attrWit > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_WIT, data.attrWit, false));
+		if (data.attrMen > 0)
+			player.addStatFunc(new FuncStatusPoint(player, Stats.STAT_MEN, data.attrMen, false));
+	}
+	
+	public static void applyDirectStatusFuncs(Player player, CharacterStatusPoints data)
+	{
+		player.removeStatsByOwner(StatusPointOwner.DIRECT);
+		
+		if (data.statusPdef > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.POWER_DEFENCE, data.statusPdef * StatusPointConfig.PDEF_PER_POINT, StatusPointOwner.DIRECT));
+		if (data.statusMdef > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAGIC_DEFENCE, data.statusMdef, StatusPointOwner.DIRECT));
+		if (data.statusHp > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAX_HP, data.statusHp, StatusPointOwner.DIRECT));
+		if (data.statusMp > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAX_MP, data.statusMp, StatusPointOwner.DIRECT));
+		if (data.statusCp > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAX_CP, data.statusCp, StatusPointOwner.DIRECT));
+		if (data.statusPatk > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.POWER_ATTACK, data.statusPatk, StatusPointOwner.DIRECT));
+		if (data.statusMatk > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.MAGIC_ATTACK, data.statusMatk, StatusPointOwner.DIRECT));
+		if (data.statusAccuracy > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.ACCURACY_COMBAT, data.statusAccuracy, StatusPointOwner.DIRECT));
+		if (data.statusEvasion > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.EVASION_RATE, data.statusEvasion, StatusPointOwner.DIRECT));
+		if (data.statusCrit > 0)
+			player.addStatFunc(new FuncDirectBonus(player, Stats.CRITICAL_RATE, data.statusCrit, StatusPointOwner.DIRECT));
 	}
 	
 	@Override
