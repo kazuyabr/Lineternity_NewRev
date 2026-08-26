@@ -3560,12 +3560,11 @@ def main_menu():
             f"{C.BLUE}13.{C.RESET} Atualizar Dados nos Containers",
             f"{C.BLUE}14.{C.RESET} Aplicar Migrations SQL",
             f"{C.YELLOW}15.{C.RESET} Sincronizar Configs Docker -> Source",
-            f"{C.GREEN}16.{C.RESET} Abrir Servidores p/ Internet",
-            f"{C.RED}17.{C.RESET} Fechar Servidores da Internet",
-            f"{C.RED}18.{C.RESET} Sair",
+            f"{C.GREEN}16.{C.RESET} Modo de Rede (atual: {get_network_mode()})",
+            f"{C.RED}17.{C.RESET} Sair",
         ]
         
-        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.5{C.RESET}", options)
+        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.6{C.RESET}", options)
         
         if idx == 0:
             build_project()
@@ -3598,10 +3597,8 @@ def main_menu():
         elif idx == 14:
             sync_docker_configs_to_source()
         elif idx == 15:
-            open_servers_to_internet()
+            network_mode_menu()
         elif idx == 16:
-            close_servers_from_internet()
-        elif idx == 17:
             print(f"\n  {C.GREEN}Saindo...{C.RESET}")
             break
         else:
@@ -3653,6 +3650,20 @@ def get_managed_env_files() -> list[Path]:
                 if env_file.exists():
                     envs.append(env_file)
     return envs
+
+NET_MODES = ("LOCAL", "LAN", "INTERNET")
+
+def get_network_mode() -> str:
+    """Returns current NET_MODE from the first gameserver .env (legacy fallback)."""
+    envs = [e for e in get_managed_env_files() if e.parent.name.startswith("gameserver")]
+    sample = envs[0] if envs else (DOCKER_DIR / "login" / ".env")
+    mode = _env_get(sample, "NET_MODE", "").upper()
+    if mode in NET_MODES:
+        return mode
+    
+    # Legacy inference from BIND_PREFIX
+    bind = _env_get(sample, "BIND_PREFIX", CLOSED_BIND)
+    return "LOCAL" if bind == CLOSED_BIND else "INTERNET"
 
 def get_network_state() -> tuple[str, bool]:
     """Returns (public_hostname_or_empty, is_open) based on first GS .env BIND_PREFIX."""
@@ -3707,73 +3718,63 @@ def _recreate_exposed_containers():
             run_compose(server.compose_path, "up", "-d", "--force-recreate",
                         env_file=server.env_path)
 
-def close_servers_from_internet():
-    print_header("Fechar Servidores da Internet")
-    
-    hostname, is_open = get_network_state()
-    
-    if not is_open:
-        print(f"\n  {C.YELLOW}Servidores JA ESTAO fechados (bind 127.0.0.1).{C.RESET}")
+def configure_network_mode(mode: str):
+    """Configura LOCAL / LAN / INTERNET em todos os .env gerenciados."""
+    mode = mode.upper()
+    if mode not in NET_MODES:
         return
-    
-    print(f"\n  Estado atual: ABERTO (hostname anunciado: {hostname or 'padrao'})")
-    if not confirm("  Confirma FECHAR o acesso externo?"):
-        return
-    
-    print(f"\n  {C.CYAN}[1/3]{C.RESET} Atualizando BIND_PREFIX para 127.0.0.1: ...")
-    for env in get_managed_env_files():
-        _env_set(env, "BIND_PREFIX", CLOSED_BIND)
-    
-    print(f"  {C.CYAN}[2/3]{C.RESET} Recriando containers ativos...")
-    _recreate_exposed_containers()
-    
-    print(f"\n  {C.GREEN}Servidores FECHADOS para a internet.{C.RESET}")
-    print(f"  Bind: 127.0.0.1 - apenas esta maquina consegue conectar.")
-
-def open_servers_to_internet():
-    print_header("Abrir Servidores p/ Internet")
-    
-    _, is_open = get_network_state()
     
     lan_ip = detect_lan_ip()
-    print(f"\n  IP LAN (rede WiFi/local): {C.CYAN}{lan_ip}{C.RESET}")
-    print(f"  Detectando IP publico...")
-    public_ip = detect_public_ip()
-    
-    if public_ip:
-        print(f"  IP Publico:               {C.CYAN}{public_ip}{C.RESET}")
-    else:
-        print(f"  {C.RED}Nao foi possivel detectar o IP publico (sem internet?).{C.RED}")
-    
+    public_ip = detect_public_ip() if mode == "INTERNET" else None
     current_host, _ = get_network_state()
-    default_host = public_ip or current_host or ""
     
-    if is_open and current_host:
-        print(f"\n  Estado atual: ABERTO (anunciando: {current_host})")
+    print_header(f"Modo de Rede: {mode}")
     
-    print(f"""
-  {C.BOLD}--- CHECKLIST OBRIGATORIO para acesso externo ---{C.RESET}
+    print(f"\n  IP LAN (esta maquina):   {C.CYAN}{lan_ip}{C.RESET}")
+    if mode == "INTERNET":
+        print(f"  IP Publico detectado:    {C.CYAN}{public_ip or 'INDISPONIVEL'}{C.RESET}")
+    print(f"  Modo atual:              {C.CYAN}{get_network_mode()}{C.RESET} (anunciando: {current_host or 'padrao'})")
+    
+    if mode == "LOCAL":
+        suggested = "127.0.0.1"
+        print(f"""
+  {C.BOLD}LOCAL{C.RESET}: jogo acessivel somente nesta maquina.
+  Clientes apontam para 127.0.0.1 (login 2106 / game 7777).""")
+    elif mode == "LAN":
+        suggested = lan_ip
+        print(f"""
+  {C.BOLD}LAN{C.RESET}: acessivel para outros PCs da MESMA rede.
+  Hostname sugerido: seu IP LAN (muda com DHCP; re-execute para atualizar).
+  Na sua propria maquina o login tambem funciona normalmente.""")
+    else:
+        suggested = public_ip or ""
+        print(f"""
+  {C.BOLD}INTERNET{C.RESET}: acessivel por qualquer pessoa.
+  
+  {C.BOLD}--- CHECKLIST OBRIGATORIO ---{C.RESET}
   1. Port-forward no roteador: TCP {C.CYAN}2106{C.RESET} e TCP {C.CYAN}7777{C.RESET} -> {C.CYAN}{lan_ip}{C.RESET}
   2. IP publico dinamico: se mudar, re-execute esta opcao.
-     Alternativa definitiva: DDNS gratuito (DuckDNS/No-IP) ou Tailscale/ZeroTier.
-  3. Nunca exponha MariaDB (3306/3308) no roteador.""")
+     Alternativa definitiva: DDNS (DuckDNS/No-IP) ou Tailscale/ZeroTier.
+  3. Nunca exponha MariaDB no roteador.
+  4. {C.YELLOW}NAT hairpin:{C.RESET} na SUA maquina o IP publico pode nao responder
+     (limitacao do roteador). Para testar localmente use o modo LAN.""")
     
-    new_hostname = input(
-        f"\n  Hostname/IP a anunciar aos clientes [{default_host}]: "
-    ).strip()
+    new_hostname = input(f"\n  Hostname/IP a anunciar [{suggested}]: ").strip()
     if not new_hostname:
-        new_hostname = default_host
-    
+        new_hostname = suggested
     if not new_hostname:
         print(f"\n  {C.RED}Sem hostname definido. Abortado.{C.RESET}")
         return
     
-    if not confirm(f"\n  Confirma ABRIR login+gameservers na internet anunciando '{new_hostname}'?"):
+    bind = CLOSED_BIND if mode == "LOCAL" else OPEN_BIND
+    
+    if not confirm(f"\n  Aplicar modo {mode} (anunciando '{new_hostname}')?"):
         return
     
-    print(f"\n  {C.CYAN}[1/4]{C.RESET} Gravando BIND_PREFIX vazio (aberto) + PUBLIC_HOSTNAME={new_hostname} ...")
+    print(f"\n  {C.CYAN}[1/4]{C.RESET} Gravando NET_MODE={mode}, BIND_PREFIX e hostnames ...")
     for env in get_managed_env_files():
-        _env_set(env, "BIND_PREFIX", OPEN_BIND)
+        _env_set(env, "NET_MODE", mode)
+        _env_set(env, "BIND_PREFIX", bind)
         if env.parent.name.startswith("gameserver"):
             _env_set(env, "PUBLIC_HOSTNAME", new_hostname)
         else:
@@ -3787,24 +3788,47 @@ def open_servers_to_internet():
     print(f"  {C.CYAN}[3/4]{C.RESET} Recriando containers ativos...")
     _recreate_exposed_containers()
     
-    print(f"  {C.CYAN}[4/4]{C.RESET} Verificando firewall do Windows...")
-    for port in ("2106", "7777"):
-        fw = subprocess.run(
-            ["netsh", "advfirewall", "firewall", "show", "rule", f"name=Lineternity_{port}"],
-            capture_output=True, text=True
-        )
-        if "No rules match" in fw.stdout or fw.returncode != 0:
-            print(f"    {C.YELLOW}Regra 'Lineternity_{port}' ausente. Crie com (admin):{C.RESET}")
-            print(f"    netsh advfirewall firewall add rule name=\"Lineternity_{port}\" dir=in action=allow protocol=TCP localport={port}")
-        else:
-            print(f"    Regra 'Lineternity_{port}' presente.")
+    if mode == "INTERNET":
+        print(f"  {C.CYAN}[4/4]{C.RESET} Verificando firewall do Windows...")
+        for port in ("2106", "7777"):
+            fw = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "show", "rule", f"name=Lineternity_{port}"],
+                capture_output=True, text=True
+            )
+            if "No rules match" in fw.stdout or fw.returncode != 0:
+                print(f"    {C.YELLOW}Regra 'Lineternity_{port}' ausente. Crie como admin:{C.RESET}")
+                print(f"    netsh advfirewall firewall add rule name=\"Lineternity_{port}\" dir=in action=allow protocol=TCP localport={port}")
+            else:
+                print(f"    Regra 'Lineternity_{port}' presente.")
+    else:
+        print(f"  {C.CYAN}[4/4]{C.RESET} Concluido.")
     
-    print(f"""
-  {C.GREEN}Servidores ABERTOS para a internet.{C.RESET}
-  Anunciando: {C.CYAN}{new_hostname}{C.RESET}
-  
-  Teste externo: em outro PC (fora da rede), configure o l2.ini do cliente
-  apontando para {new_hostname} e tente logar.""")
+    tail = f"\n  {C.GREEN}Modo {mode} aplicado.{C.RESET} Anunciando: {C.CYAN}{new_hostname}{C.RESET}\n"
+    if mode == "LAN":
+        tail += f"  Teste em outro PC da rede: l2.ini -> {new_hostname}"
+    elif mode == "INTERNET":
+        tail += f"""  Teste externo: outro PC fora da rede, l2.ini -> {new_hostname}
+  Nesta maquina prefira testar via modo LAN (hairpin pode falhar)."""
+    print(tail)
+
+def network_mode_menu():
+    modes = [
+        f"{C.GREEN}1.{C.RESET} LOCAL    - so esta maquina (127.0.0.1)",
+        f"{C.CYAN}2.{C.RESET} LAN      - mesma rede WiFi ({detect_lan_ip()})",
+        f"{C.BLUE}3.{C.RESET} INTERNET - qualquer pessoa (IP publico/DDNS)",
+        f"{C.DIM}4.{C.RESET} Voltar",
+    ]
+    
+    idx = choose_from_menu(
+        f"Modo de Rede {C.DIM}(atual: {get_network_mode()}){C.RESET}", modes
+    )
+    
+    if idx == 0:
+        configure_network_mode("LOCAL")
+    elif idx == 1:
+        configure_network_mode("LAN")
+    elif idx == 2:
+        configure_network_mode("INTERNET")
 
 # ============================================================
 # Sync Configs Docker -> Source (para quem compila pela tools/)

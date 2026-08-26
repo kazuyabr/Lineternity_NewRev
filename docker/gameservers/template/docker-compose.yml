@@ -57,7 +57,7 @@ services:
       LOGIN_DB: ${LOGIN_DB:-l2jdb_login}
       # Identidade
       SERVER_ID: ${SERVER_ID:-1}
-      SERVER_HOSTNAME: ${PUBLIC_HOSTNAME:-gameserver-${SERVER_ID}}
+      SERVER_HOSTNAME: ${PUBLIC_HOSTNAME:-127.0.0.1}
       # LoginServer Java (para conexão na porta 9014)
       LOGIN_HOSTNAME: ${LOGIN_HOSTNAME:-loginserver}
       LOGIN_PORT: ${LOGIN_PORT:-9014}

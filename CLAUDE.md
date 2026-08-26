@@ -43,7 +43,7 @@ lineternity-gameserver-2 # GameServer canal 2 (opcional)
    - Salva hexid.txt em game/config/
    - Conecta em l2jdb_gsN para operações de game
 
-## Menu Stack (docker/stack.py v2.4)
+## Menu Stack (docker/stack.py v2.6)
 ```
 1.  Compilar Projeto (Build)       ← Gradle build + distribution
 2.  Criar Base (Setup Completo)    ← Wizard: MariaDB + LoginServer + GameServer #1
@@ -58,9 +58,22 @@ lineternity-gameserver-2 # GameServer canal 2 (opcional)
 11. Setar GM / Access Level        ← Set GM access via DB
 12. Atualizar Imagens              ← Pull/update Docker images
 13. Atualizar Dados nos Containers ← docker cp config/xml to running containers
-14. Aplicar Migrations SQL         ← Apply pending SQL migrations to GameServers
-15. Sair
+14. Aplicar Migrations SQL         ← Apply pending SQL migrations (log em logs/migrations-*.log)
+15. Sincronizar Configs Docker → Source ← Para quem compila pela tools/ (sql.* protegidas)
+16. Modo de Rede                   ← LOCAL / LAN / INTERNET (submenu, mostra estado atual)
+17. Sair
 ```
+
+### Modo de Rede (opção 16)
+| Modo | BIND_PREFIX | Hostname anunciado | Acesso |
+|------|-------------|--------------------|--------|
+| LOCAL | `127.0.0.1:` | `127.0.0.1` | Só a máquina host |
+| LAN | vazio (aberto) | IP LAN detectado | PCs da mesma rede |
+| INTERNET | vazio (aberto) | IP público detectado ou DDNS | Externo (exige port-forward 2106+7777) |
+
+Persistido como `NET_MODE` nos `.env`. O endereço anunciado vem do `GameServerAuth`
+(GS envia sua chave `Hostname` → login resolve → `ServerList` entrega ao cliente).
+**NUNCA anunciar nomes internos do Docker** (só resolvem na rede interna do Docker).
 
 ### Fluxo de Build (opção 1)
 ```
