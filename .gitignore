@@ -89,10 +89,14 @@ debug_logs2/
 *.txt
 !docker/README.md
 
-# Duplicates (use docker/sql/ instead)
-sql/
-init.sql
-init-db.sh
+# Duplicates at repo root (real schema lives in tools/sql/, shipped to git)
+/sql/
+/init.sql
+/init-db.sh
+
+# Config backups (stack.py option 15) and runtime migration logs
+*.bak-*
+/logs/
 
 # Obsolete compose (use docker/docker-compose.yml)
 docker-compose.yml

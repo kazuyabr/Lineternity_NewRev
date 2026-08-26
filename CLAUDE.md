@@ -17,10 +17,11 @@ MariaDB
 └── l2jdb_gsN            # GameServer N...
 ```
 
-## SCHEMA CRÍTICO: tools/sql/ vs sql/gameserver.sql
-**O `sql/gameserver.sql` é um schema FABRICADO/INVENTADO que não corresponde ao código Java!**
-- O schema real está em `tools/sql/` (86 arquivos SQL individuais do aCis/RusaCis original)
-- O entrypoint agora importa de `tools/sql/` em vez de `sql/gameserver.sql`
+## SCHEMA: tools/sql/ (fonte única)
+- O schema real e completo está em `tools/sql/` (arquivos SQL individuais do aCis/RusaCis + novos)
+- `character_status_points.sql` incluído consolidado (Status Points v4, sem reset_date)
+- As antigas cópias fabricadas `sql/gameserver.sql`, `sql/login.sql` e `docker/sql/` foram REMOVIDAS
+- O entrypoint importa de `/lineternity/tools/sql/` + aplica `tools/sql/migrations/`
 - Se precisar recriar o banco, delete o database e reinicie o GameServer (ele reimporta automaticamente)
 
 ## Estrutura de Containers
