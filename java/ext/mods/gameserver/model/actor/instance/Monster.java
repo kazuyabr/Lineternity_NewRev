@@ -723,7 +723,7 @@ public class Monster extends Attackable
 					else if (holder.getId() == 57)
 					{
 						int adenaAmount = (int) Math.max(1, holder.getValue() * adenaRate);
-						if ((Integer.MAX_VALUE - player.getInventory().getAdena() - adenaAmount) < 0)
+						if (!Config.ADENA_CONVERT_ENABLED && (Integer.MAX_VALUE - player.getInventory().getAdena() - adenaAmount) < 0)
 							dropItem(holder, player);
 						else
 							player.addAdena(adenaAmount, true);
@@ -744,7 +744,7 @@ public class Monster extends Attackable
 			else if (holder.getId() == 57)
 			{
 				int adenaAmount = (int) Math.max(1, holder.getValue() * adenaRate);
-				if ((Integer.MAX_VALUE - player.getInventory().getAdena() - adenaAmount) < 0)
+				if (!Config.ADENA_CONVERT_ENABLED && (Integer.MAX_VALUE - player.getInventory().getAdena() - adenaAmount) < 0)
 					dropItem(holder, player);
 				else
 					player.addAdena(adenaAmount, true);

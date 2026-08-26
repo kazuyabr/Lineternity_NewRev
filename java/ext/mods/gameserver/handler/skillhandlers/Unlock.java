@@ -29,6 +29,9 @@ import ext.mods.gameserver.network.SystemMessageId;
 import ext.mods.gameserver.skills.Formulas;
 import ext.mods.gameserver.skills.L2Skill;
 
+import ext.mods.commons.random.Rnd;
+import ext.mods.gameserver.StatusPointChest;
+
 public class Unlock implements ISkillHandler
 {
 	private static final SkillType[] SKILL_IDS =
@@ -70,13 +73,21 @@ public class Unlock implements ISkillHandler
 			
 			chestTarget.setInteracted();
 			
-			if (Formulas.chestUnlock(skill, chestTarget.getStatus().getLevel()))
+			final int chance = Formulas.getChestUnlockChance(skill, chestTarget.getStatus().getLevel());
+			if (chance > 0 && Rnd.get(100) < chance)
 			{
 				chestTarget.getAI().getAggroList().addDamageHate(player, 0, 200);
 				chestTarget.doDie(player);
+				
+				StatusPointChest.onChestOpened(player, skill, chestTarget.getStatus().getLevel());
 			}
 			else
+			{
+				if (chance <= 0)
+					player.sendMessage("This key cannot open this chest.");
+				
 				chestTarget.deleteMe();
+			}
 		}
 		else
 			player.sendPacket(SystemMessageId.INVALID_TARGET);

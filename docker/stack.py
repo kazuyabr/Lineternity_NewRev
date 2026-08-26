@@ -5,12 +5,17 @@ Interactive menu for managing Lineternity game server infrastructure.
 Adapted from acacia-2d stack.py pattern.
 """
 
+import hashlib
 import os
 import re
 import sys
+import socket
 import subprocess
 import shutil
+import urllib.request
 import xml.etree.ElementTree as ET
+from collections import OrderedDict
+from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -3002,16 +3007,22 @@ def get_mariadb_container_for_gameserver(server_id: int) -> str:
     return f"lineternity-mariadb-gs{server_id}"
 
 def run_sql_on_mariadb(container_name: str, database: str, sql: str, fetch: bool = False) -> tuple[bool, str]:
-    """Executa SQL em um container MariaDB via docker exec"""
+    """Executa SQL em um container MariaDB via docker exec. Em falhas retorna o stderr."""
     cmd = [
         "docker", "exec", container_name,
         "mysql", "-u", "root", "-proot", "--skip-ssl",
         database, "-N", "-e", sql
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    ok = result.returncode == 0
     if fetch:
-        return result.returncode == 0, result.stdout.strip()
-    return result.returncode == 0, result.stdout.strip()
+        return ok, result.stdout.strip()
+    if ok:
+        return ok, result.stdout.strip()
+    
+    # Preferir as linhas de erro do mysql (ignora o echo do statement)
+    err_lines = [l for l in result.stderr.splitlines() if l.strip().upper().startswith("ERROR")]
+    return ok, "\n".join(err_lines) if err_lines else (result.stderr.strip() or result.stdout.strip())
 
 # ============================================================
 # SQL Migrations
@@ -3043,9 +3054,40 @@ def _get_applied_migrations(container_name: str, database: str) -> set:
         return set()
     return set(output.splitlines())
 
-def _apply_migration(container_name: str, database: str, migration_file: Path):
-    """Aplica um arquivo de migracao e registra na tabela schema_migrations"""
+def _migration_log_path() -> Path:
+    log_dir = PROJECT_ROOT / "logs"
+    log_dir.mkdir(exist_ok=True)
+    return log_dir / f"migrations-{_timestamp()}.log"
+
+def _apply_migration(container_name: str, database: str, migration_file: Path, log_lines: Optional[list] = None):
+    """Aplica um arquivo de migracao e registra na tabela schema_migrations.
+    Arquivos com DELIMITER/PROCEDURE sao executados via pipe integral."""
     sql_content = migration_file.read_text(encoding="utf-8")
+    
+    def _log(msg: str):
+        if log_lines is not None:
+            log_lines.append(msg)
+        print(msg)
+    
+    if "DELIMITER" in sql_content:
+        # Procedural migration (DELIMITER/CREATE PROCEDURE) - pipe the whole file
+        cmd = [
+            "docker", "exec", "-i", container_name,
+            "mysql", "-u", "root", "-proot", "--skip-ssl",
+            database
+        ]
+        result = subprocess.run(cmd, input=sql_content, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            err = (result.stderr.strip() or result.stdout.strip())[:200]
+            _log(f"      ERRO (pipe integral): {err}")
+            return False
+        
+        _log(f"      OK (procedimento executado)")
+        run_sql_on_mariadb(
+            container_name, database,
+            f"INSERT IGNORE INTO schema_migrations (filename) VALUES ('{migration_file.name}');"
+        )
+        return True
     
     # Executar cada statement separadamente (para ALTER TABLE multiplas colunas)
     for statement in sql_content.split(";"):
@@ -3056,8 +3098,8 @@ def _apply_migration(container_name: str, database: str, migration_file: Path):
             continue
         ok, err = run_sql_on_mariadb(container_name, database, statement)
         if not ok:
-            print(f"    ERRO ao executar: {statement[:60]}...")
-            print(f"    Detalhe: {err}")
+            _log(f"      ERRO ao executar: {statement[:80]}...")
+            _log(f"      Detalhe: {err[:200]}")
             return False
     
     # Registrar migracao aplicada
@@ -3127,6 +3169,9 @@ def _apply_pending_migrations():
     
     targets = containers if idx == len(containers) else [containers[idx]]
     
+    log_path = _migration_log_path()
+    log_lines = [f"=== Migrations PENDENTES - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="]
+    
     total_applied = 0
     total_errors = 0
     
@@ -3135,14 +3180,16 @@ def _apply_pending_migrations():
         game_db = f"l2jdb_gs{server_id}"
         mariadb_container = get_mariadb_container_for_gameserver(server_id)
         
-        print(f"\n  GameServer #{server_id} ({game_db}):")
+        msg = f"\n  GameServer #{server_id} ({game_db}):"
+        print(msg); log_lines.append(msg)
         
         check = subprocess.run(
             ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
             capture_output=True, text=True
         )
         if mariadb_container not in check.stdout:
-            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            msg = f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando."
+            print(msg); log_lines.append(msg)
             continue
         
         _ensure_schema_migrations_table(mariadb_container, game_db)
@@ -3150,26 +3197,40 @@ def _apply_pending_migrations():
         pending = [f for f in migration_files if f.name not in applied]
         
         if not pending:
-            print(f"    Nenhuma migracao pendente. Todas ja foram aplicadas.")
+            msg = "    Nenhuma migracao pendente. Todas ja foram aplicadas."
+            print(msg); log_lines.append(msg)
             continue
         
-        print(f"    {len(pending)} migracao(oes) pendente(s):")
+        msg = f"    {len(pending)} migracao(oes) pendente(s):"
+        print(msg); log_lines.append(msg)
         for f in pending:
-            print(f"      - {f.name}")
+            msg = f"      - {f.name}"
+            print(msg); log_lines.append(msg)
         
         if not confirm(f"    Aplicar migracoes no GameServer #{server_id}?"):
             continue
         
         for migration_file in pending:
-            print(f"    Aplicando {migration_file.name}...", end=" ")
-            if _apply_migration(mariadb_container, game_db, migration_file):
-                print("OK")
+            line = f"    Aplicando {migration_file.name}..."
+            print(line, end=" "); log_lines.append(line)
+            if _apply_migration(mariadb_container, game_db, migration_file, log_lines):
+                print("OK"); log_lines.append("      OK")
                 total_applied += 1
             else:
-                print("FALHOU")
+                print("FALHOU"); log_lines.append("      FALHOU")
                 total_errors += 1
     
-    print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+    summary = f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)"
+    print(summary); log_lines.append(summary)
+    log_lines.append("")
+    log_path.write_text("\n".join(log_lines), encoding="utf-8")
+    print(f"  {C.CYAN}Log completo salvo em: {log_path}{C.RESET}")
+    
+    if total_errors > 0 and confirm("  Abrir o arquivo de log agora?"):
+        try:
+            os.startfile(log_path)
+        except Exception as e:
+            print(f"  {C.RED}Nao foi possivel abrir: {e}{C.RESET}")
 
 def _force_apply_migrations():
     """Forca reaplicacao de TODAS as migracoes (ignora schema_migrations)"""
@@ -3207,6 +3268,9 @@ def _force_apply_migrations():
     if not confirm("  Continuar?"):
         return
     
+    log_path = _migration_log_path()
+    log_lines = [f"=== Migrations FORCA-REAPLICACAO - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="]
+    
     total_applied = 0
     total_errors = 0
     
@@ -3215,28 +3279,41 @@ def _force_apply_migrations():
         game_db = f"l2jdb_gs{server_id}"
         mariadb_container = get_mariadb_container_for_gameserver(server_id)
         
-        print(f"\n  GameServer #{server_id} ({game_db}):")
+        msg = f"\n  GameServer #{server_id} ({game_db}):"
+        print(msg); log_lines.append(msg)
         
         check = subprocess.run(
             ["docker", "ps", "--filter", f"name={mariadb_container}", "--format", "{{.Names}}"],
             capture_output=True, text=True
         )
         if mariadb_container not in check.stdout:
-            print(f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando.")
+            msg = f"    MariaDB '{mariadb_container}' nao esta rodando. Pulando."
+            print(msg); log_lines.append(msg)
             continue
         
         _ensure_schema_migrations_table(mariadb_container, game_db)
         
         for migration_file in migration_files:
-            print(f"    Aplicando {migration_file.name}...", end=" ")
-            if _apply_migration(mariadb_container, game_db, migration_file):
-                print("OK")
+            line = f"    Aplicando {migration_file.name}..."
+            print(line, end=" "); log_lines.append(line)
+            if _apply_migration(mariadb_container, game_db, migration_file, log_lines):
+                print("OK"); log_lines.append("      OK")
                 total_applied += 1
             else:
-                print("FALHOU")
+                print("FALHOU"); log_lines.append("      FALHOU")
                 total_errors += 1
     
-    print(f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)")
+    summary = f"\n  Resultado: {total_applied} aplicada(s), {total_errors} erro(s)"
+    print(summary); log_lines.append(summary)
+    log_lines.append("")
+    log_path.write_text("\n".join(log_lines), encoding="utf-8")
+    print(f"  {C.CYAN}Log completo salvo em: {log_path}{C.RESET}")
+    
+    if total_errors > 0 and confirm("  Abrir o arquivo de log agora?"):
+        try:
+            os.startfile(log_path)
+        except Exception as e:
+            print(f"  {C.RED}Nao foi possivel abrir: {e}{C.RESET}")
 
 def _clean_corrupted_migration():
     """Remove entrada corrompida do schema_migrations"""
@@ -3482,10 +3559,13 @@ def main_menu():
             f"{C.BLUE}12.{C.RESET} Atualizar Imagens",
             f"{C.BLUE}13.{C.RESET} Atualizar Dados nos Containers",
             f"{C.BLUE}14.{C.RESET} Aplicar Migrations SQL",
-            f"{C.RED}15.{C.RESET} Sair",
+            f"{C.YELLOW}15.{C.RESET} Sincronizar Configs Docker -> Source",
+            f"{C.GREEN}16.{C.RESET} Abrir Servidores p/ Internet",
+            f"{C.RED}17.{C.RESET} Fechar Servidores da Internet",
+            f"{C.RED}18.{C.RESET} Sair",
         ]
         
-        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.4{C.RESET}", options)
+        idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.5{C.RESET}", options)
         
         if idx == 0:
             build_project()
@@ -3516,12 +3596,344 @@ def main_menu():
         elif idx == 13:
             apply_migrations()
         elif idx == 14:
+            sync_docker_configs_to_source()
+        elif idx == 15:
+            open_servers_to_internet()
+        elif idx == 16:
+            close_servers_from_internet()
+        elif idx == 17:
             print(f"\n  {C.GREEN}Saindo...{C.RESET}")
             break
         else:
             continue
         
         input(f"\n  {C.DIM}Pressione Enter para continuar...{C.RESET}")
+
+# ============================================================
+# Network Exposure (Internet Toggle)
+# ============================================================
+
+CLOSED_BIND = "127.0.0.1:"
+OPEN_BIND = ""
+
+def _env_get(env_path: Path, key: str, default: str = "") -> str:
+    if not env_path.exists():
+        return default
+    for line in env_path.read_text().splitlines():
+        if "=" in line and not line.strip().startswith("#"):
+            k, v = line.split("=", 1)
+            if k.strip() == key:
+                return v.strip()
+    return default
+
+def _env_set(env_path: Path, key: str, value: str):
+    lines = env_path.read_text().splitlines() if env_path.exists() else []
+    found = False
+    out = []
+    for line in lines:
+        if line.split("=", 1)[0].strip() == key and not line.strip().startswith("#"):
+            out.append(f"{key}={value}")
+            found = True
+        else:
+            out.append(line)
+    if not found:
+        out.append(f"{key}={value}")
+    env_path.write_text("\n".join(out) + "\n")
+
+def get_managed_env_files() -> list[Path]:
+    """Login .env + every gameserver-*/.env"""
+    envs = []
+    login_env = DOCKER_DIR / "login" / ".env"
+    if login_env.exists():
+        envs.append(login_env)
+    if GAMESERVERS_DIR.exists():
+        for d in sorted(GAMESERVERS_DIR.iterdir()):
+            if d.is_dir() and d.name.startswith("gameserver-"):
+                env_file = d / ".env"
+                if env_file.exists():
+                    envs.append(env_file)
+    return envs
+
+def get_network_state() -> tuple[str, bool]:
+    """Returns (public_hostname_or_empty, is_open) based on first GS .env BIND_PREFIX."""
+    envs = [e for e in get_managed_env_files() if e.parent.name.startswith("gameserver")]
+    sample = envs[0] if envs else (DOCKER_DIR / "login" / ".env")
+    bind = _env_get(sample, "BIND_PREFIX", CLOSED_BIND)
+    hostname = _env_get(sample, "PUBLIC_HOSTNAME", "")
+    return hostname, (bind == OPEN_BIND)
+
+def detect_lan_ip() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+def detect_public_ip() -> Optional[str]:
+    for url in ("https://api.ipify.org", "https://ifconfig.me/ip"):
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                ip = r.read().decode().strip()
+                if ip:
+                    return ip
+        except Exception:
+            continue
+    return None
+
+def _recreate_exposed_containers():
+    # LoginServer (embedded or external compose whichever exists)
+    for ls_yml in ("docker-compose.loginserver.yml", "docker-compose.loginserver-external.yml"):
+        p = DOCKER_DIR / ls_yml
+        if p.exists():
+            run_compose(p, "up", "-d", "--force-recreate",
+                        env_file=DOCKER_DIR / "login" / ".env")
+            break
+    
+    # GameServers ativos
+    result = subprocess.run(
+        ["docker", "ps", "--filter", "name=lineternity-gameserver-", "--format", "{{.Names}}"],
+        capture_output=True, text=True
+    )
+    running = [n.strip() for n in result.stdout.strip().splitlines() if n.strip()]
+    
+    for server in list_existing_game_servers():
+        container = f"lineternity-gameserver-{server.server_id}"
+        if container in running and server.compose_path.exists():
+            print(f"  Recreating {container}...")
+            run_compose(server.compose_path, "up", "-d", "--force-recreate",
+                        env_file=server.env_path)
+
+def close_servers_from_internet():
+    print_header("Fechar Servidores da Internet")
+    
+    hostname, is_open = get_network_state()
+    
+    if not is_open:
+        print(f"\n  {C.YELLOW}Servidores JA ESTAO fechados (bind 127.0.0.1).{C.RESET}")
+        return
+    
+    print(f"\n  Estado atual: ABERTO (hostname anunciado: {hostname or 'padrao'})")
+    if not confirm("  Confirma FECHAR o acesso externo?"):
+        return
+    
+    print(f"\n  {C.CYAN}[1/3]{C.RESET} Atualizando BIND_PREFIX para 127.0.0.1: ...")
+    for env in get_managed_env_files():
+        _env_set(env, "BIND_PREFIX", CLOSED_BIND)
+    
+    print(f"  {C.CYAN}[2/3]{C.RESET} Recriando containers ativos...")
+    _recreate_exposed_containers()
+    
+    print(f"\n  {C.GREEN}Servidores FECHADOS para a internet.{C.RESET}")
+    print(f"  Bind: 127.0.0.1 - apenas esta maquina consegue conectar.")
+
+def open_servers_to_internet():
+    print_header("Abrir Servidores p/ Internet")
+    
+    _, is_open = get_network_state()
+    
+    lan_ip = detect_lan_ip()
+    print(f"\n  IP LAN (rede WiFi/local): {C.CYAN}{lan_ip}{C.RESET}")
+    print(f"  Detectando IP publico...")
+    public_ip = detect_public_ip()
+    
+    if public_ip:
+        print(f"  IP Publico:               {C.CYAN}{public_ip}{C.RESET}")
+    else:
+        print(f"  {C.RED}Nao foi possivel detectar o IP publico (sem internet?).{C.RED}")
+    
+    current_host, _ = get_network_state()
+    default_host = public_ip or current_host or ""
+    
+    if is_open and current_host:
+        print(f"\n  Estado atual: ABERTO (anunciando: {current_host})")
+    
+    print(f"""
+  {C.BOLD}--- CHECKLIST OBRIGATORIO para acesso externo ---{C.RESET}
+  1. Port-forward no roteador: TCP {C.CYAN}2106{C.RESET} e TCP {C.CYAN}7777{C.RESET} -> {C.CYAN}{lan_ip}{C.RESET}
+  2. IP publico dinamico: se mudar, re-execute esta opcao.
+     Alternativa definitiva: DDNS gratuito (DuckDNS/No-IP) ou Tailscale/ZeroTier.
+  3. Nunca exponha MariaDB (3306/3308) no roteador.""")
+    
+    new_hostname = input(
+        f"\n  Hostname/IP a anunciar aos clientes [{default_host}]: "
+    ).strip()
+    if not new_hostname:
+        new_hostname = default_host
+    
+    if not new_hostname:
+        print(f"\n  {C.RED}Sem hostname definido. Abortado.{C.RESET}")
+        return
+    
+    if not confirm(f"\n  Confirma ABRIR login+gameservers na internet anunciando '{new_hostname}'?"):
+        return
+    
+    print(f"\n  {C.CYAN}[1/4]{C.RESET} Gravando BIND_PREFIX vazio (aberto) + PUBLIC_HOSTNAME={new_hostname} ...")
+    for env in get_managed_env_files():
+        _env_set(env, "BIND_PREFIX", OPEN_BIND)
+        if env.parent.name.startswith("gameserver"):
+            _env_set(env, "PUBLIC_HOSTNAME", new_hostname)
+        else:
+            _env_set(env, "HOSTNAME", new_hostname)
+            _env_set(env, "PUBLIC_HOSTNAME", new_hostname)
+    
+    print(f"  {C.CYAN}[2/4]{C.RESET} Sincronizando SERVER_HOSTNAME dos gameservers...")
+    for server in list_existing_game_servers():
+        _env_set(server.env_path, "SERVER_HOSTNAME", new_hostname)
+    
+    print(f"  {C.CYAN}[3/4]{C.RESET} Recriando containers ativos...")
+    _recreate_exposed_containers()
+    
+    print(f"  {C.CYAN}[4/4]{C.RESET} Verificando firewall do Windows...")
+    for port in ("2106", "7777"):
+        fw = subprocess.run(
+            ["netsh", "advfirewall", "firewall", "show", "rule", f"name=Lineternity_{port}"],
+            capture_output=True, text=True
+        )
+        if "No rules match" in fw.stdout or fw.returncode != 0:
+            print(f"    {C.YELLOW}Regra 'Lineternity_{port}' ausente. Crie com (admin):{C.RESET}")
+            print(f"    netsh advfirewall firewall add rule name=\"Lineternity_{port}\" dir=in action=allow protocol=TCP localport={port}")
+        else:
+            print(f"    Regra 'Lineternity_{port}' presente.")
+    
+    print(f"""
+  {C.GREEN}Servidores ABERTOS para a internet.{C.RESET}
+  Anunciando: {C.CYAN}{new_hostname}{C.RESET}
+  
+  Teste externo: em outro PC (fora da rede), configure o l2.ini do cliente
+  apontando para {new_hostname} e tente logar.""")
+
+# ============================================================
+# Sync Configs Docker -> Source (para quem compila pela tools/)
+# ============================================================
+
+SYNC_SRC_DIR = DOCKER_DIR / "gameservers" / "gameserver-1" / "config"
+SYNC_DST_DIR = PROJECT_ROOT / "game" / "config"
+SYNC_PROTECTED_KEYS = {"sql.url", "sql.login", "sql.password"}
+
+def _md5(path: Path) -> str:
+    return hashlib.md5(path.read_bytes()).hexdigest()
+
+def _parse_properties(path: Path) -> "OrderedDict[str, str]":
+    props: OrderedDict = OrderedDict()
+    for line in path.read_text().splitlines():
+        s = line.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            continue
+        k, v = s.split("=", 1)
+        props[k.strip()] = v.strip()
+    return props
+
+def _merge_server_properties(dst_path: Path, src_props: OrderedDict) -> tuple[str, list]:
+    """Key-level merge protecting SYNC_PROTECTED_KEYS. Returns (new_content, changed_keys)."""
+    changed = []
+    out_lines = []
+    present = set()
+
+    for line in dst_path.read_text().splitlines():
+        stripped = line.strip()
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_.]*)\s*=", stripped) if stripped and not stripped.startswith("#") else None
+        if m:
+            key = m.group(1)
+            present.add(key)
+            if key in src_props and key not in SYNC_PROTECTED_KEYS:
+                new_line = f"{key} = {src_props[key]}"
+                if new_line != line:
+                    changed.append(key)
+                out_lines.append(new_line)
+                continue
+        out_lines.append(line)
+
+    appended = [k for k in src_props if k not in present and k not in SYNC_PROTECTED_KEYS]
+    for key in appended:
+        out_lines.append(f"{key} = {src_props[key]}")
+        changed.append(key)
+
+    return "\n".join(out_lines) + "\n", sorted(set(changed))
+
+def _copy_property_file(src_file: Path, dst_file: Path, make_backup: bool) -> bool:
+    if src_file.name == "server.properties":
+        src_props = _parse_properties(src_file)
+        new_content, changed = _merge_server_properties(dst_file, src_props)
+        if not changed:
+            print(f"  {C.DIM}= {src_file.name}: nenhuma chave alteravel divergiu{C.RESET}")
+            return False
+        if make_backup:
+            shutil.copy2(dst_file, dst_file.with_suffix(f".properties.bak-{_timestamp()}"))
+        dst_file.write_text(new_content)
+        print(f"  {C.GREEN}~ {src_file.name}: chaves atualizadas {changed}{C.RESET} (sql.* preservadas)")
+        return True
+    
+    if make_backup:
+        shutil.copy2(dst_file, dst_file.with_suffix(f".properties.bak-{_timestamp()}"))
+    shutil.copy2(src_file, dst_file)
+    print(f"  {C.GREEN}-> {src_file.name}: copiado{C.RESET}")
+    return True
+
+def _timestamp() -> str:
+    from datetime import datetime
+    return datetime.now().strftime("%Y%m%d-%H%M%S")
+
+def sync_docker_configs_to_source():
+    print_header("Sincronizar Configs Docker -> Source")
+    
+    if not SYNC_SRC_DIR.exists() or not SYNC_DST_DIR.exists():
+        print(f"\n  {C.RED}Pastas de config ausentes.{C.RESET}")
+        return
+    
+    to_sync = []
+    only_source = []
+    
+    for src_file in sorted(SYNC_SRC_DIR.glob("*.properties")):
+        dst_file = SYNC_DST_DIR / src_file.name
+        if not dst_file.exists():
+            only_source.append(src_file.name)
+            continue
+        
+        if src_file.name == "server.properties":
+            src_props = _parse_properties(src_file)
+            _, changed = _merge_server_properties(dst_file, src_props)
+            if changed:
+                to_sync.append((src_file, dst_file))
+        elif _md5(src_file) != _md5(dst_file):
+            to_sync.append((src_file, dst_file))
+    
+    if only_source:
+        print(f"\n  {C.YELLOW}Somente no source (nao existem no docker, ignorados):{C.RESET}")
+        for name in only_source:
+            print(f"    - {name}")
+    
+    if not to_sync:
+        print(f"\n  {C.GREEN}Tudo sincronizado. Nenhuma divergencia aplicavel.{C.RESET}")
+        _sync_login_notice()
+        return
+    
+    print(f"\n  {C.BOLD}Divergencias a aplicar em {SYNC_DST_DIR}:{C.RESET}")
+    for src_file, _ in to_sync:
+        marker = "~" if src_file.name == "server.properties" else "->"
+        print(f"    {marker} {src_file.name}")
+    
+    make_backup = confirm("  Criar backups .bak-<data> antes de sobrescrever? (recomendado)")
+    
+    print()
+    applied = 0
+    for src_file, dst_file in to_sync:
+        try:
+            if _copy_property_file(src_file, dst_file, make_backup):
+                applied += 1
+        except Exception as e:
+            print(f"  {C.RED}ERRO ao processar {src_file.name}: {e}{C.RESET}")
+    
+    print(f"\n  {C.GREEN}{applied} arquivo(s) sincronizado(s) para game/config/{C.RESET}")
+    _sync_login_notice()
+
+def _sync_login_notice():
+    print(f"""
+  {C.DIM}Nota LoginServer: login/config/ permanece manual - o docker usa o template
+  docker/templates/login/loginserver.properties com placeholders renderizados no boot.{C.RESET}""")
 
 # ============================================================
 # Entry Point

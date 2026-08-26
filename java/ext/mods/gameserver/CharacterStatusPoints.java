@@ -21,6 +21,7 @@ package ext.mods.gameserver;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import ext.mods.commons.logging.CLogger;
 import ext.mods.commons.pool.ConnectionPool;
@@ -68,6 +69,7 @@ public class CharacterStatusPoints
 	public int sourceSiegePoints;
 	public int sourcePvpPoints;
 	public int sourceKarmaPoints;
+	public int sourceChestPoints;
 	
 	// Meta
 	public int version;
@@ -291,6 +293,16 @@ public class CharacterStatusPoints
 				data.sourcePvpPoints = rs.getInt("source_pvp_points");
 				data.sourceKarmaPoints = rs.getInt("source_karma_points");
 				
+				try
+				{
+					data.sourceChestPoints = rs.getInt("source_chest_points");
+				}
+				catch (SQLException e)
+				{
+					// Migration 006 not applied yet
+					data.sourceChestPoints = 0;
+				}
+				
 				data.version = rs.getInt("version");
 				
 				data.isOldChar = data.version < 3 && player.getCreateTime() < StatusPointConfig.STATUS_POINT_ACTIVATION_DATE;
@@ -342,6 +354,7 @@ public class CharacterStatusPoints
 				"status_patk=?, status_matk=?, status_accuracy=?, status_evasion=?, status_crit=?, " +
 				"karma_penalty_attr=?, " +
 				"source_level_points=?, source_quest_points=?, source_raid_points=?, source_siege_points=?, source_pvp_points=?, source_karma_points=?, " +
+				"source_chest_points=?, " +
 				"version=? WHERE char_id=? AND class_index=?");
 			
 			ps.setInt(1, available);
@@ -375,16 +388,78 @@ public class CharacterStatusPoints
 			ps.setInt(25, sourcePvpPoints);
 			ps.setInt(26, sourceKarmaPoints);
 			
+			ps.setInt(27, sourceChestPoints);
+			
+			ps.setInt(28, version);
+			ps.setInt(29, player.getObjectId());
+			ps.setInt(30, classIndex);
+			
+			ps.executeUpdate();
+			ps.close();
+		}
+		catch (SQLException e)
+		{
+			// Migration 006 not applied yet - fall back to legacy update without source_chest_points
+			storeLegacy(player, e);
+		}
+		catch (Exception e)
+		{
+			LOGGER.error("Failed to store status points for char {}.", e, player.getName());
+		}
+	}
+	
+	private void storeLegacy(Player player, SQLException cause)
+	{
+		try (Connection con = ConnectionPool.getConnection())
+		{
+			PreparedStatement ps = con.prepareStatement(
+				"UPDATE character_status_points SET " +
+				"available=?, " +
+				"attr_distributed=?, attr_str=?, attr_con=?, attr_dex=?, attr_int=?, attr_wit=?, attr_men=?, " +
+				"status_distributed=?, status_pdef=?, status_mdef=?, status_hp=?, status_mp=?, status_cp=?, " +
+				"status_patk=?, status_matk=?, status_accuracy=?, status_evasion=?, status_crit=?, " +
+				"karma_penalty_attr=?, " +
+				"source_level_points=?, source_quest_points=?, source_raid_points=?, source_siege_points=?, source_pvp_points=?, source_karma_points=?, " +
+				"version=? WHERE char_id=? AND class_index=?");
+			
+			ps.setInt(1, available);
+			ps.setInt(2, attrDistributed);
+			ps.setInt(3, attrStr);
+			ps.setInt(4, attrCon);
+			ps.setInt(5, attrDex);
+			ps.setInt(6, attrInt);
+			ps.setInt(7, attrWit);
+			ps.setInt(8, attrMen);
+			ps.setInt(9, statusDistributed);
+			ps.setInt(10, statusPdef);
+			ps.setInt(11, statusMdef);
+			ps.setInt(12, statusHp);
+			ps.setInt(13, statusMp);
+			ps.setInt(14, statusCp);
+			ps.setInt(15, statusPatk);
+			ps.setInt(16, statusMatk);
+			ps.setInt(17, statusAccuracy);
+			ps.setInt(18, statusEvasion);
+			ps.setInt(19, statusCrit);
+			ps.setInt(20, karmaPenaltyAttr);
+			ps.setInt(21, sourceLevelPoints);
+			ps.setInt(22, sourceQuestPoints);
+			ps.setInt(23, sourceRaidPoints);
+			ps.setInt(24, sourceSiegePoints);
+			ps.setInt(25, sourcePvpPoints);
+			ps.setInt(26, sourceKarmaPoints);
 			ps.setInt(27, version);
 			ps.setInt(28, player.getObjectId());
 			ps.setInt(29, classIndex);
 			
 			ps.executeUpdate();
 			ps.close();
+			
+			LOGGER.warn("Stored legacy (missing source_chest_points column). Run migration 006. Char {}.", player.getName(), cause);
 		}
 		catch (Exception e)
 		{
-			LOGGER.error("Failed to store status points for char {}.", e, player.getName());
+			LOGGER.error("Failed to store status points (legacy) for char {}.", e, player.getName());
 		}
 	}
 	

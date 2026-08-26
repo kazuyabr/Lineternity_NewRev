@@ -115,7 +115,7 @@ public final class SendWarehouseWithdrawList extends L2GameClientPacket
 			if (item == null || item.getCount() < i.getValue())
 				return;
 			
-			if (item.getItemId() == 57 && (Integer.MAX_VALUE - player.getInventory().getAdena() - i.getValue()) < 0)
+			if (!Config.ADENA_CONVERT_ENABLED && item.getItemId() == 57 && (Integer.MAX_VALUE - player.getInventory().getAdena() - i.getValue()) < 0)
 				return;
 			
 			weight += i.getValue() * item.getItem().getWeight();

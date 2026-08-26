@@ -753,6 +753,7 @@ public final class Config
 	public static double RATE_SP;
 	public static double RATE_PARTY_XP;
 	public static double RATE_PARTY_SP;
+	public static double RATE_ADENA;
 	public static double RATE_DROP_CURRENCY;
 	public static double RATE_DROP_SEAL_STONE;
 	public static double RATE_DROP_ITEMS;
@@ -760,8 +761,14 @@ public final class Config
 	public static double RATE_DROP_ITEMS_BY_GRAND;
 	public static double RATE_DROP_SPOIL;
 	
+	public static boolean ADENA_CONVERT_ENABLED;
+	public static int ADENA_CONVERT_ITEM_ID;
+	public static long ADENA_PER_CONVERT_ITEM;
+	public static boolean BUY_RETAIL_INFLATE_RATE_ENABLED;
+	
 	public static double PREMIUM_RATE_XP;
 	public static double PREMIUM_RATE_SP;
+	public static double PREMIUM_RATE_ADENA;
 	public static double PREMIUM_RATE_DROP_CURRENCY;
 	public static double PREMIUM_RATE_DROP_SEAL_STONE;
 	public static double PREMIUM_RATE_DROP_SPOIL;
@@ -2820,6 +2827,8 @@ public final class Config
 		RATE_SP = rates.getProperty("RateSp", 1.);
 		RATE_PARTY_XP = rates.getProperty("RatePartyXp", 1.);
 		RATE_PARTY_SP = rates.getProperty("RatePartySp", 1.);
+		// Dedicated Adena rate (percentage: 100 = 1.0x)
+		RATE_ADENA = rates.getProperty("RateAdena", 100.) / 100.;
 		RATE_DROP_CURRENCY = rates.getProperty("RateDropCurrency", 1.);
 		RATE_DROP_SEAL_STONE = rates.getProperty("RateDropSealStone", 1.);
 		RATE_DROP_ITEMS = rates.getProperty("RateDropItems", 1.);
@@ -2829,6 +2838,7 @@ public final class Config
 		
 		PREMIUM_RATE_XP = rates.getProperty("PremiumRateXp", 2.);
 		PREMIUM_RATE_SP = rates.getProperty("PremiumRateSp", 2.);
+		PREMIUM_RATE_ADENA = rates.getProperty("PremiumRateAdena", 120.) / 100.;
 		PREMIUM_RATE_DROP_CURRENCY = rates.getProperty("PremiumRateDropCurrency", 2.);
 		PREMIUM_RATE_DROP_SEAL_STONE = rates.getProperty("PremiumRateDropSealStone", 2.);
 		PREMIUM_RATE_DROP_SPOIL = rates.getProperty("PremiumRateDropSpoil", 2.);
@@ -2841,6 +2851,16 @@ public final class Config
 		PREMIUM_RATE_QUEST_REWARD_XP = rates.getProperty("PremiumRateQuestRewardXP", 2.);
 		PREMIUM_RATE_QUEST_REWARD_SP = rates.getProperty("PremiumRateQuestRewardSP", 2.);
 		PREMIUM_RATE_QUEST_REWARD_ADENA = rates.getProperty("PremiumRateQuestRewardAdena", 2.);
+		
+		// Adena overflow auto-conversion
+		ADENA_CONVERT_ENABLED = rates.getProperty("EnableAdenaConvert", true);
+		ADENA_CONVERT_ITEM_ID = rates.getProperty("AdenaConvertItemId", 9143);
+		ADENA_PER_CONVERT_ITEM = rates.getProperty("AdenaPerConvertItem", (long) Integer.MAX_VALUE);
+		if (ADENA_PER_CONVERT_ITEM <= 0)
+			ADENA_PER_CONVERT_ITEM = Integer.MAX_VALUE;
+		
+		// Inflate NPC sell-back prices with the Adena rate
+		BUY_RETAIL_INFLATE_RATE_ENABLED = rates.getProperty("BuyRetailInflateRateEnabled", false);
 		
 		DYNAMIC_XP = rates.getProperty("DynamicXp", false);
 		if (DYNAMIC_XP)

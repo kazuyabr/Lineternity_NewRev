@@ -84,6 +84,10 @@ public class QuestRewardConfig
 			data.sourceQuestPoints += repeatableSpReward;
 		}
 		
+		final int totalSpReward = spReward + repeatableSpReward;
+		if (totalSpReward > 0)
+			player.sendMessage("Quest reward: +" + totalSpReward + " points.");
+		
 		int pdefReward = props.getProperty("PDefReward", 0);
 		if (pdefReward > 0)
 		{

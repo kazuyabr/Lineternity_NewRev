@@ -594,7 +594,7 @@ public class Party extends AbstractGroup
 		List<Player> toReward = new ArrayList<>(_members.size());
 		for (Player member : _members)
 		{
-			if (member.getAdena() == Integer.MAX_VALUE || !member.isInStrictRadius(target, Config.PARTY_RANGE))
+			if ((!Config.ADENA_CONVERT_ENABLED && member.getAdena() == Integer.MAX_VALUE) || !member.isInStrictRadius(target, Config.PARTY_RANGE))
 				continue;
 			
 			toReward.add(member);

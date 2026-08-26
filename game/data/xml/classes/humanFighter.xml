@@ -18,7 +18,7 @@
 		<macros>
 			<macro panel="2" slot="0" name="Menu" action="Open player settings panel" acronim="MENU" command=".menu" />
 			<macro panel="2" slot="1" name="Premium" action="Check Premium status of PA" acronim="PREM" command=".premium" />
-			<macro panel="2" slot="3" name="StatusPoint" action="Distribute status and attribute points" acronim="STAT" command=".statuspoint" />
+			<macro panel="2" slot="2" name="StatusPoint" action="Distribute status and attribute points" acronim="STAT" command=".statuspoint" />
 			<macro panel="1" slot="0" name="Raid" action="Check Raid Boss status" acronim="RAID" command=".raid" />
 			<macro panel="1" slot="1" name="Epic" action="Check Epic Boss status" acronim="EPIC" command=".epic" />
 			<macro panel="1" slot="2" name="Skin" action="Manage Skin" acronim="SKIN" command=".skin" />

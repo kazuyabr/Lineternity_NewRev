@@ -74,6 +74,16 @@ public class GlobalDropManager
 			return false;
 		}
 		
+		// Only substitute original drops for monsters within the configured level range.
+		// Monsters outside the range keep their normal drop table.
+		final int monsterLevel = monster.getStatus().getLevel();
+		if (monsterLevel < _data.getMinLevel())
+			return false;
+		
+		final int maxLevel = _data.getMaxLevel();
+		if (maxLevel > 0 && monsterLevel > maxLevel)
+			return false;
+		
 		return !isDropsOriginals();
 	}
 

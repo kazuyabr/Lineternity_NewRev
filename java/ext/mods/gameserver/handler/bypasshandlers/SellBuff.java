@@ -415,7 +415,7 @@ public class SellBuff implements IBypassHandler
 					
 					if (player.getInventory().getItemCount(Config.SELLBUFF_PAYMENT_ID) >= holder.getPrice())
 					{
-						if ((Integer.MAX_VALUE - seller.getInventory().getAdena() - holder.getPrice()) < 0)
+						if (!Config.ADENA_CONVERT_ENABLED && (Integer.MAX_VALUE - seller.getInventory().getAdena() - holder.getPrice()) < 0)
 						{
 							player.sendMessage("Seller have limit adena.");
 							SellBuffsManager.getInstance().sendBuffMenu(player, seller, index);

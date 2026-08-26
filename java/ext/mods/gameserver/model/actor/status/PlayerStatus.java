@@ -24,6 +24,7 @@ import ext.mods.commons.random.Rnd;
 import ext.mods.Config;
 import ext.mods.gameserver.CharacterStatusPoints;
 import ext.mods.gameserver.StatusPointConfig;
+import ext.mods.commons.logging.CLogger;
 import ext.mods.gameserver.data.manager.CastleManager;
 import ext.mods.gameserver.data.manager.ClanHallManager;
 import ext.mods.gameserver.data.manager.DuelManager;
@@ -76,6 +77,8 @@ import ext.mods.gameserver.skills.L2Skill;
 
 public class PlayerStatus extends PlayableStatus<Player>
 {
+	private static final CLogger LOGGER = new CLogger(PlayerStatus.class.getName());
+	
 	private double _cp = .0;
 	
 	private double _cpUpdateIncCheck = .0;
@@ -647,11 +650,12 @@ public class PlayerStatus extends PlayableStatus<Player>
 					data.available += StatusPointConfig.POINTS_PER_LEVEL;
 					data.sourceLevelPoints += StatusPointConfig.POINTS_PER_LEVEL;
 					data.store((Player) _actor);
-					_actor.sendMessage("You gained " + StatusPointConfig.POINTS_PER_LEVEL + " status points from level up.");
+					_actor.sendMessage("Level Up reward: +" + StatusPointConfig.POINTS_PER_LEVEL + " points.");
 				}
 			}
 		}
 		
+		LOGGER.info("addLevel: {} reached level {}, calling giveSkills.", _actor.getName(), getLevel());
 		_actor.giveSkills();
 		
 		final Clan clan = _actor.getClan();

@@ -316,7 +316,7 @@ public class Player extends Playable
 	private static final String RESTORE_SKILL_SAVE = "SELECT skill_id,skill_level,effect_count,effect_cur_time, reuse_delay, systime, restore_type, npc FROM character_skills_save WHERE char_obj_id=? AND class_index=? ORDER BY buff_index ASC";
 	private static final String DELETE_SKILL_SAVE = "DELETE FROM character_skills_save WHERE char_obj_id=? AND class_index=?";
 	
-	private static final String INSERT_CHARACTER = "INSERT INTO characters (account_name,obj_Id,char_name,level,maxHp,curHp,maxCp,curCp,maxMp,curMp,face,hairStyle,hairColor,sex,exp,sp,race,classid,base_class,title,accesslevel) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+	private static final String INSERT_CHARACTER = "INSERT INTO characters (account_name,obj_Id,char_name,level,maxHp,curHp,maxCp,curCp,maxMp,curMp,face,hairStyle,hairColor,sex,exp,sp,race,classid,base_class,title,accesslevel,ct) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 	private static final String UPDATE_CHARACTER = "UPDATE characters SET level=?,maxHp=?,curHp=?,maxCp=?,curCp=?,maxMp=?,curMp=?,face=?,hairStyle=?,hairColor=?,sex=?,heading=?,x=?,y=?,z=?,exp=?,expBeforeDeath=?,sp=?,karma=?,pvpkills=?,pkkills=?,clanid=?,race=?,classid=?,deletetime=?,title=?,accesslevel=?,online=?,isin7sdungeon=?,wantspeace=?,base_class=?,onlinetime=?,punish_level=?,punish_timer=?,nobless=?,power_grade=?,subpledge=?,lvl_joined_academy=?,apprentice=?,sponsor=?,varka_ketra_ally=?,clan_join_expiry_time=?,clan_create_expiry_time=?,char_name=?,death_penalty_level=?,herountil=? WHERE obj_id=?";
 	private static final String RESTORE_CHARACTER = "SELECT * FROM characters WHERE obj_id=?";
 	
@@ -660,6 +660,8 @@ public class Player extends Playable
 		
 		player.setAccessLevel(Config.DEFAULT_ACCESS_LEVEL);
 		
+		player._createTime = (int) (System.currentTimeMillis() / 1000L);
+		
 		PlayerInfoTable.getInstance().addPlayer(objectId, accountName, name, player.getAccessLevel().getLevel());
 		
 		player.setBaseClass(player.getClassId());
@@ -688,6 +690,7 @@ public class Player extends Playable
 			ps.setInt(19, player.getBaseClass());
 			ps.setString(20, player.getTitle());
 			ps.setInt(21, player.getAccessLevel().getLevel());
+			ps.setInt(22, player._createTime);
 			ps.executeUpdate();
 		}
 		catch (Exception e)
@@ -3577,6 +3580,8 @@ public class Player extends Playable
 	 */
 	public void giveSkills()
 	{
+		LOGGER.info("giveSkills: {} lvl={} class={} autoLearn={} maxLvl={}", getName(), getStatus().getLevel(), getClassId(), Config.AUTO_LEARN_SKILLS, Config.LVL_AUTO_LEARN_SKILLS);
+		
 		if (Config.AUTO_LEARN_SKILLS && getStatus().getLevel() <= Config.LVL_AUTO_LEARN_SKILLS)
 			rewardSkills();
 		else
@@ -3599,13 +3604,18 @@ public class Player extends Playable
 	 */
 	public void rewardSkills()
 	{
+		int granted = 0;
+		
 		for (final GeneralSkillNode skill : getAllAvailableSkills())
 		{
 			if (skill.getId() == L2Skill.SKILL_DIVINE_INSPIRATION && Config.DIVINE_SP_BOOK_NEEDED)
 				continue;
 			
-			addSkill(skill.getSkill(), skill.getCost() != 0, true);
+			if (addSkill(skill.getSkill(), skill.getCost() != 0, true))
+				granted++;
 		}
+		
+		LOGGER.info("rewardSkills: {} granted {} new skills (total known: {}).", getName(), granted, getSkills().size());
 		
 		if (getStatus().getLevel() >= 10 && hasSkill(L2Skill.SKILL_LUCKY))
 			removeSkill(L2Skill.SKILL_LUCKY, false);

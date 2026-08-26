@@ -1448,7 +1448,12 @@ public final class Formulas
 		}
 	}
 	
-	public static final boolean chestUnlock(L2Skill skill, int level)
+	/**
+	 * @param skill : The unlock {@link L2Skill} used (key or thief skill).
+	 * @param level : The level of the targeted chest.
+	 * @return the unlock chance in percent (0 = impossible).
+	 */
+	public static final int getChestUnlockChance(L2Skill skill, int level)
 	{
 		int chance = 0;
 		
@@ -1465,31 +1470,31 @@ public final class Formulas
 			if (level > 60)
 			{
 				if (skill.getLevel() < 10)
-					return false;
+					return 0;
 				
 				chance = (skill.getLevel() - 10) * 5 + 30;
 			}
 			else if (level > 40)
 			{
 				if (skill.getLevel() < 6)
-					return false;
+					return 0;
 				
 				chance = (skill.getLevel() - 6) * 5 + 10;
 			}
 			else if (level > 30)
 			{
 				if (skill.getLevel() < 3)
-					return false;
+					return 0;
 				
 				if (skill.getLevel() > 12)
-					return true;
+					return 100;
 				
 				chance = (skill.getLevel() - 3) * 5 + 30;
 			}
 			else
 			{
 				if (skill.getLevel() > 10)
-					return true;
+					return 100;
 				
 				chance = skill.getLevel() * 5 + 35;
 			}
@@ -1497,7 +1502,12 @@ public final class Formulas
 			chance = Math.min(chance, 50);
 		}
 		
-		return Rnd.get(100) < chance;
+		return Math.max(0, Math.min(chance, 100));
+	}
+	
+	public static final boolean chestUnlock(L2Skill skill, int level)
+	{
+		return Rnd.get(100) < getChestUnlockChance(skill, level);
 	}
 	
 	/**

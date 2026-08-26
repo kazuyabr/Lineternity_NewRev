@@ -21,9 +21,8 @@ package ext.mods.gameserver;
 import ext.mods.Config;
 import ext.mods.commons.config.ExProperties;
 import ext.mods.commons.logging.CLogger;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -90,6 +89,11 @@ public class StatusPointConfig
 	public static boolean SIEGE_REWARD_ENABLED;
 	public static int SIEGE_REWARD_POINTS;
 	
+	// Chest rewards
+	public static boolean CHEST_REWARD_ENABLED;
+	public static int CHEST_DAILY_REWARDS;
+	public static int CHEST_REWARD_BONUS_ROLL;
+	
 	private static final String STATUS_POINTS_FILE = Config.CONFIG_PATH.resolve("statuspoints.properties").toString();
 	private static final String PK_REWARDS_FILE = Config.CONFIG_PATH.resolve("pkrewards.properties").toString();
 	private static final String PVP_REWARDS_FILE = Config.CONFIG_PATH.resolve("pvprewards.properties").toString();
@@ -102,15 +106,7 @@ public class StatusPointConfig
 		
 		STATUS_POINTS_ENABLED = sp.getProperty("StatusPointsEnabled", false);
 		
-		String activationDateStr = sp.getProperty("StatusPointActivationDate", "2026-01-01");
-		try
-		{
-			STATUS_POINT_ACTIVATION_DATE = (int) LocalDate.parse(activationDateStr).atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
-		}
-		catch (Exception e)
-		{
-			STATUS_POINT_ACTIVATION_DATE = (int) LocalDate.parse("2026-01-01").atStartOfDay(ZoneId.systemDefault()).toEpochSecond();
-		}
+		STATUS_POINT_ACTIVATION_DATE = loadOrCaptureActivationDate();
 		
 		POINTS_PER_LEVEL = sp.getProperty("PointsPerLevel", 5);
 		MAX_TOTAL_DEX = sp.getProperty("MaxTotalDex", 50);
@@ -204,11 +200,47 @@ public class StatusPointConfig
 		SIEGE_REWARD_ENABLED = siege.getProperty("SiegeRewardEnabled", true);
 		SIEGE_REWARD_POINTS = siege.getProperty("SiegeRewardPoints", 15);
 		
+		CHEST_REWARD_ENABLED = sp.getProperty("ChestRewardEnabled", true);
+		CHEST_DAILY_REWARDS = sp.getProperty("ChestDailyRewards", 10);
+		CHEST_REWARD_BONUS_ROLL = sp.getProperty("ChestRewardBonusRoll", 10);
+		
 		LOGGER.info("Loaded " + STATUS_POINTS_FILE);
 		LOGGER.info("Loaded " + PK_REWARDS_FILE);
 		LOGGER.info("Loaded " + PVP_REWARDS_FILE);
 		LOGGER.info("Loaded " + RAID_REWARDS_FILE);
 		LOGGER.info("Loaded " + SIEGE_REWARDS_FILE);
+	}
+	
+	/**
+	 * Loads the status points activation timestamp from the persisted marker file.<br>
+	 * On the first server start with StatusPointsEnabled=true, the current time is captured and stored,
+	 * so characters created afterwards are never treated as old chars.
+	 * @return the activation timestamp in epoch seconds.
+	 */
+	private static int loadOrCaptureActivationDate()
+	{
+		final Path file = Config.CONFIG_PATH.resolve("statuspoints.activation");
+		
+		try
+		{
+			if (Files.exists(file))
+			{
+				final String content = Files.readString(file).trim();
+				return Integer.parseInt(content);
+			}
+			
+			final int now = (int) (System.currentTimeMillis() / 1000L);
+			
+			Files.writeString(file, String.valueOf(now));
+			LOGGER.info("Status Points system activated. Activation date captured: " + now);
+			
+			return now;
+		}
+		catch (Exception e)
+		{
+			LOGGER.warn("Couldn't load or persist status points activation date. Using current time.", e);
+			return (int) (System.currentTimeMillis() / 1000L);
+		}
 	}
 	
 	public static int getCostForStat(int currentDistributed)

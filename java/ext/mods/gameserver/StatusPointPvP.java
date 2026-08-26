@@ -45,7 +45,7 @@ public class StatusPointPvP
 			if (StatusPointConfig.PVP_BONUS_POINTS > 0)
 			{
 				data.available += StatusPointConfig.PVP_BONUS_POINTS;
-				killer.sendMessage("PvP milestone reached! +" + StatusPointConfig.PVP_BONUS_POINTS + " status points.");
+				killer.sendMessage("PvP reward: +" + StatusPointConfig.PVP_BONUS_POINTS + " points.");
 			}
 		}
 		

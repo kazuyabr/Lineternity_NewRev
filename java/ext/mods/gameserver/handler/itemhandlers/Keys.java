@@ -25,7 +25,10 @@ import ext.mods.gameserver.model.actor.instance.Chest;
 import ext.mods.gameserver.model.holder.IntIntHolder;
 import ext.mods.gameserver.model.item.instance.ItemInstance;
 import ext.mods.gameserver.network.SystemMessageId;
+import ext.mods.gameserver.skills.Formulas;
 import ext.mods.gameserver.skills.L2Skill;
+
+import ext.mods.gameserver.StatusPointConfig;
 
 /**
  * That handler is used for the different types of keys. Such items aren't consumed until the skill is definitively launched.
@@ -75,6 +78,14 @@ public class Keys implements IItemHandler
 			final L2Skill itemSkill = skillInfo.getSkill();
 			if (itemSkill == null)
 				continue;
+			
+			// Preserve the key when the chest cannot be unlocked with it (0% chance).
+			if (StatusPointConfig.STATUS_POINTS_ENABLED && StatusPointConfig.CHEST_REWARD_ENABLED
+				&& Formulas.getChestUnlockChance(itemSkill, targetChest.getStatus().getLevel()) <= 0)
+			{
+				player.sendMessage("This key cannot open this chest.");
+				return;
+			}
 			
 			playable.getAI().tryToCast(targetChest, itemSkill);
 		}

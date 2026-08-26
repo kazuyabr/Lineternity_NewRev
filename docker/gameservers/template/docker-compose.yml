@@ -40,7 +40,7 @@ services:
       mariadb:
         condition: service_healthy
     ports:
-      - "${PUBLIC_PORT:-7777}:7777"
+      - "${BIND_PREFIX}${PUBLIC_PORT:-7777}:7777"
     environment:
       L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
       # MariaDB LOCAL deste GameServer
@@ -57,7 +57,7 @@ services:
       LOGIN_DB: ${LOGIN_DB:-l2jdb_login}
       # Identidade
       SERVER_ID: ${SERVER_ID:-1}
-      SERVER_HOSTNAME: ${SERVER_HOSTNAME:-gameserver-${SERVER_ID}}
+      SERVER_HOSTNAME: ${PUBLIC_HOSTNAME:-gameserver-${SERVER_ID}}
       # LoginServer Java (para conexão na porta 9014)
       LOGIN_HOSTNAME: ${LOGIN_HOSTNAME:-loginserver}
       LOGIN_PORT: ${LOGIN_PORT:-9014}

@@ -360,6 +360,11 @@ configure_properties() {
             sed -i "s|^sql\.url = jdbc:mariadb://.*|sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${GAME_DB}?useUnicode=true\&characterEncoding=UTF-8|" "$props"
             sed -i "s|^sql\.login = .*|sql.login = ${DB_USER_VAL}|" "$props"
             sed -i "s|^sql\.password = .*|sql.password = ${DB_PASSWORD_VAL}|" "$props"
+            # Hostname anunciado aos clientes (mesmo valor registrado no loginserver)
+            if [ -n "${SERVER_HOSTNAME}" ]; then
+                sed -i "s|^Hostname[[:space:]]*=.*|Hostname = ${SERVER_HOSTNAME}|" "$props"
+                echo "    Hostname = ${SERVER_HOSTNAME}"
+            fi
             echo "    sql.url = jdbc:mariadb://${DB_HOST_VAL}:${DB_PORT_VAL}/${GAME_DB}"
             echo "    sql.login = ${DB_USER_VAL}"
         else

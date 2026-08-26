@@ -154,6 +154,16 @@ public class DropCategory
 		return out;
 	}
 	
+	/**
+	 * @return the dedicated Adena rate multiplier for item 57 drops, otherwise 1.
+	 */
+	private double getAdenaRate(Player player, DropData dd)
+	{
+		if (_dropType == DropType.CURRENCY && dd.getItemId() == 57)
+			return (player.getPremiumService() == 1) ? Config.PREMIUM_RATE_ADENA : Config.RATE_ADENA;
+		return 1.0;
+	}
+	
 	public boolean calcDropItem(DropData item, Player player, Monster monster, List<IntIntHolder> out, boolean raid)
 	{
 		double itemChance = DropCalc.getInstance().calcDropChance(player, monster, item, getDropType(), raid, monster instanceof GrandBoss);
@@ -167,11 +177,12 @@ public class DropCategory
 		
 		if (itemCount[0] > 0)
 		{
+			double adenaRate = getAdenaRate(player, item);
 			Optional<IntIntHolder> holder = out.stream().filter(h -> h.getId() == item.getItemId()).findAny();
 			if (holder.isEmpty())
-				out.add(new IntIntHolder(item.getItemId(), itemCount[0]));
+				out.add(new IntIntHolder(item.getItemId(), (int) Math.max(1, itemCount[0] * adenaRate)));
 			else
-				holder.ifPresent(h -> h.setValue(h.getValue() + itemCount[0]));
+				holder.ifPresent(h -> h.setValue((int) Math.max(1, (h.getValue() + itemCount[0]) * adenaRate)));
 			return true;
 		}
 		
@@ -223,10 +234,10 @@ public class DropCategory
 				if (chance <= DropData.MAX_CHANCE)
 				{
 					if (Rnd.get(DropData.MAX_CHANCE) < chance)
-						result.add(dd.calculateDrop(1));
+						result.add(dd.calculateDrop(getAdenaRate(player, dd)));
 				}
 				else
-					result.add(dd.calculateDrop(chance / DropData.MAX_CHANCE));
+					result.add(dd.calculateDrop((chance / DropData.MAX_CHANCE) * getAdenaRate(player, dd)));
 			}
 		}
 		else
@@ -242,7 +253,7 @@ public class DropCategory
 					
 					if (chance < 0)
 					{
-						result.add(dd.calculateDrop(1));
+						result.add(dd.calculateDrop(getAdenaRate(player, dd)));
 						break;
 					}
 				}
@@ -260,7 +271,7 @@ public class DropCategory
 					chance -= dd.getChance() * multiplier * DropData.MAX_CHANCE / 100;
 					if (chance < 0)
 					{
-						result.add(dd.calculateDrop(amount));
+						result.add(dd.calculateDrop(amount * getAdenaRate(player, dd)));
 						break;
 					}
 				}

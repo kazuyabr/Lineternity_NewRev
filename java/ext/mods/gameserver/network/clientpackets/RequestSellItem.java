@@ -67,19 +67,21 @@ public final class RequestSellItem extends L2GameClientPacket
 	{
 		long totalPrice = 0;
 		
+		final double inflate = getInflationMultiplier(player);
+		
 		for (IntIntHolder i : _items)
 		{
 			ItemInstance item = player.checkItemManipulation(i.getId(), i.getValue());
 			if (item == null || (!item.isSellable()))
 				continue;
 			
-			int price = item.getReferencePrice() / 2;
-			totalPrice += price * i.getValue();
+			int price = (int) Math.round(item.getReferencePrice() / 2 * inflate);
+			totalPrice += (long) price * i.getValue();
 			
 			if ((Integer.MAX_VALUE / i.getValue()) < price || totalPrice > Integer.MAX_VALUE)
 				return;
 			
-			if ((Integer.MAX_VALUE - player.getInventory().getAdena() - totalPrice) < 0)
+			if (!Config.ADENA_CONVERT_ENABLED && (Integer.MAX_VALUE - player.getInventory().getAdena() - totalPrice) < 0)
 			{
 				player.sendPacket(SystemMessageId.SELL_ATTEMPT_FAILED);
 				return;
@@ -116,19 +118,21 @@ public final class RequestSellItem extends L2GameClientPacket
 		
 		long totalPrice = 0;
 		
+		final double inflate = getInflationMultiplier(player);
+		
 		for (IntIntHolder i : _items)
 		{
 			ItemInstance item = player.checkItemManipulation(i.getId(), i.getValue());
 			if (item == null || (!item.isSellable()))
 				continue;
 			
-			int price = item.getReferencePrice() / 2;
-			totalPrice += price * i.getValue();
+			int price = (int) Math.round(item.getReferencePrice() / 2 * inflate);
+			totalPrice += (long) price * i.getValue();
 			
 			if ((Integer.MAX_VALUE / i.getValue()) < price || totalPrice > Integer.MAX_VALUE)
 				return;
 			
-			if ((Integer.MAX_VALUE - player.getInventory().getAdena() - totalPrice) < 0)
+			if (!Config.ADENA_CONVERT_ENABLED && (Integer.MAX_VALUE - player.getInventory().getAdena() - totalPrice) < 0)
 			{
 				player.sendPacket(SystemMessageId.SELL_ATTEMPT_FAILED);
 				return;
@@ -156,5 +160,16 @@ public final class RequestSellItem extends L2GameClientPacket
 				player.sendPacket(html);
 			}
 		}
+	}
+	
+	/**
+	 * @return the Adena rate multiplier applied to sell-back prices when retail inflation is enabled, otherwise 1.
+	 */
+	private static double getInflationMultiplier(Player player)
+	{
+		if (!Config.BUY_RETAIL_INFLATE_RATE_ENABLED)
+			return 1.0;
+		
+		return (player.getPremiumService() == 1) ? Config.PREMIUM_RATE_ADENA : Config.RATE_ADENA;
 	}
 }

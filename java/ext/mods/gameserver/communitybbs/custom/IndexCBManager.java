@@ -69,7 +69,7 @@ public class IndexCBManager extends BaseBBSManager
 			{
 				content = content.replace("%rate_xp%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_XP)));
 				content = content.replace("%rate_sp%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_SP)));
-				content = content.replace("%rate_adena%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_CURRENCY)));
+				content = content.replace("%rate_adena%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_ADENA)));
 				content = content.replace("%rate_seal%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_SEAL_STONE)));
 				content = content.replace("%rate_items%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_ITEMS)));
 				content = content.replace("%rate_spoil%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_SPOIL)));
@@ -80,7 +80,7 @@ public class IndexCBManager extends BaseBBSManager
 			{
 				content = content.replace("%rate_xp%", String.valueOf(getRateNumber(Config.RATE_XP)));
 				content = content.replace("%rate_sp%", String.valueOf(getRateNumber(Config.RATE_SP)));
-				content = content.replace("%rate_adena%", String.valueOf(getRateNumber(Config.RATE_DROP_CURRENCY)));
+				content = content.replace("%rate_adena%", String.valueOf(getRateNumber(Config.RATE_ADENA)));
 				content = content.replace("%rate_seal%", String.valueOf(getRateNumber(Config.RATE_DROP_SEAL_STONE)));
 				content = content.replace("%rate_items%", String.valueOf(getRateNumber(Config.RATE_DROP_ITEMS)));
 				content = content.replace("%rate_spoil%", String.valueOf(getRateNumber(Config.RATE_DROP_SPOIL)));
@@ -121,8 +121,8 @@ public class IndexCBManager extends BaseBBSManager
 					content = content.replace("%server_rate_xp%", String.valueOf(2));
 				}
 				
-				content = content.replace("%server_rate_sp%", String.valueOf(getRateNumber(Config.RATE_SP)));
-				content = content.replace("%server_rate_adena%", String.valueOf(getRateNumber(Config.RATE_DROP_CURRENCY)));
+			content = content.replace("%server_rate_sp%", String.valueOf(getRateNumber(Config.RATE_SP)));
+			content = content.replace("%server_rate_adena%", String.valueOf(getRateNumber(Config.RATE_ADENA)));
 				content = content.replace("%server_rate_items%", String.valueOf(getRateNumber(Config.RATE_DROP_ITEMS)));
 				content = content.replace("%server_rate_spoil%", String.valueOf(getRateNumber(Config.RATE_DROP_SPOIL)));
 				content = content.replace("%server_rate_quest%", String.valueOf(getRateNumber(Config.RATE_QUEST_DROP)));
@@ -161,8 +161,8 @@ public class IndexCBManager extends BaseBBSManager
 					content = content.replace("%server_rate_xp%", String.valueOf(2.6));
 				}
 				
-				content = content.replace("%server_rate_sp%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_SP)));
-				content = content.replace("%server_rate_adena%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_CURRENCY)));
+			content = content.replace("%server_rate_sp%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_SP)));
+			content = content.replace("%server_rate_adena%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_ADENA)));
 				content = content.replace("%server_rate_items%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_ITEMS)));
 				content = content.replace("%server_rate_spoil%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_DROP_SPOIL)));
 				content = content.replace("%server_rate_quest%", String.valueOf(getRateNumber(Config.PREMIUM_RATE_QUEST_DROP)));

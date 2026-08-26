@@ -24,6 +24,7 @@ import java.util.Objects;
 
 import ext.mods.commons.util.ArraysUtil;
 
+import ext.mods.Config;
 import ext.mods.gameserver.data.xml.ItemData;
 import ext.mods.gameserver.enums.Paperdoll;
 import ext.mods.gameserver.enums.ShortcutType;
@@ -361,6 +362,15 @@ public class PcInventory extends Inventory
 	@Override
 	public ItemInstance addItem(ItemInstance item)
 	{
+		if (item != null && item.getItemId() == ADENA_ID && item.getCount() > 0 && Config.ADENA_CONVERT_ENABLED && Config.ADENA_PER_CONVERT_ITEM > 0)
+		{
+			final long current = getAdena();
+			final long projected = current + item.getCount();
+			
+			if (projected > Integer.MAX_VALUE)
+				return addAdenaWithConvert(current, projected);
+		}
+		
 		item = super.addItem(item);
 		if (item == null)
 			return null;
@@ -376,6 +386,15 @@ public class PcInventory extends Inventory
 	@Override
 	public ItemInstance addItem(int itemId, int count)
 	{
+		if (itemId == ADENA_ID && count > 0 && Config.ADENA_CONVERT_ENABLED && Config.ADENA_PER_CONVERT_ITEM > 0)
+		{
+			final long current = getAdena();
+			final long projected = current + count;
+			
+			if (projected > Integer.MAX_VALUE)
+				return addAdenaWithConvert(current, projected);
+		}
+		
 		ItemInstance item = super.addItem(itemId, count);
 		if (item == null)
 			return null;
@@ -386,6 +405,43 @@ public class PcInventory extends Inventory
 			_ancientAdena = item;
 		
 		return item;
+	}
+	
+	/**
+	 * Adds adena converting the overflow above {@link Integer#MAX_VALUE} into the configured currency item.<br>
+	 * Example with cap 2000 and conversion unit 2000: adding 100 over the cap results in 1 converted item + 100 adena.
+	 * @param current : The adena balance before this add.
+	 * @param projected : The adena balance after this add.
+	 * @return the adena {@link ItemInstance} involved.
+	 */
+	private ItemInstance addAdenaWithConvert(long current, long projected)
+	{
+		final long perItem = Config.ADENA_PER_CONVERT_ITEM;
+		final int blocks = (int) Math.ceil((projected - Integer.MAX_VALUE) / (double) perItem);
+		final long remaining = Math.max(0, projected - (long) blocks * perItem);
+		
+		ItemInstance result = _adena;
+		
+		// Add only what still fits below the cap.
+		final long fitting = Integer.MAX_VALUE - current;
+		if (fitting > 0)
+			result = super.addItem(ADENA_ID, (int) fitting);
+		
+		if (_adena != null && _adena.getCount() >= 0)
+		{
+			if (remaining > 0)
+				_adena.setCount((int) remaining);
+			else
+				destroyItem(_adena, _adena.getCount());
+		}
+		else if (remaining > 0)
+			result = super.addItem(ADENA_ID, (int) remaining);
+		
+		super.addItem(Config.ADENA_CONVERT_ITEM_ID, blocks);
+		
+		updateWeight();
+		
+		return result;
 	}
 	
 	@Override
@@ -514,7 +570,7 @@ public class PcInventory extends Inventory
 		if (!(item.isStackable() && getItemByItemId(item.getItemId()) != null) && item.getItemType() != EtcItemType.HERB)
 			slots++;
 		
-		if (item.getItemId() == ADENA_ID && (Integer.MAX_VALUE - _owner.getInventory().getAdena() - item.getCount()) < 0)
+		if (!Config.ADENA_CONVERT_ENABLED && item.getItemId() == ADENA_ID && (Integer.MAX_VALUE - _owner.getInventory().getAdena() - item.getCount()) < 0)
 			return false;
 		
 		return validateCapacity(slots);
@@ -549,7 +605,7 @@ public class PcInventory extends Inventory
 		for (TradeItem tradeItem : tradeList)
 		{
 			slots += calculateUsedSlots(tradeItem.getItem(), tradeItem.getCount());
-			if (tradeItem.getItem().getItemId() == ADENA_ID && (Integer.MAX_VALUE - _owner.getInventory().getAdena() - tradeItem.getCount()) < 0)
+			if (!Config.ADENA_CONVERT_ENABLED && tradeItem.getItem().getItemId() == ADENA_ID && (Integer.MAX_VALUE - _owner.getInventory().getAdena() - tradeItem.getCount()) < 0)
 				return false;
 		}
 		

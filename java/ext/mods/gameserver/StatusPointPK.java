@@ -43,7 +43,7 @@ public class StatusPointPK
 			{
 				data.karmaPenaltyAttr -= pointsToRecover;
 				data.available += pointsToRecover;
-				player.sendMessage("Karma penalty reduced: +" + pointsToRecover + " status points recovered.");
+				player.sendMessage("PK Reward: +" + pointsToRecover + " points.");
 			}
 		}
 		

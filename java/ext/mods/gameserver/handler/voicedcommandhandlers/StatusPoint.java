@@ -98,13 +98,13 @@ public class StatusPoint implements IVoicedCommandHandler
 		}
 		
 		boolean canConfirm = !isOldChar && data.dirty;
-		boolean showReset = isOldChar || data.getTotalDistributed() > 0;
+		boolean showReset = data.getTotalDistributed() > 0;
 		
 		html = html.replace("%confirm_button%", canConfirm ? makeButton("Confirm", "confirm") : "");
 		html = html.replace("%reset_button%", showReset ? makeButton("Reset", "reset") : "");
 		html = html.replace("%reset_cost%", StatusPointConfig.getResetCostDisplay());
 		html = html.replace("%available%", String.valueOf(data.available));
-		html = html.replace("%distributed%", String.valueOf(data.getTotalDistributed()));
+		html = html.replace("%distributed%", String.valueOf(data.getTotalSpent()));
 		
 		if (data.karmaPenaltyAttr > 0)
 			html = html.replace("%karma_display%", "<font color=LEVEL>Karma Penalty: <font color=FF0000>" + data.karmaPenaltyAttr + "</font></font>");

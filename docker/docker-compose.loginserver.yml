@@ -39,7 +39,7 @@ services:
       mariadb-login:
         condition: service_healthy
     ports:
-      - "${LOGIN_PORT:-2106}:2106"
+      - "${BIND_PREFIX}${LOGIN_PORT:-2106}:2106"
     environment:
       L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
       DB_HOST: ${DB_HOST:-mariadb-login}
