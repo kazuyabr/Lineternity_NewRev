@@ -64,6 +64,7 @@ import java.util.ArrayList
 import java.util.concurrent.ConcurrentHashMap
 class LoginServerThread private constructor() : Thread("LoginServerThread") {
     private val clients = ConcurrentHashMap<String, GameClient>()
+    private val clientAuthTimestamps = ConcurrentHashMap<String, Long>()
     private var loginSocket: Socket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
@@ -74,6 +75,7 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
     private val requestId: Int
     private var serverId = 0
     private var _serverName: String? = null
+    private var cleanupThread: Thread? = null
     var maxPlayers: Int
         get() = _maxPlayers
         set(value) {
@@ -137,8 +139,8 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
                     val packetType = decrypt[0].toInt() and 0xff
                     handlePacket(packetType, decrypt)
                 }
-            } catch (_: Exception) {
-                LOGGER.error("No connection found with loginserver, next try in 10 seconds.")
+            } catch (e: Exception) {
+                LOGGER.error("Lost connection to loginserver ({}): {}", e.javaClass.simpleName, e.message)
             } finally {
                 try {
                     blowfish = null
@@ -192,6 +194,7 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
         _serverName = aresp.serverName
         Config.saveHexid(serverId, BigInteger(hexId).toString(16))
         LOGGER.info("Registered as server: [{}] {}.", serverId, _serverName)
+        startCleanupThread()
         val ss = ServerStatus()
         ss.addAttribute(AttributeType.STATUS, if (Config.SERVER_GMONLY) ServerType.GM_ONLY.id else ServerType.AUTO.id)
         ss.addAttribute(AttributeType.CLOCK, Config.SERVER_LIST_CLOCK)
@@ -208,7 +211,12 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
     }
     private fun handlePlayerAuthResponse(data: ByteArray) {
         val par = PlayerAuthResponse(data)
-        val client = clients[par.account] ?: return
+        val client = clients.remove(par.account)
+        clientAuthTimestamps.remove(par.account)
+        if (client == null) {
+            LOGGER.warn("PlayerAuthResponse for '{}' but client not found in map (already cleaned up or timed out).", par.account)
+            return
+        }
         client.realIpAddress = par.realIpAddress
         if (par.isAuthed) {
             sendPacket(PlayerInGame(par.account))
@@ -229,26 +237,37 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
         try {
             sendPacket(PlayerLogout(account))
         } catch (e: IOException) {
-            LOGGER.error("Error while sending logout packet to login.")
+            LOGGER.error("Error while sending logout packet to login for '{}'.", account)
         } finally {
             clients.remove(account)
+            clientAuthTimestamps.remove(account)
         }
     }
     fun addClient(account: String, client: GameClient) {
         val existing = clients.putIfAbsent(account, client)
-        if (client.isDetached) return
+        if (client.isDetached) {
+            clients.remove(account)
+            return
+        }
         if (existing == null) {
             try {
                 val session = client.sessionId
                 if (session != null) {
+                    clientAuthTimestamps[account] = System.currentTimeMillis()
                     sendPacket(PlayerAuthRequest(client.accountName, session))
                 } else {
-                    LOGGER.error("Error while sending player auth request.")
+                    LOGGER.error("No session key for '{}', cannot send auth request.", account)
+                    clients.remove(account)
+                    client.closeNow()
                 }
             } catch (e: IOException) {
-                LOGGER.error("Error while sending player auth request.")
+                LOGGER.error("Error while sending player auth request for '{}': {}", account, e.message)
+                clients.remove(account)
+                clientAuthTimestamps.remove(account)
+                client.closeNow()
             }
         } else {
+            LOGGER.warn("Duplicate client for '{}', closing both.", account)
             client.closeNow()
             existing.closeNow()
         }
@@ -256,38 +275,55 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
     fun addClient(loginName: String, loginKey1: Int, loginKey2: Int, playKey1: Int, playKey2: Int, client: GameClient) {
         val existing = clients.putIfAbsent(loginName, client)
         if (existing != null) {
+            LOGGER.warn("Duplicate client login for '{}', closing both.", loginName)
             existing.closeNow()
+            client.closeNow()
             return
         }
-        if (client.isDetached) return
+        if (client.isDetached) {
+            clients.remove(loginName)
+            return
+        }
         try {
             client.accountName = loginName
             client.sessionId = SessionKey(loginKey1, loginKey2, playKey1, playKey2)
+            clientAuthTimestamps[loginName] = System.currentTimeMillis()
             sendPacket(PlayerAuthRequest(client.accountName, client.sessionId!!))
         } catch (e: IOException) {
-            LOGGER.error("Error while sending player auth request.")
+            LOGGER.error("Error while sending player auth request for '{}': {}", loginName, e.message)
+            clients.remove(loginName)
+            clientAuthTimestamps.remove(loginName)
+            client.closeNow()
         }
     }
     fun sendAccessLevel(account: String, level: Int) {
         try {
             sendPacket(ChangeAccessLevel(account, level))
-        } catch (_: IOException) { }
+        } catch (e: IOException) {
+            LOGGER.warn("Failed to send access level change for '{}': {}", account, e.message)
+        }
     }
     fun kickPlayer(account: String) {
-        clients[account]?.closeNow()
+        clients.remove(account)?.closeNow()
+        clientAuthTimestamps.remove(account)
     }
     private fun sendServerStatus(type: AttributeType, value: Int) {
         try {
             val ss = ServerStatus()
             ss.addAttribute(type, value)
             sendPacket(ss)
-        } catch (_: IOException) { }
+        } catch (e: IOException) {
+            LOGGER.warn("Failed to send server status {}: {}", type, e.message)
+        }
     }
     @Synchronized
     private fun sendPacket(sl: GameServerBasePacket) {
         val bf = blowfish
         val out = outputStream
-        if (bf == null || out == null) return
+        if (bf == null || out == null) {
+            LOGGER.warn("Cannot send ${sl.javaClass.simpleName}: LoginServer connection not ready (blowfish=${bf != null}, out=${out != null}).")
+            return
+        }
         try {
             var data = sl.content
             NewCrypt.appendChecksum(data)
@@ -303,8 +339,65 @@ class LoginServerThread private constructor() : Thread("LoginServerThread") {
             LOGGER.error("Error sending packet to LoginServer: ${e.message}")
         }
     }
+    private fun startCleanupThread() {
+        if (cleanupThread?.isAlive == true) return
+        cleanupThread = Thread(authCleanup@{
+            while (!Thread.currentThread().isInterrupted) {
+                try {
+                    Thread.sleep(5000)
+                } catch (_: InterruptedException) {
+                    return@authCleanup
+                }
+                val now = System.currentTimeMillis()
+                val timeout = AUTH_TIMEOUT_MS.toLong()
+                val staleAccounts = ArrayList<String>()
+                for ((account, timestamp) in clientAuthTimestamps) {
+                    if (now - timestamp > timeout) {
+                        staleAccounts.add(account)
+                    }
+                }
+                for (account in staleAccounts) {
+                    val client = clients.remove(account)
+                    clientAuthTimestamps.remove(account)
+                    if (client != null) {
+                        LOGGER.warn("Auth timeout for '{}' (no response from LoginServer in ${timeout / 1000}s), disconnecting.", account)
+                        client.sendPacket(AuthLoginFail(FailReason.SYSTEM_ERROR_LOGIN_LATER))
+                        client.closeNow()
+                    }
+                }
+                // Also clean up entries in clients map that have no timestamp (orphans)
+                val orphanAccounts = ArrayList<String>()
+                for ((account, _) in clients) {
+                    if (!clientAuthTimestamps.containsKey(account)) {
+                        orphanAccounts.add(account)
+                    }
+                }
+                for (account in orphanAccounts) {
+                    val client = clients.remove(account)
+                    if (client != null) {
+                        LOGGER.warn("Orphaned client '{}' (no auth timestamp), disconnecting.", account)
+                        client.closeNow()
+                    }
+                }
+                // Clean up timestamps without matching clients
+                val orphanTimestamps = ArrayList<String>()
+                for (account in clientAuthTimestamps.keys) {
+                    if (!clients.containsKey(account)) {
+                        orphanTimestamps.add(account)
+                    }
+                }
+                for (account in orphanTimestamps) {
+                    clientAuthTimestamps.remove(account)
+                }
+            }
+        }, "LoginServerAuthCleanup")
+        cleanupThread!!.isDaemon = true
+        cleanupThread!!.start()
+    }
+
     companion object {
         private const val REVISION = 0x0102
+        private const val AUTH_TIMEOUT_MS = 30_000
         private val LOGGER = CLogger(LoginServerThread::class.java.name)
         private val instanceHolder = lazy { LoginServerThread() }
         @JvmStatic
