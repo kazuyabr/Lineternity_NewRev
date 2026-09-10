@@ -406,6 +406,13 @@ fi
 LOGIN_JAVA_OPTS="$BASE_JVM_FLAGS"
 GAME_JAVA_OPTS="-Xms1g -Xmx2g -Djava.awt.headless=true $BASE_JVM_FLAGS"
 
+# --- Debug remoto (JDWP) ---
+if [ "${JAVA_DEBUG:-false}" = "true" ]; then
+  JDWP="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${DEBUG_PORT:-5005}"
+  LOGIN_JAVA_OPTS="$LOGIN_JAVA_OPTS $JDWP"
+  GAME_JAVA_OPTS="$GAME_JAVA_OPTS $JDWP"
+fi
+
 # ============================================================
 # Iniciar Servidor
 # ============================================================

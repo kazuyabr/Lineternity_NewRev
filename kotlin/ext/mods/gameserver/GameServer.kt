@@ -358,9 +358,9 @@ class GameServer : Runnable {
         createDirectories()
         configureLogging()
         initGUI()
-        if (args.isNotEmpty()) LauncherApp.setKey(args[0])
-        else System.getenv("L2_KEY")?.let { LauncherApp.setKey(it) }
-        if (args.size > 1) LauncherApp.setLoggedUserEmail(args[1])
+        if (args.isNotEmpty() && args[0].isNotBlank()) LauncherApp.setKey(args[0])
+        else System.getenv("L2_KEY")?.takeIf { it.isNotBlank() }?.let { LauncherApp.setKey(it) }
+        if (args.size > 1 && args[1].isNotBlank()) LauncherApp.setLoggedUserEmail(args[1])
         val expiryDate = LicenseValidator.checkLicenseAndGetExpiry(
             LicenseValidator.getPublicIPAddress(),
             LauncherApp.getKey(),
@@ -640,24 +640,32 @@ class GameServer : Runnable {
     
     private fun scheduleDeferredNpcsSpawns() {
         ThreadPool.executeParallel {
+            LOGGER.info("[Deferred Spawns] Iniciando carregamento de NPCs/Spawns em background...")
             try {
-                doorsCastlesTasksLatch.await(120, TimeUnit.SECONDS)
+                val doorsReady = doorsCastlesTasksLatch.await(120, TimeUnit.SECONDS)
+                LOGGER.info("[Deferred Spawns] Doors/Castles latch: ready={}, aguardando...", doorsReady)
                 val ms = measureTimeMillis { loadNpcsSpawns(quiet = true) }
                 npcsAndSpawnsReady.set(true)
                 npcsSpawnsLatch.countDown()
+                LOGGER.info("[Deferred Spawns] NPCs/Spawns carregados com sucesso em {}ms", ms)
                 LoadMetricsService.record("NPCs & Spawns (deferred)", ms)
             } catch (e: Exception) {
-                LOGGER.error("Erro ao carregar NPCs/Spawns em background", e)
+                LOGGER.error("[Deferred Spawns] ERRO ao carregar NPCs/Spawns em background", e)
                 npcsAndSpawnsReady.set(false)
                 npcsSpawnsLatch.countDown()
             }
         }
     }
     
-    fun awaitNpcsSpawnsReady() {
+    fun awaitNpcsSpawnsReady(): Boolean {
         if (!npcsAndSpawnsReady.get()) {
-            npcsSpawnsLatch.await(120, TimeUnit.SECONDS)
+            LOGGER.info("[EnterWorld] Aguardando NPCs/Spawns (npcsAndSpawnsReady=false)...")
+            val result = npcsSpawnsLatch.await(120, TimeUnit.SECONDS)
+            LOGGER.info("[EnterWorld] Latch retornou={}, npcsAndSpawnsReady={}", result, npcsAndSpawnsReady.get())
+            return npcsAndSpawnsReady.get()
         }
+        LOGGER.info("[EnterWorld] NPCs/Spawns já prontos.")
+        return true
     }
     private fun startNetwork() {
         serverStartTimeMillis = System.currentTimeMillis()

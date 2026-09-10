@@ -47,10 +47,19 @@ public final class SendProtocolVersion extends L2GameClientPacket
 				_hwidCPU = readS();
 			}
 			
-			if (_hwidHdd.equals("NoHWID-HD") && _hwidMac.equals("NoHWID-MAC") && _hwidCPU.equals("NoHWID-CPU"))
+			boolean clientHasHWID = !_hwidHdd.equals("NoHWID-HD")
+					|| !_hwidMac.equals("NoHWID-MAC")
+					|| !_hwidCPU.equals("NoHWID-CPU");
+			getClient().setHasHWID(clientHasHWID);
+			
+			if (!clientHasHWID)
 			{
-				getClient().close((L2GameServerPacket) null);
+				LOGGER.info("Client {} connected without HWID module (Fermata/compatible).", getClient());
 			}
+		}
+		else
+		{
+			getClient().setHasHWID(false);
 		}
 
 	}

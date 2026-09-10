@@ -112,6 +112,7 @@ public final class GameClient extends MMOClient<MMOConnection<GameClient>> imple
 	private SessionKey _sessionId;
 	private Player _player;
 	private boolean _isDetached;
+	private boolean _hasHWID;
 	@SuppressWarnings("unused")
 	private boolean _isAuthedGG;
 	
@@ -310,10 +311,15 @@ public final class GameClient extends MMOClient<MMOConnection<GameClient>> imple
 	{
 		byte[] key = BlowFishKeygen.getRandomKey();
 		_crypt.setKey(key);
-		if (hwid.isProtectionOn())
-		{
-			key = hwid.getKey(key);
-		}
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("BlowFish key: hasHWID=").append(_hasHWID).append(" key[0..7]=");
+		for (int i = 0; i < 8; i++)
+			sb.append(String.format("%02x", key[i] & 0xff));
+		sb.append(" key[8..15]=");
+		for (int i = 8; i < 16; i++)
+			sb.append(String.format("%02x", key[i] & 0xff));
+		LOGGER.info(sb.toString());
 
 		return key;
 	}
@@ -350,6 +356,16 @@ public final class GameClient extends MMOClient<MMOConnection<GameClient>> imple
 	public void setPlayer(Player player)
 	{
 		_player = player;
+	}
+	
+	public boolean hasHWID()
+	{
+		return _hasHWID;
+	}
+	
+	public void setHasHWID(boolean v)
+	{
+		_hasHWID = v;
 	}
 	
 	public ReentrantLock getActiveCharLock()

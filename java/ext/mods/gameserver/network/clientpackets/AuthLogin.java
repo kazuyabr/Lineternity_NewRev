@@ -38,7 +38,7 @@ public final class AuthLogin extends L2GameClientPacket
 		_loginKey1 = readD();
 		_loginKey2 = readD();
 		
-		if (hwid.isProtectionOn())
+		if (hwid.isProtectionOn() && getClient().hasHWID())
 		{
 			if (!hwid.doAuthLogin(getClient(), _data, _loginName))
 				return;

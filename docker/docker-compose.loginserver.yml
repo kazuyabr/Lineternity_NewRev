@@ -20,6 +20,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+    ports:
+      - "13308:3306"
     networks:
       - lineternity
 
@@ -40,6 +42,7 @@ services:
         condition: service_healthy
     ports:
       - "${BIND_PREFIX}${LOGIN_PORT:-2106}:2106"
+      - "19014:9014"
     environment:
       L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
       DB_HOST: ${DB_HOST:-mariadb-login}

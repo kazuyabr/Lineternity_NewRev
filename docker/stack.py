@@ -3542,6 +3542,149 @@ def set_gm_access():
 # Main Menu
 # ============================================================
 
+def _container_ip(container_name: str) -> str:
+    """Retorna o IP do container na rede lineternity-network (ou primeira rede)."""
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", container_name],
+        capture_output=True, text=True, timeout=10
+    )
+    ips = result.stdout.strip().split()
+    return ips[0] if ips else ""
+
+def debug_game_server():
+    """Inicia o GameServer Java FORA do Docker, usando os DBs existentes (depuracao)."""
+    print_header("Debug GameServer (fora do Docker)")
+    
+    if not check_distribution():
+        return
+    
+    servers = list_existing_game_servers()
+    if not servers:
+        print("  Nenhum GameServer configurado.")
+        return
+    
+    options = [f"GameServer #{s.server_id} ({s.hostname})" for s in servers]
+    options.append("Cancelar")
+    idx = choose_from_menu("Selecione o GameServer para depurar", options)
+    if idx == len(servers) or idx < 0:
+        print("  Operacao cancelada.")
+        return
+    
+    server = servers[idx]
+    server_id = server.server_id
+    game_db = server.game_db
+    
+    print(f"\n  Depurando GameServer #{server_id} (DB: {game_db})")
+    
+    # 0. Rebuild para garantir server.jar atualizado no distribution
+    if confirm("Rebuild do projeto antes do debug?"):
+        print()
+        if not build_project():
+            print(f"\n  {C.RED}Build falhou. Abortando debug.{C.RESET}")
+            return
+    print()
+    
+    # 1. Parar container do gameserver (mantem MariaDB rodando)
+    container_name = f"lineternity-gameserver-{server_id}"
+    result = subprocess.run(
+        ["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Names}}"],
+        capture_output=True, text=True, timeout=10
+    )
+    if container_name in result.stdout:
+        if not confirm(f"Parar container {container_name}?"):
+            print("  Operacao cancelada.")
+            return
+        print(f"  Parando {container_name}...")
+        subprocess.run(["docker", "stop", container_name], capture_output=True, timeout=60)
+        print(f"  {container_name} parado (MariaDB continua rodando).\n")
+    
+    # 2. Determinar portas de host para acesso fora do Docker
+    #    As compose files expoem:
+    #      - MariaDB GS: 13306:3306 (ex: porta 13306 para cada GS)
+    #      - MariaDB Login: 13308:3306
+    #      - LoginServer Java proto: 19014:9014
+    host_db_port = 13306  # Porta de host para MariaDB deste GameServer
+    host_login_port = 19014  # Porta de host para LoginServer (Java protocol 9014)
+    
+    print(f"  MariaDB GS:  127.0.0.1:{host_db_port} (DB: {game_db})")
+    print(f"  LoginServer: 127.0.0.1:{host_login_port}")
+    print(f"  (Containers Docker expõem essas portas para acesso do host)")
+    
+    # 4. Preparar diretorio de debug (copia do distribution + configs reais)
+    debug_dir = PROJECT_ROOT / "build" / "debug" / f"gameserver-{server_id}"
+    debug_game = debug_dir / "game"
+    if debug_dir.exists():
+        if not confirm(f"Diretorio de debug ja existe ({debug_dir}). Recriar?"):
+            print("  Operacao cancelada.")
+            return
+        shutil.rmtree(debug_dir)
+    
+    print("\n  Preparando diretorio de debug...")
+    shutil.copytree(DISTRIBUTION_DIR / "game", debug_game)
+    
+    # Copiar configs reais do gameserver (os mesmos montados no container)
+    src_config = server.config_dir
+    if src_config.exists():
+        shutil.rmtree(debug_game / "config")
+        shutil.copytree(src_config, debug_game / "config")
+        print(f"  Configs copiados de: {src_config}")
+    
+    # 5. Ajustar server.properties para acesso fora do Docker
+    props = debug_game / "config" / "server.properties"
+    if props.exists():
+        text = props.read_text(encoding="utf-8")
+        text = re.sub(r"^sql\.url\s*=.*$",
+                      f"sql.url = jdbc:mariadb://127.0.0.1:{host_db_port}/{game_db}?useUnicode=true&characterEncoding=UTF-8",
+                      text, flags=re.M)
+        text = re.sub(r"^LoginHost\s*=.*$", f"LoginHost = 127.0.0.1", text, flags=re.M)
+        text = re.sub(r"^LoginPort\s*=.*$", f"LoginPort = {host_login_port}", text, flags=re.M)
+        props.write_text(text, encoding="utf-8")
+        print(f"  server.properties ajustado (sql.url -> 127.0.0.1:{host_db_port}, LoginHost -> 127.0.0.1, LoginPort -> {host_login_port})")
+    
+    # 6. Montar classpath (igual entrypoint.sh)
+    libs_dir = DISTRIBUTION_DIR / "libs"
+    excluded = {"server.jar", "kotlin-stdlib-2.0.0.jar", "kotlin-reflect-2.0.0.jar", "kotlinx-coroutines-core-jvm-1.8.1.jar"}
+    cp_parts = [str(libs_dir / "server.jar")]
+    for jar in sorted(libs_dir.glob("*.jar")):
+        if jar.name not in excluded:
+            cp_parts.append(str(jar))
+    classpath = os.pathsep.join(cp_parts)
+    
+    # 7. Detectar Java
+    java_home = detect_java_home()
+    if not java_home:
+        print(f"\n  {C.RED}ERRO: Java nao encontrado (JAVA_HOME ou PATH).{C.RESET}")
+        return
+    java_exe = Path(java_home) / "bin" / "java.exe"
+    if not java_exe.exists():
+        java_exe = Path(java_home) / "bin" / "java"
+    print(f"  JAVA_HOME: {java_home}")
+    
+    # 8. Email e key (licenca retorna sempre valida)
+    email = "contato@jogatinando.com.br"
+    key = hashlib.md5(os.urandom(16)).hexdigest()
+    
+    cmd = [
+        str(java_exe),
+        "-Xms1g", "-Xmx2g", "-Djava.awt.headless=true",
+        f"-Dext.mods.Config.ServerID={server_id}",
+        "-cp", classpath,
+        "ext.mods.gameserver.GameServer", key, email
+    ]
+    
+    print(f"\n  {C.GREEN}Iniciando GameServer #{server_id} FORA do Docker...{C.RESET}")
+    print(f"  Working dir: {debug_game}")
+    print(f"  {C.DIM}Ctrl+C para encerrar.{C.RESET}\n")
+    
+    try:
+        subprocess.run(cmd, cwd=str(debug_game))
+    except KeyboardInterrupt:
+        print("\n  GameServer encerrado (Ctrl+C).")
+    except Exception as e:
+        print(f"\n  {C.RED}ERRO ao executar GameServer: {e}{C.RESET}")
+    
+    print(f"\n  Para reiniciar o container: stack.py -> opcao 4 (Iniciar GameServer).")
+
 def main_menu():
     while True:
         options = [
@@ -3561,7 +3704,8 @@ def main_menu():
             f"{C.BLUE}14.{C.RESET} Aplicar Migrations SQL",
             f"{C.YELLOW}15.{C.RESET} Sincronizar Configs Docker -> Source",
             f"{C.GREEN}16.{C.RESET} Modo de Rede (atual: {get_network_mode()})",
-            f"{C.RED}17.{C.RESET} Sair",
+            f"{C.MAGENTA}17.{C.RESET} Debug GameServer (fora do Docker)",
+            f"{C.RED}18.{C.RESET} Sair",
         ]
         
         idx = choose_from_menu(f"{C.BOLD}Lineternity Stack Manager v2.6{C.RESET}", options)
@@ -3599,6 +3743,8 @@ def main_menu():
         elif idx == 15:
             network_mode_menu()
         elif idx == 16:
+            debug_game_server()
+        elif idx == 17:
             print(f"\n  {C.GREEN}Saindo...{C.RESET}")
             break
         else:

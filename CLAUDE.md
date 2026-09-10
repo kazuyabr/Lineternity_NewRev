@@ -218,10 +218,39 @@ Mesmo caso de augmented.properties.
 | SERVER_HOSTNAME | Hostname do GameServer | gameserver-1 |
 
 ## Próximos Passos
-- Testar login de cliente no GameServer
+- Testar login de cliente (cliente original + Fermata) com AllowGuardSystem=True (fix _hasHWID em GameClient/SendProtocolVersion)
 - Adicionar mais GameServers descomentando no docker-compose.yml
 - Configurar volumes para persistir dados dos gameservers
 - Limpar logs de debug (ERRO while loading chat filter words, custom event data, etc.)
+
+## Debug Mode (stack.py opção 17) — Networking
+O debug roda o GameServer Java FORA do Docker (host Windows) usando os containers Docker existentes.
+Como o Windows host NÃO alcança a rede bridge do Docker (172.x.x.x), as compose files EXPÕEM portas
+no host e o `debug_game_server()` pluga `127.0.0.1:PORTA` em `server.properties`:
+
+| Serviço | Porta host | Container | Uso no debug |
+|---------|-----------|----------|--------------|
+| mariadb-gsN | `13306:3306` | lineternity-mariadb-gsN | sql.url = jdbc:mariadb://127.0.0.1:13306/l2jdb_gsN |
+| loginserver (proto Java) | `19014:9014` | lineternity-loginserver | LoginHost=127.0.0.1 + LoginPort=19014 |
+| mariadb-login | `13308:3306` | lineternity-mariadb-login | (não usado pelo debug; GS usa host.docker.internal:3308) |
+
+**IMPORTANTE**: Se os containers foram criados ANTES de adicionar as portas, recreate com
+`docker compose ... up -d --force-recreate` (docker compose não detecta mudança de porta sozinho).
+
+## LoginServer: External vs Embedded MariaDB
+- `docker/login/.env` tem `EXTERNAL_MARIADB=true` + `DB_HOST=localhost` + `DB_PORT=3308`.
+- Isso significa o LoginServer usa o MariaDB do HOST (container `mariadb` em `0.0.0.0:3308`, que tem `l2jdb_login`).
+- Por isso o compose correto é `docker-compose.loginserver-external.yml` (DB_HOST=host.docker.internal, DB_PORT=3308).
+- NUNCA use `docker-compose.loginserver.yml` (embedded) com esse .env — o LoginServer tentaria `localhost:3308` DENTRO do container (sem MariaDB) e falharia.
+- O GameServer-1 `.env` tem `LOGIN_DB_HOST=host.docker.internal` + `LOGIN_DB_PORT=3308` (mesmo host MariaDB). Consistente.
+
+## HWID Dual-Client Fix (AllowGuardSystem=True)
+`AllowGuardSystem` controla cryptography key transform (enableCrypt) E HWID validation. Para aceitar
+cliente original (com HWID) E Fermata (sem HWID) simultaneamente:
+- `GameClient._hasHWID` flag: setado em `SendProtocolVersion` pela presença de dados HWID.
+- `enableCrypt()` transforma a chave Blowfish SÓ se `_hasHWID` (senão usa chave raw).
+- `AuthLogin`/`RequestGameStart`/`EnterWorld` guardam HWID checks com `hwid.isProtectionOn() && getClient().hasHWID()`.
+- Log esperado p/ Fermata: "Client ... connected without HWID module".
 
 ## Status Points System v3
 
@@ -281,3 +310,22 @@ docker exec -it lineternity-mariadb mysql -u root -proot l2jdb_login -e "SELECT 
 # Verificar Status Points de um jogador
 docker exec -it lineternity-mariadb mysql -u root -proot l2jdb_gs1 -e "SELECT * FROM character_status_points;"
 ```
+
+<!-- CORTEX:START -->
+## Project Memory (auto-managed by Cortex)
+
+### Last Session
+_No session recorded yet._
+
+### Recent Decisions
+_No decisions recorded yet._
+
+### Current Context
+- Project: Lineternity_NewRev
+- Status: Ready
+
+### Open Problems
+_No open problems._
+
+_Last updated: 2026-07-01T17:35:44.073Z | Tokens: 64/800_
+<!-- CORTEX:END -->

@@ -307,8 +307,9 @@ tasks.register("patchJava") {
         }
 
         // Replace original with patched
-        tempJar.copyTo(serverJar, overwrite = true)
-        tempJar.delete()
+        if (serverJar.exists()) serverJar.delete()
+        tempJar.renameTo(serverJar)
+        if (tempJar.exists()) tempJar.delete()
         println("  Java patches injected into server.jar")
     }
 }

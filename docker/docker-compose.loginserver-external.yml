@@ -15,7 +15,11 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "${BIND_PREFIX}${LOGIN_PORT:-2106}:2106"
+      - "19014:9014"
+      - "5005:5005"
     environment:
+      JAVA_DEBUG: "true"
+      DEBUG_PORT: "5005"
       L2_EMAIL: ${L2_EMAIL:-contato@jogatinando.com.br}
       DB_HOST: host.docker.internal
       DB_PORT: ${DB_PORT:-3308}

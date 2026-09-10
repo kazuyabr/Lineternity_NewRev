@@ -114,8 +114,12 @@ public class EnterWorld extends L2GameClientPacket
 	protected void runImpl()
 	{
 		final GameServer gs = GameServer.getInstance();
+		boolean spawnsReady = true;
 		if (gs != null) {
-			gs.awaitNpcsSpawnsReady();
+			spawnsReady = gs.awaitNpcsSpawnsReady();
+			if (!spawnsReady) {
+			 getClient().getPlayer().sendMessage("WARNING: NPCs/Spawns not loaded. World may be empty.");
+			}
 		}
 
 		final Player player = getClient().getPlayer();
@@ -425,7 +429,7 @@ public class EnterWorld extends L2GameClientPacket
 			}
 		}
 		ext.mods.levelupmaker.LevelUpMakerManager.getInstance().sendQuestionMark(player);
-		if (hwid.isProtectionOn())
+		if (hwid.isProtectionOn() && getClient().hasHWID())
 			hwid.enterlog(player, getClient());
 
 		

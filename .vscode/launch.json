@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "GameServer (Docker attach 5006)",
+      "request": "attach",
+      "hostName": "127.0.0.1",
+      "port": 5006,
+      "projectName": "Lineternity_NewRev",
+      "sourcePaths": ["${workspaceFolder}/kotlin", "${workspaceFolder}/java"]
+    },
+    {
+      "type": "java",
+      "name": "LoginServer (Docker attach 5005)",
+      "request": "attach",
+      "hostName": "127.0.0.1",
+      "port": 5005,
+      "projectName": "Lineternity_NewRev",
+      "sourcePaths": ["${workspaceFolder}/kotlin", "${workspaceFolder}/java"]
+    }
+  ]
+}

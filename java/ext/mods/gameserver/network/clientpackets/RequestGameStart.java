@@ -81,8 +81,8 @@ public class RequestGameStart extends L2GameClientPacket
 					player.getStatus().setHpMp(info.getCurrentHp(), info.getCurrentMp());
 					player.getStatus().setCp(info.getMaxHp());
 					
-					if (hwid.isProtectionOn() && !hwid.checkPlayerWithHWID(getClient(), player.getObjectId(), player.getName()))
-						return;
+if (hwid.isProtectionOn() && getClient().hasHWID() && !hwid.checkPlayerWithHWID(getClient(), player.getObjectId(), player.getName()))
+					return;
 
 					
 					sendPacket(SSQInfo.sendSky());
