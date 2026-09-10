@@ -1,0 +1,32 @@
+name: lineternity-base
+
+services:
+  # ============================================================
+  # MariaDB Login - Banco de dados do LoginServer
+  # Contém: l2jdb_login (accounts, gameservers, hwid)
+  # ============================================================
+  mariadb-login:
+    container_name: lineternity-mariadb-login
+    hostname: mariadb-login
+    image: mariadb:10.11
+    volumes:
+      - mariadb_login_data:/var/lib/mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - lineternity
+
+volumes:
+  mariadb_login_data:
+
+networks:
+  lineternity:
+    external: true
+    name: lineternity-network
